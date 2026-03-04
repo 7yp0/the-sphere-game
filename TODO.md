@@ -1,25 +1,24 @@
 # The Sphere Game - TODO
 
-## Phase 1: Sprite Loading & Rendering (FIRST!)
+## Phase 1: Sprite Loading & Rendering (IN PROGRESS)
 
-- [ ] **Texture & Asset System**
-  - [ ] Add stb_image.h to project
-  - [ ] `Renderer::load_texture(const char* path)` → returns TextureID
-  - [ ] `Renderer::bind_texture(TextureID)`
-  - [ ] Texture caching (don't load same texture twice)
-  - [ ] Handle PNG loading
+- [x] **Texture & Asset System**
+  - [x] PNG loader with Zlib decompression + all 5 filter types
+  - [x] `Renderer::load_texture(const char* path)` → returns TextureID
+  - [x] `Renderer::bind_texture(TextureID)` - optional utility
+  - [x] Texture caching (don't load same texture twice)
+  - [x] Handle PNG loading with build/assets/ layout
 
 - [ ] **Sprite Renderer**
-  - [ ] Replace `Platform::render_quad()` with proper sprite system
-  - [ ] `Renderer::render_sprite(TextureID tex, Vec2 pos, Vec2 size, Color tint)`
-  - [ ] move OpenGL shaders into platform independant folder
-  - [ ] Update OpenGL shaders for textured rendering
-  - [ ] Test with simple PNG sprite
-  - [ ] add animation cycle system
+  - [x] `Renderer::render_sprite(TextureID tex, Vec2 pos, Vec2 size)` - variable position/size
+  - [x] OpenGL shaders in src/renderer/shaders/
+  - [x] Shaders support texture sampling
+  - [x] Test PNG rendering (blue quad)
+  - [ ] add animation cycle system (Phase 1.5)
 
-- [ ] **Test Assets**
-  - [ ] Create simple 64x64 red/blue test sprite (or simple PNG)
-  - [ ] Verify loading and rendering works
+- [x] **Test Assets**
+  - [x] test.png (64x64 blue)
+  - [x] Verify loading and rendering works
 
 ---
 
@@ -201,4 +200,4 @@
 - Keep all code in `src/` (C++ where possible, Objective-C++ only for Platform)
 - Data before behavior (structs before functions)
 
-Last Updated: March 4, 2026
+Last Updated: March 4, 2026 - PNG Loader Complete, Starting render_sprite()

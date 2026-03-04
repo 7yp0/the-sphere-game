@@ -1,14 +1,53 @@
 #include "texture_loader.h"
+#include "png_loader.h"
 #include <OpenGL/gl3.h>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
+#include <vector>
+#include <map>
+#include <string>
 
 namespace Renderer {
 
+// Texture cache: filename -> TextureID
+static std::map<std::string, TextureID> g_texture_cache;
+
 TextureID load_texture(const char* path) {
-    // TODO: Implement PNG/JPG loading with proper image library
-    printf("WARNING: load_texture(%s) not implemented yet. Use create_test_texture() instead.\n", path);
-    return 0;
+    std::string path_str(path);
+    
+    // Check cache first
+    auto it = g_texture_cache.find(path_str);
+    if (it != g_texture_cache.end()) {
+        return it->second;  // Return cached texture
+    }
+    
+    // Try PNG first
+    PNGImage img = png_load(path);
+    if (img.pixels != nullptr) {
+        // Create OpenGL texture
+        GLuint tex = 0;
+        glGenTextures(1, &tex);
+        glBindTexture(GL_TEXTURE_2D, tex);
+        
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.width, img.height, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, img.pixels);
+        
+        glBindTexture(GL_TEXTURE_2D, 0);
+        png_free(img);
+        
+        // Cache it
+        g_texture_cache[path_str] = tex;
+        return tex;
+    }
+    
+    return create_test_texture();
 }
 
 TextureID create_test_texture() {
@@ -38,6 +77,14 @@ TextureID create_test_texture() {
 
 void free_texture(TextureID tex) {
     glDeleteTextures(1, &tex);
+}
+
+void clear_texture_cache() {
+    // Free all cached textures
+    for (auto& pair : g_texture_cache) {
+        glDeleteTextures(1, &pair.second);
+    }
+    g_texture_cache.clear();
 }
 
 } // namespace Renderer

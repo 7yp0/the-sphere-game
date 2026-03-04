@@ -24,15 +24,29 @@ file(GLOB_RECURSE ENGINE_SOURCES
 
 add_executable(the_sphere_game ${ENGINE_SOURCES})
 
+# Find ZLIB (used for PNG decompression)
+find_package(ZLIB REQUIRED)
+
 if(APPLE)
     target_link_libraries(the_sphere_game
         "-framework Cocoa"
         "-framework OpenGL"
         "-framework IOKit"
         "-framework CoreVideo"
+        ZLIB::ZLIB
     )
     target_compile_options(the_sphere_game PRIVATE
         "-Wno-deprecated-declarations"
+    )
+elseif(WIN32)
+    # Windows: ZLIB should be available via vcpkg or system
+    target_link_libraries(the_sphere_game
+        ZLIB::ZLIB
+    )
+elseif(UNIX)
+    # Linux: ZLIB from system package manager
+    target_link_libraries(the_sphere_game
+        ZLIB::ZLIB
     )
 endif()
 
