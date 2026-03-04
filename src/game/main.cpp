@@ -1,7 +1,6 @@
-#include <iostream>
+#include "core/engine.h"
 
 int main(int argc, char** argv)
 {
-    std::cout << "Adventure Engine Booting...\n";
-    return 0;
+    return engine_run(argc, argv);
 }
