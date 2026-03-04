@@ -10,19 +10,12 @@ struct WindowConfig {
     const char* title = "The Sphere Game";
 };
 
-// Init Window + OpenGL Context
 bool init_window(const WindowConfig& config);
-
-// Swap Buffers (Render Loop)
 void swap_buffers();
-
-// Clear Screen
 void clear_screen();
-
-// Poll Events
+void init_renderer();
+void render_quad();  
 bool window_should_close();
-
-// Cleanup
 void shutdown();
 
-} // namespace Platform
+}

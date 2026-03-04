@@ -4,22 +4,22 @@
 
 int engine_run(int argc, char** argv)
 {
-    Platform::WindowConfig cfg;
-    cfg.width = 1024;
-    cfg.height = 768;
-    cfg.title = "The Sphere Game";
+    Platform::WindowConfig config;
+    config.width = 1024;
+    config.height = 768;
+    config.title = "The Sphere Game";
 
-    if (!Platform::init_window(cfg))
+    if (!Platform::init_window(config))
         return -1;
+
+    Platform::init_renderer();
 
     bool running = true;
     while (running) {
-        // Clear Screen
         Platform::clear_screen();
-
-        // TODO: später Renderer/Scene Update hier
-
+        Platform::render_quad();
         Platform::swap_buffers();
+
         running = !Platform::window_should_close();
     }
 
