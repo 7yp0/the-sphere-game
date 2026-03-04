@@ -19,8 +19,21 @@ endif()
 
 file(GLOB_RECURSE ENGINE_SOURCES
     src/*.cpp
+    src/*.mm
 )
 
 add_executable(the_sphere_game ${ENGINE_SOURCES})
+
+if(APPLE)
+    target_link_libraries(the_sphere_game
+        "-framework Cocoa"
+        "-framework OpenGL"
+        "-framework IOKit"
+        "-framework CoreVideo"
+    )
+    target_compile_options(the_sphere_game PRIVATE
+        "-Wno-deprecated-declarations"
+    )
+endif()
 
 target_include_directories(the_sphere_game PRIVATE src)

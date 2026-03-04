@@ -1,28 +1,28 @@
-#include "engine.h"
-#include <iostream>
+#include "core/engine.h"
+#include "platform/mac/mac_window.h"
+#include <OpenGL/gl3.h>
 
 int engine_run(int argc, char** argv)
 {
-    std::cout << "Engine is booting...\n";
+    Platform::WindowConfig cfg;
+    cfg.width = 1024;
+    cfg.height = 768;
+    cfg.title = "The Sphere Game";
 
-    // TODO
-    // - Platform Layer
-    // - Renderer
-    // - Scene
-    // - GameState
+    if (!Platform::init_window(cfg))
+        return -1;
 
-    // TODO Main Loop placeholder
     bool running = true;
-    while(running)
-    {
-        // TODO: Input polling
-        // TODO: Update GameState
-        // TODO: Render
+    while (running) {
+        // Clear Screen
+        Platform::clear_screen();
 
-        running = false;
+        // TODO: später Renderer/Scene Update hier
+
+        Platform::swap_buffers();
+        running = !Platform::window_should_close();
     }
 
-    std::cout << "Engine shutting down...\n";
-
+    Platform::shutdown();
     return 0;
 }
