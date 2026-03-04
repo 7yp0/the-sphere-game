@@ -9,12 +9,18 @@
   - [x] Texture caching (don't load same texture twice)
   - [x] Handle PNG loading with build/assets/ layout
 
-- [ ] **Sprite Renderer**
+- [x] **Sprite Renderer**
   - [x] `Renderer::render_sprite(TextureID tex, Vec2 pos, Vec2 size)` - variable position/size
   - [x] OpenGL shaders in src/renderer/shaders/
   - [x] Shaders support texture sampling
   - [x] Test PNG rendering (blue quad)
-  - [ ] add animation cycle system (Phase 1.5)
+
+- [ ] **Animation System (Phase 1.5)**
+  - [ ] `SpriteAnimation` struct (frames, timing, current_frame)
+  - [ ] `Renderer::create_animation(TextureID[])` - from texture array
+  - [ ] `Renderer::animate(SpriteAnimation*, delta_time)` - update frame
+  - [ ] `Renderer::render_sprite_animated(SpriteAnimation*, Vec2 pos, Vec2 size)` - draw current frame
+  - [ ] Test animated sprite (cycle through red/green/blue frames)
 
 - [x] **Test Assets**
   - [x] test.png (64x64 blue)
