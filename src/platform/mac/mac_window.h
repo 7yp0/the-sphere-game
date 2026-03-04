@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "types.h"
 
 namespace Platform {
 
@@ -14,5 +15,9 @@ bool init_window(const WindowConfig& config);
 void swap_buffers();
 bool window_should_close();
 void shutdown();
+
+// Input APIs
+Vec2 get_mouse_pos();
+bool mouse_clicked();
 
 }

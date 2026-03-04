@@ -15,7 +15,7 @@ void init_renderer(uint32_t width, uint32_t height)
     glViewport(0, 0, width, height);
     
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
+    glDepthFunc(GL_LEQUAL);  // Accept z <= depth_buffer (standard)
 
     float vertices[] = {
         // Position       // TexCoord

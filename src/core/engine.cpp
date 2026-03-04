@@ -2,11 +2,17 @@
 #include "platform/mac/mac_window.h"
 #include "renderer/renderer.h"
 #include "renderer/texture_loader.h"
+#include "renderer/asset_manager.h"
 #include "game/game.h"
 #include <chrono>
 
 int engine_run(int argc, char** argv)
 {
+    // Initialize asset manager with executable path for resource loading
+    if (argc > 0) {
+        Renderer::init_asset_manager(argv[0]);
+    }
+    
     Platform::WindowConfig config;
     config.width = 1024;
     config.height = 768;
@@ -17,6 +23,7 @@ int engine_run(int argc, char** argv)
 
     Renderer::init_renderer(config.width, config.height);
     Game::init();
+    Game::set_viewport(config.width, config.height);
 
     // Delta time tracking
     auto lastFrameTime = std::chrono::high_resolution_clock::now();
@@ -30,9 +37,6 @@ int engine_run(int argc, char** argv)
         
         // Update game state and logic
         Game::update(deltaTime);
-        
-        // Update visual effects
-        Game::visual_update(deltaTime);
 
         // Render
         Renderer::clear_screen();

@@ -1,4 +1,5 @@
 #include "png_loader.h"
+#include "asset_manager.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -25,19 +26,11 @@ static PNGImage error_image() {
 }
 
 PNGImage png_load(const char* filename) {
-    // Assets are expected next to the executable: build/assets/
-    // For development: build/assets/filename
-    // Fallback: try current dir and assets/ subdir for flexibility
-    char full_path[512];
-    snprintf(full_path, sizeof(full_path), "assets/%s", filename);
+    std::string full_path = Renderer::get_asset_path(filename);
     
-    FILE* f = fopen(full_path, "rb");
+    FILE* f = fopen(full_path.c_str(), "rb");
     if (!f) {
-        // Try without assets/ prefix (in case we're already in assets dir)
-        f = fopen(filename, "rb");
-    }
-    
-    if (!f) {
+        printf("Error: Could not find asset '%s' at '%s'\n", filename, full_path.c_str());
         return error_image();
     }
 

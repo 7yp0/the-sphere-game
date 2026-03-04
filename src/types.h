@@ -46,6 +46,9 @@ namespace Layers {
     }
     
     inline float get_z_depth(Layer layer) {
-        return (static_cast<float>(layer) / 100.0f) * 2.0f - 1.0f;
+        // With GL_LESS: smaller z = closer to camera (rendered on top)
+        // layer 0 (BACKGROUND) → z = 1.0 (far)
+        // layer 100 (UI) → z = -1.0 (near)
+        return 1.0f - (static_cast<float>(layer) / 100.0f) * 2.0f;
     }
 }

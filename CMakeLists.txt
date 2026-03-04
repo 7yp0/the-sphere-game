@@ -24,6 +24,15 @@ file(GLOB_RECURSE ENGINE_SOURCES
 
 add_executable(the_sphere_game ${ENGINE_SOURCES})
 
+# Copy assets to build directory
+# This ensures the executable can find assets relative to its location
+add_custom_command(TARGET the_sphere_game POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets
+        ${CMAKE_BINARY_DIR}/assets
+    COMMENT "Copying assets to build directory"
+)
+
 # Find ZLIB (used for PNG decompression)
 find_package(ZLIB REQUIRED)
 

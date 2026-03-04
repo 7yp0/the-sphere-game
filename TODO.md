@@ -32,23 +32,29 @@
 
 ---
 
-## Phase 2: Core Input & Movement
+## Phase 2: Core Input & Movement (COMPLETE)
 
-- [ ] **Input System**
-  - [ ] Platform abstraction for mouse input
-  - [ ] `Platform::get_mouse_pos()` implementation (macOS)
-  - [ ] `Platform::mouse_clicked()` detection
+- [x] **Input System**
+  - [x] Platform abstraction for mouse input - `Platform::get_mouse_pos()`, `Platform::mouse_clicked()`
+  - [x] macOS implementation with NSTrackingArea for mouseMoved events
+  - [x] Mouse click detection on mouseDown
 
-- [ ] **Player Entity**
-  - [ ] Create `Game::Player` struct
-  - [ ] Create `Game::Entity` base struct
-  - [ ] Point-and-click movement to target position
-  - [ ] Simple linear walking movement
+- [x] **Player Entity**
+  - [x] Create `Game::Player` struct (position, target_position, speed, texture)
+  - [x] Point-and-click movement to target position
+  - [x] Simple linear walking movement with distance check
 
-- [ ] **Basic Game Loop**
-  - [ ] Load test sprite for player
-  - [ ] Render player at position
-  - [ ] Test movement on click
+- [x] **Basic Game Loop**
+  - [x] Load test sprite for player (uses blue texture)
+  - [x] Render player at Layer::PLAYER
+  - [x] Test movement on click - player walks towards clicked position
+
+**Known limitations (for Phase 6+):**
+
+- Mouse coordinates are in window space (pixels), not normalized world space
+- Need coordinate conversion: screen pixels → normalized [-1, 1] range for rendering
+- Window dimensions must be tracked for proper conversion
+- Will fix in Phase 6 when implementing camera system
 
 ---
 
@@ -171,6 +177,13 @@
   - [ ] Batch rendering if needed
   - [ ] Optimize lighting calculations
   - [ ] Profiling
+
+- [ ] **Asset Packing** (Release Build)
+  - [ ] Create `.pak` or `.bin` file format for asset bundling
+  - [ ] Pack all PNG textures into single archive
+  - [ ] Add optional compression (gzip/zstd)
+  - [ ] Modify asset loader to read from `.pak` instead of loose files
+  - [ ] Prevents asset tampering/modding in release builds
 
 - [ ] **Audio** (if time)
   - [ ] Background music

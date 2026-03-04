@@ -1,8 +1,15 @@
 #define GL_SILENCE_DEPRECATION
 #import "mac_window.h"
 #include "renderer/renderer.h"
+#include "types.h"
 #import <Cocoa/Cocoa.h>
 #import <OpenGL/gl3.h>
+
+// Forward declarations
+namespace Platform {
+    void set_mouse_pos(Vec2 pos);
+    void set_mouse_clicked(bool clicked);
+}
 
 @interface OpenGLView : NSOpenGLView
 @end
@@ -10,6 +17,24 @@
 @implementation OpenGLView
 - (BOOL)isOpaque {
     return YES;
+}
+- (void)viewDidMoveToWindow {
+    [super viewDidMoveToWindow];
+    if (self.window) {
+        NSTrackingArea* trackingArea = [[NSTrackingArea alloc]
+            initWithRect:self.bounds
+            options:(NSTrackingMouseMoved | NSTrackingActiveAlways)
+            owner:self
+            userInfo:nil];
+        [self addTrackingArea:trackingArea];
+    }
+}
+- (void)mouseDown:(NSEvent *)event {
+    Platform::set_mouse_clicked(true);
+}
+- (void)mouseMoved:(NSEvent *)event {
+    NSPoint loc = [event locationInWindow];
+    Platform::set_mouse_pos(Vec2(loc.x, loc.y));
 }
 @end
 
@@ -29,6 +54,8 @@ namespace Platform {
 static NSWindow* g_window = nil;
 static NSOpenGLContext* g_glContext = nil;
 static bool g_shouldClose = false;
+static Vec2 g_mousePos = Vec2(0.0f, 0.0f);
+static bool g_mouseClicked = false;
 
 bool init_window(const WindowConfig& config)
 {
@@ -120,6 +147,28 @@ void shutdown()
         g_window = nil;
         g_glContext = nil;
     }
+}
+
+Vec2 get_mouse_pos()
+{
+    return g_mousePos;
+}
+
+bool mouse_clicked()
+{
+    bool clicked = g_mouseClicked;
+    g_mouseClicked = false;
+    return clicked;
+}
+
+void set_mouse_pos(Vec2 pos)
+{
+    g_mousePos = pos;
+}
+
+void set_mouse_clicked(bool clicked)
+{
+    g_mouseClicked = clicked;
 }
 
 }
