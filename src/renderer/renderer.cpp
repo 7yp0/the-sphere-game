@@ -1,5 +1,6 @@
 #include "renderer.h"
 #include "renderer_utils.h"
+#include "shader_loader.h"
 #include <OpenGL/gl3.h>
 
 namespace Renderer {
@@ -33,11 +34,10 @@ void init_renderer(uint32_t width, uint32_t height)
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    // Shader sources (OpenGL 3.3 Core)
-    const char* vertexSrc = "#version 330 core\nlayout(location=0) in vec2 aPos;\nvoid main() { gl_Position = vec4(aPos,0.0,1.0); }";
-    const char* fragSrc   = "#version 330 core\nout vec4 FragColor;\nvoid main() { FragColor = vec4(1.0,0.0,0.0,1.0); }";
+    std::string vertexSrc = load_shader_source("src/renderer/shaders/basic.vert");
+    std::string fragSrc = load_shader_source("src/renderer/shaders/basic.frag");
 
-    shaderProgram = compile_and_link_shader(vertexSrc, fragSrc);
+    shaderProgram = compile_and_link_shader(vertexSrc.c_str(), fragSrc.c_str());
 }
 
 void clear_screen()
