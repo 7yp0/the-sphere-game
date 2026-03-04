@@ -1,5 +1,8 @@
 #include "renderer_utils.h"
+#include <OpenGL/gl3.h>
 #include <stdio.h>
+
+namespace Renderer {
 
 GLuint compile_and_link_shader(const char* vertexSrc, const char* fragSrc)
 {
@@ -38,4 +41,6 @@ GLuint compile_and_link_shader(const char* vertexSrc, const char* fragSrc)
     glDeleteShader(fragmentShader);
 
     return program;
+}
+
 }

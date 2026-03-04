@@ -4,3 +4,4 @@ build/
 *.xcodeproj
 CMakeFiles/
 CMakeCache.txt
+github/

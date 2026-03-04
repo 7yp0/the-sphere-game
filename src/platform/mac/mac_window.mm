@@ -1,6 +1,6 @@
 #define GL_SILENCE_DEPRECATION
 #import "mac_window.h"
-#import "renderer_utils.h"
+#include "renderer/renderer.h"
 #import <Cocoa/Cocoa.h>
 #import <OpenGL/gl3.h>
 
@@ -71,8 +71,6 @@ bool init_window(const WindowConfig& config)
         GLint swapInt = 1;
         [g_glContext setValues:&swapInt forParameter:NSOpenGLCPSwapInterval];
 
-        glViewport(0, 0, config.width, config.height);
-
         // Set the OpenGL view as the window's content view
         [g_window setContentView:glView];
 
@@ -96,12 +94,6 @@ void swap_buffers()
     }
 }
 
-void clear_screen()
-{
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-}
-
 bool window_should_close()
 {
     @autoreleasepool {
@@ -119,46 +111,6 @@ bool window_should_close()
         [NSApp updateWindows];
         return g_shouldClose;
     }
-}
-
-GLuint quadVAO = 0;
-GLuint quadVBO = 0;
-GLuint shaderProgram = 0;
-
-void init_renderer()
-{
-    float vertices[] = {
-        -0.5f, -0.5f,
-         0.5f, -0.5f,
-        -0.5f,  0.5f,
-         0.5f,  0.5f
-    };
-
-    glGenVertexArrays(1, &quadVAO);
-    glGenBuffers(1, &quadVBO);
-
-    glBindVertexArray(quadVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    const char* vertexSrc = "#version 330 core\nlayout(location=0) in vec2 aPos;\nvoid main() { gl_Position = vec4(aPos,0.0,1.0); }";
-    const char* fragSrc   = "#version 330 core\nout vec4 FragColor;\nvoid main() { FragColor = vec4(1.0,0.0,0.0,1.0); }";
-
-    shaderProgram = compile_and_link_shader(vertexSrc, fragSrc);
-}
-
-void render_quad()
-{
-    glUseProgram(shaderProgram);
-    glBindVertexArray(quadVAO);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    glBindVertexArray(0);
 }
 
 void shutdown()
