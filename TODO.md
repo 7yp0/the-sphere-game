@@ -1,6 +1,6 @@
 # The Sphere Game - TODO
 
-## Phase 1: Sprite Loading & Rendering (IN PROGRESS)
+## Phase 1: Sprite Loading & Rendering (COMPLETE)
 
 - [x] **Texture & Asset System**
   - [x] PNG loader with Zlib decompression + all 5 filter types
@@ -15,12 +15,16 @@
   - [x] Shaders support texture sampling
   - [x] Test PNG rendering (blue quad)
 
-- [ ] **Animation System (Phase 1.5)**
-  - [ ] `SpriteAnimation` struct (frames, timing, current_frame)
-  - [ ] `Renderer::create_animation(TextureID[])` - from texture array
-  - [ ] `Renderer::animate(SpriteAnimation*, delta_time)` - update frame
-  - [ ] `Renderer::render_sprite_animated(SpriteAnimation*, Vec2 pos, Vec2 size)` - draw current frame
-  - [ ] Test animated sprite (cycle through red/green/blue frames)
+- [x] **Animation System (Phase 1.5)**
+  - [x] `SpriteAnimation` struct (frames, timing, current_frame)
+  - [x] `Renderer::create_animation(TextureID[])` - from texture array
+  - [x] `Renderer::animate(SpriteAnimation*, delta_time)` - update frame
+  - [x] `Renderer::render_sprite_animated(SpriteAnimation*, Vec2 pos, Vec2 size)` - draw current frame
+  - [x] Test animated sprite (cycle through red/green/blue frames)
+  - [x] Layer system with z_depth and parallax factors
+  - [x] Separate visual_update() from game logic update()
+  - [x] Z-depth implementation with GL_DEPTH_TEST enabled
+  - [x] `Layers::get_z_depth()` conversion from Layer enum to OpenGL range [-1, 1]
 
 - [x] **Test Assets**
   - [x] test.png (64x64 blue)
@@ -74,6 +78,7 @@
   - [ ] AABB collision for props
   - [ ] Pathfinding (simple grid-based A*)
   - [ ] Walk around obstacles
+  - [ ] **Y-Sorting for Z-Depth** - Player z_depth = player.position.y to render behind/in front of props based on screen depth
 
 - [ ] **Prop Interaction**
   - [ ] Interaction detection (proximity to prop)
@@ -206,4 +211,21 @@
 - Keep all code in `src/` (C++ where possible, Objective-C++ only for Platform)
 - Data before behavior (structs before functions)
 
-Last Updated: March 4, 2026 - PNG Loader Complete, Starting render_sprite()
+---
+
+## Layer System (Established)
+
+**Layers with Z-depth & Parallax:**
+
+- BACKGROUND (0) - parallax 0.1 (far, slow)
+- MIDGROUND (10) - parallax 1.0 (world background)
+- ENTITIES (20) - parallax 1.0 (props, NPCs)
+- PLAYER (30) - parallax 1.0 (player character) - FUTURE: use Y-sorting (z = player.y)
+- OCCLUSION (40) - parallax 1.0 (trees, cover the player in depth)
+- FOREGROUND (50) - parallax 1.2 (close obstacles)
+- UI (100) - parallax 0.0 (fixed screen HUD)
+
+**Point-and-Click Depth Logic:**
+Player Y-position determines if they're in front of or behind occlusion objects (handled in Phase 4 with Y-Sorting)
+
+Last Updated: March 4, 2026 - Phase 1 Complete (Sprites, Animation, Layers)

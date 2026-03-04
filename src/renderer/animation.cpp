@@ -23,7 +23,6 @@ SpriteAnimation create_animation(const TextureID frames[], uint32_t count, float
     anim.elapsed_time = 0.0f;
     anim.current_frame = 0;
     
-    // Copy frames
     for (uint32_t i = 0; i < count; i++) {
         anim.frames[i] = frames[i];
     }
@@ -38,14 +37,13 @@ bool animate(SpriteAnimation* anim, float delta_time) {
     
     anim->elapsed_time += delta_time;
     
-    // Check if we need to advance frame
     if (anim->elapsed_time >= anim->frame_duration) {
         anim->elapsed_time = 0.0f;
         anim->current_frame = (anim->current_frame + 1) % anim->frame_count;
-        return true;  // Frame advanced
+        return true;
     }
     
-    return false;  // Frame did not advance
+    return false;
 }
 
 void render_sprite_animated(const SpriteAnimation* anim, Vec2 pos, Vec2 size) {
@@ -54,10 +52,7 @@ void render_sprite_animated(const SpriteAnimation* anim, Vec2 pos, Vec2 size) {
         return;
     }
     
-    // Get current frame texture
     TextureID current_tex = anim->frames[anim->current_frame];
-    
-    // Render with current frame
     render_sprite(current_tex, pos, size);
 }
 
@@ -68,5 +63,5 @@ void animation_reset(SpriteAnimation* anim) {
     }
 }
 
-}  // namespace Renderer
+}
 

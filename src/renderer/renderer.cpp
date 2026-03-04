@@ -12,11 +12,11 @@ static GLuint shaderProgram = 0;
 
 void init_renderer(uint32_t width, uint32_t height)
 {
-    // Set viewport
     glViewport(0, 0, width, height);
+    
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
 
-    // Vertices with position and texture coordinates
-    // Position in range -0.5 to 0.5 (will be scaled by render_sprite)
     float vertices[] = {
         // Position       // TexCoord
         -0.5f, -0.5f,     0.0f, 1.0f,
@@ -36,7 +36,6 @@ void init_renderer(uint32_t width, uint32_t height)
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
 
-    // TexCoord attribute
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 
@@ -48,7 +47,6 @@ void init_renderer(uint32_t width, uint32_t height)
 
     shaderProgram = compile_and_link_shader(vertexSrc.c_str(), fragSrc.c_str());
     
-    // Set shader uniform for texture sampler (once, doesn't change)
     glUseProgram(shaderProgram);
     glUniform1i(glGetUniformLocation(shaderProgram, "texture0"), 0);
     glUseProgram(0);
@@ -57,27 +55,40 @@ void init_renderer(uint32_t width, uint32_t height)
 void clear_screen()
 {
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void render_sprite(TextureID tex, Vec2 pos, Vec2 size)
+void render_sprite(TextureID tex, Vec2 pos, Vec2 size, float z_depth)
 {
     glUseProgram(shaderProgram);
     
-    // Set sprite position and size uniforms
     GLint posLoc = glGetUniformLocation(shaderProgram, "spritePos");
     GLint sizeLoc = glGetUniformLocation(shaderProgram, "spriteSize");
+    GLint zLoc = glGetUniformLocation(shaderProgram, "spriteZ");
     glUniform2f(posLoc, pos.x, pos.y);
     glUniform2f(sizeLoc, size.x, size.y);
+    glUniform1f(zLoc, z_depth);
     
-    // Bind and activate texture
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, tex);
     
-    // Draw
     glBindVertexArray(quadVAO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
+}
+
+void render_sprite_animated(const SpriteAnimation* anim, Vec2 pos, Vec2 size, float z_depth)
+{
+    if (!anim || anim->frame_count == 0) {
+        printf("ERROR: Invalid animation for rendering\n");
+        return;
+    }
+    
+    // Get current frame texture
+    TextureID current_tex = anim->frames[anim->current_frame];
+    
+    // Render with current frame
+    render_sprite(current_tex, pos, size, z_depth);
 }
 
 void shutdown()

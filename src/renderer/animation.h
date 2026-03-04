@@ -6,13 +6,12 @@
 
 namespace Renderer {
 
-// Sprite animation: cycles through texture frames
 struct SpriteAnimation {
-    TextureID frames[16];      // Up to 16 frames per animation
-    uint32_t frame_count;      // Number of frames in this animation
-    float frame_duration;      // Seconds per frame
-    float elapsed_time;        // Accumulated time (auto-cycling)
-    uint32_t current_frame;    // Currently displayed frame (0 to frame_count-1)
+    TextureID frames[16];
+    uint32_t frame_count;
+    float frame_duration;
+    float elapsed_time;
+    uint32_t current_frame;
 };
 
 // Create animation from array of textures
