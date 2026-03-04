@@ -7,9 +7,9 @@
 namespace Game {
 
 struct Player {
-    Vec2 position;
-    Vec2 target_position;
-    float speed = 200.0f;  // pixels per second
+    Vec2 position;          // Pixel coordinates (0-1024, 0-768)
+    Vec2 target_position;   // Pixel coordinates
+    float speed = 200.0f;   // pixels per second
     Renderer::TextureID texture;
 };
 
