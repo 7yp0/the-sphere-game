@@ -1,6 +1,6 @@
 #include "png_loader.h"
 #include "asset_manager.h"
-#include <cstdio>
+#include "../debug/debug_log.h"
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
@@ -30,14 +30,14 @@ PNGImage png_load(const char* filename) {
     
     FILE* f = fopen(full_path.c_str(), "rb");
     if (!f) {
-        printf("Error: Could not find asset '%s' at '%s'\n", filename, full_path.c_str());
+        DEBUG_ERROR("Could not find asset '%s' at '%s'", filename, full_path.c_str());
         return error_image();
     }
 
     // Read PNG signature
     uint8_t sig[8];
     if (fread(sig, 8, 1, f) != 1 || memcmp(sig, PNG_SIGNATURE, 8) != 0) {
-        printf("Error: %s is not a valid PNG file\n", filename);
+        DEBUG_ERROR("%s is not a valid PNG file", filename);
         fclose(f);
         return error_image();
     }
@@ -88,13 +88,13 @@ PNGImage png_load(const char* filename) {
 
     // Validate format (only support 8-bit RGBA for now)
     if (bit_depth != 8 || color_type != 6) {
-        printf("Warning: PNG format not fully supported (need 8-bit RGBA)\n");
-        printf("  bit_depth=%d, color_type=%d\n", bit_depth, color_type);
+        DEBUG_LOG("PNG format not fully supported (need 8-bit RGBA)");
+        DEBUG_LOG("  bit_depth=%d, color_type=%d", bit_depth, color_type);
         return error_image();
     }
 
     if (width == 0 || height == 0 || idat_data.empty()) {
-        printf("Error: Invalid PNG dimensions or no image data\n");
+        DEBUG_ERROR("Invalid PNG dimensions or no image data");
         return error_image();
     }
 
@@ -107,7 +107,7 @@ PNGImage png_load(const char* filename) {
     stream.next_in = Z_NULL;
 
     if (inflateInit(&stream) != Z_OK) {
-        printf("Error: Could not initialize decompression\n");
+        DEBUG_ERROR("Could not initialize decompression");
         return error_image();
     }
 
@@ -125,7 +125,7 @@ PNGImage png_load(const char* filename) {
     inflateEnd(&stream);
 
     if (ret != Z_STREAM_END) {
-        printf("Error: Decompression failed (ret=%d)\n", ret);
+        DEBUG_ERROR("Decompression failed (ret=%d)", ret);
         return error_image();
     }
 
@@ -150,7 +150,7 @@ PNGImage png_load(const char* filename) {
             uint8_t unfiltered = 0;
             
             if (filter_type > 4) {
-                printf("ERROR: Invalid PNG filter type %d at scanline %u\n", filter_type, y);
+                DEBUG_ERROR("Invalid PNG filter type %d at scanline %u", filter_type, y);
                 delete[] pixels;
                 return error_image();
             }
@@ -183,7 +183,7 @@ PNGImage png_load(const char* filename) {
                     break;
                 }
                 default:
-                    printf("ERROR: Unknown PNG filter type %d\n", filter_type);
+                    DEBUG_ERROR("Unknown PNG filter type %d", filter_type);
                     unfiltered = filtered;
                     break;
             }

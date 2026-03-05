@@ -9,7 +9,7 @@
 namespace Game {
 
 const float PLAYER_DISTANCE_THRESHOLD = 1.0f;
-const float PLAYER_VIEWPORT_MARGIN = 0.0f;
+const float PLAYER_BOUNDARY_MARGIN = 10.0f;  // Keep player away from scene edges
 
 void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_height, 
                  Core::AnimationBank* animations) {
@@ -25,24 +25,16 @@ void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_heig
 void player_handle_input(Player& player) {
     if (Platform::mouse_clicked()) {
         Vec2 mouse_pos = Platform::get_mouse_pos();
-        // Validate mouse position is within scene bounds before setting target
-        // Clamp to prevent target outside playable area
-        const float margin = 20.0f;  // Keep player away from edges
-        float scene_width = static_cast<float>(g_state.scene.width);
-        float scene_height = static_cast<float>(g_state.scene.height);
-        
-        mouse_pos.x = std::max(margin, std::min(scene_width - margin, mouse_pos.x));
-        mouse_pos.y = std::max(margin, std::min(scene_height - margin, mouse_pos.y));
-        
+        // Store target position - bounds checking happens in player_update()
         player.target_position = mouse_pos;
     }
 }
 
 static void clamp_player_position(Player& player, uint32_t viewport_width, uint32_t viewport_height) {
-    const float left = PLAYER_VIEWPORT_MARGIN * viewport_width;
-    const float right = (1.0f - PLAYER_VIEWPORT_MARGIN) * viewport_width;
-    const float top = PLAYER_VIEWPORT_MARGIN * viewport_height;
-    const float bottom = (1.0f - PLAYER_VIEWPORT_MARGIN) * viewport_height;
+    const float left = PLAYER_BOUNDARY_MARGIN;
+    const float right = viewport_width - PLAYER_BOUNDARY_MARGIN;
+    const float top = PLAYER_BOUNDARY_MARGIN;
+    const float bottom = viewport_height - PLAYER_BOUNDARY_MARGIN;
     
     player.position.x = std::max(left, std::min(right, player.position.x));
     player.position.y = std::max(top, std::min(bottom, player.position.y));
@@ -94,11 +86,6 @@ void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_he
         player.position.y += movement.y;
         clamp_player_position(player, viewport_width, viewport_height);
     }
-}
-
-Vec2 player_get_render_position(const Player& player, uint32_t, uint32_t) {
-    // Return pixel coordinates - renderer handles OpenGL conversion
-    return player.position;
 }
 
 }

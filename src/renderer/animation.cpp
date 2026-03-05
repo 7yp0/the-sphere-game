@@ -1,16 +1,16 @@
 #include "animation.h"
 #include "renderer.h"
-#include <cstdio>
+#include "../debug/debug_log.h"
 
 namespace Renderer {
 
 SpriteAnimation create_animation(const TextureID frames[], uint32_t count, float frame_duration) {
     if (count == 0) {
-        printf("ERROR: Animation frame count must be > 0\n");
+        DEBUG_ERROR("Animation frame count must be > 0");
         return SpriteAnimation();
     }
     if (frame_duration <= 0.0f) {
-        printf("ERROR: Animation frame_duration must be > 0\n");
+        DEBUG_ERROR("Animation frame_duration must be > 0");
         return SpriteAnimation();
     }
     SpriteAnimation anim;

@@ -1,8 +1,8 @@
 #include "shader_loader.h"
 #include "asset_manager.h"
+#include "../debug/debug_log.h"
 #include <fstream>
 #include <sstream>
-#include <cstdio>
 
 namespace Renderer {
 
@@ -17,7 +17,7 @@ std::string load_shader_source(const char* path) {
         return buffer.str();
     }
     
-    printf("ERROR: Could not open shader file: %s (tried: %s)\n", path, full_path.c_str());
+    DEBUG_ERROR("Could not open shader file: %s (tried: %s)", path, full_path.c_str());
     return "";
 }
 

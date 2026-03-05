@@ -2,6 +2,7 @@
 #include "renderer_utils.h"
 #include "shader_loader.h"
 #include "texture_loader.h"
+#include "debug/debug_log.h"
 #include <OpenGL/gl3.h>
 
 namespace Renderer {
@@ -119,7 +120,12 @@ void render_sprite(TextureID tex, Vec2 pos, Vec2 size, Vec4 tex_coord_range, flo
 void render_sprite_animated(const SpriteAnimation* anim, Vec2 pos, Vec2 size, float z_depth, PivotPoint pivot)
 {
     if (!anim || anim->frames.empty()) {
-        printf("ERROR: Invalid animation for rendering\n");
+        DEBUG_ERROR("render_sprite_animated() - invalid animation (null or empty frames)");
+        return;
+    }
+    if (anim->current_frame >= anim->frames.size()) {
+        DEBUG_ERROR("render_sprite_animated() - current_frame (%u) out of bounds (size: %zu)",
+                   anim->current_frame, anim->frames.size());
         return;
     }
     TextureID current_tex = anim->frames[anim->current_frame];

@@ -1,6 +1,6 @@
 #include "renderer_utils.h"
 #include <OpenGL/gl3.h>
-#include <stdio.h>
+#include "../debug/debug_log.h"
 
 namespace Renderer {
 
@@ -16,7 +16,7 @@ GLuint compile_and_link_shader(const char* vertexSrc, const char* fragSrc)
         if (!success) {
             char infoLog[512];
             glGetShaderInfoLog(shader, 512, nullptr, infoLog);
-            printf("Shader compilation error: %s\n", infoLog);
+            DEBUG_ERROR("Shader compilation error: %s", infoLog);
         }
         return shader;
     };
@@ -34,7 +34,7 @@ GLuint compile_and_link_shader(const char* vertexSrc, const char* fragSrc)
     if (!success) {
         char infoLog[512];
         glGetProgramInfoLog(program, 512, nullptr, infoLog);
-        printf("ERROR: Shader linking failed: %s\n", infoLog);
+        DEBUG_ERROR("Shader linking failed: %s", infoLog);
         glDeleteProgram(program);
         glDeleteShader(vertexShader);
         glDeleteShader(fragmentShader);

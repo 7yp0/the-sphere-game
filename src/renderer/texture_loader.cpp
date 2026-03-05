@@ -1,8 +1,8 @@
 #include "texture_loader.h"
 #include "png_loader.h"
+#include "../debug/debug_log.h"
 #include <OpenGL/gl3.h>
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <vector>
@@ -15,7 +15,7 @@ static std::map<std::string, TextureID> g_texture_cache;
 
 TextureID load_texture(const char* path) {
     if (!path) {
-        printf("ERROR: load_texture called with nullptr path\n");
+        DEBUG_ERROR("load_texture called with nullptr path");
         return create_test_texture();
     }
     
@@ -46,7 +46,7 @@ TextureID load_texture(const char* path) {
         return tex;
     }
     
-    printf("WARNING: Could not load texture '%s', using fallback\n", path);
+    DEBUG_LOG("Could not load texture '%s', using fallback", path);
     return create_test_texture();
 }
 

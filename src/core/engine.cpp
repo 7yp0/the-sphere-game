@@ -6,6 +6,7 @@
 #include "renderer/asset_manager.h"
 #include "game/game.h"
 #include "config.h"
+#include "debug/debug_log.h"
 #include <chrono>
 
 int engine_run(int argc, char** argv)
@@ -14,7 +15,7 @@ int engine_run(int argc, char** argv)
     if (argc > 0) {
         Renderer::init_asset_manager(argv[0]);
     } else {
-        printf("WARNING: No argv provided, asset loading may fail.\n");
+        DEBUG_ERROR("No argv provided, asset loading may fail");
     }
     
     Platform::WindowConfig config;
