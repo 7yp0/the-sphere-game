@@ -17,6 +17,7 @@ bool window_should_close();
 void shutdown();
 
 Vec2 get_mouse_pos();
+uint32_t get_window_height();
 bool mouse_clicked();
 bool key_pressed(int key_code);
 

@@ -22,6 +22,7 @@ struct Player {
     float speed = PLAYER_SPEED;                 // pixels per second
     AnimationState animation_state = AnimationState::Idle;
     Core::AnimationBank* animations;            // Generic animation bank for any entity
+    PivotPoint pivot = PivotPoint::BOTTOM_CENTER;
 };
 
 struct GameState {

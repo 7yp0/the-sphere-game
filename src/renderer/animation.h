@@ -16,7 +16,7 @@ struct SpriteAnimation {
 
 SpriteAnimation create_animation(const TextureID frames[], uint32_t count, float frame_duration);
 bool animate(SpriteAnimation* anim, float delta_time);
-void render_sprite_animated(const SpriteAnimation* anim, Vec2 pos, Vec2 size, float z_depth);
+// render_sprite_animated declaration moved to renderer.h
 void animation_reset(SpriteAnimation* anim);
 
 }

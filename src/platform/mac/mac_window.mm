@@ -52,8 +52,10 @@ namespace Platform {
 }
 
 - (void)mouseMoved:(NSEvent *)event {
-    NSPoint loc = [event locationInWindow];
-    Platform::set_mouse_pos(Vec2(loc.x, loc.y));
+    NSPoint loc = [self convertPoint:[event locationInWindow] fromView:nil];
+    
+    // Flip Y: use the stored window height (not view height which might differ)
+    Platform::set_mouse_pos(Vec2(loc.x, Platform::get_window_height() - loc.y));
 }
 
 @end
@@ -87,6 +89,8 @@ static bool g_shouldClose = false;
 static Vec2 g_mousePos = Vec2(0.0f, 0.0f);
 static bool g_mouseClicked = false;
 static bool g_keys[256] = {};
+static uint32_t g_window_width = 0;
+static uint32_t g_window_height = 0;
 
 void set_key_pressed(int key_code, bool pressed) {
     if (key_code < 256) {
@@ -96,6 +100,9 @@ void set_key_pressed(int key_code, bool pressed) {
 
 bool init_window(const WindowConfig& config)
 {
+    g_window_width = config.width;
+    g_window_height = config.height;
+    
     @autoreleasepool {
         NSApplication* app = [NSApplication sharedApplication];
         
@@ -209,6 +216,11 @@ void shutdown()
 Vec2 get_mouse_pos()
 {
     return g_mousePos;
+}
+
+uint32_t get_window_height()
+{
+    return g_window_height;
 }
 
 bool mouse_clicked()

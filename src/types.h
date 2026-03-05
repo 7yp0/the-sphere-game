@@ -40,12 +40,46 @@ enum class Layer : int {
     UI         = 100
 };
 
+enum class PivotPoint : int {
+    TOP_LEFT = 0,
+    TOP_CENTER = 1,
+    TOP_RIGHT = 2,
+    CENTER_LEFT = 3,
+    CENTER = 4,
+    CENTER_RIGHT = 5,
+    BOTTOM_LEFT = 6,
+    BOTTOM_CENTER = 7,
+    BOTTOM_RIGHT = 8
+};
+
 namespace Coords {
 
+// Calculate the offset from a pivot point to the center of a rect
+// Returns the offset in normalized space relative to the rect
+inline Vec2 get_pivot_offset(PivotPoint pivot, float width, float height) {
+    float x_offset = 0.0f, y_offset = 0.0f;
+    
+    switch (pivot) {
+        case PivotPoint::TOP_LEFT:     x_offset = 0.5f;  y_offset = 0.5f;  break;
+        case PivotPoint::TOP_CENTER:   x_offset = 0.0f;  y_offset = 0.5f;  break;
+        case PivotPoint::TOP_RIGHT:    x_offset = -0.5f; y_offset = 0.5f;  break;
+        case PivotPoint::CENTER_LEFT:  x_offset = 0.5f;  y_offset = 0.0f;  break;
+        case PivotPoint::CENTER:       x_offset = 0.0f;  y_offset = 0.0f;  break;
+        case PivotPoint::CENTER_RIGHT: x_offset = -0.5f; y_offset = 0.0f;  break;
+        case PivotPoint::BOTTOM_LEFT:  x_offset = 0.5f;  y_offset = -0.5f; break;
+        case PivotPoint::BOTTOM_CENTER:x_offset = 0.0f;  y_offset = -0.5f; break;
+        case PivotPoint::BOTTOM_RIGHT: x_offset = -0.5f; y_offset = -0.5f; break;
+    }
+    
+    return Vec2(x_offset * width, y_offset * height);
+}
+
 inline Vec2 pixel_to_opengl(Vec2 pixel_pos, uint32_t viewport_width, uint32_t viewport_height) {
+    // Flip Y: pixel space has Y=0 at top, OpenGL has Y=-1 at bottom
+    float y_flipped = viewport_height - pixel_pos.y;
     return Vec2(
         (pixel_pos.x / (float)viewport_width) * 2.0f - 1.0f,
-        (pixel_pos.y / (float)viewport_height) * 2.0f - 1.0f
+        (y_flipped / (float)viewport_height) * 2.0f - 1.0f
     );
 }
 

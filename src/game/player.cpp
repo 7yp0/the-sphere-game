@@ -84,8 +84,9 @@ void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_he
     }
 }
 
-Vec2 player_get_render_position(const Player& player, uint32_t viewport_width, uint32_t viewport_height) {
-    return Coords::pixel_to_opengl(player.position, viewport_width, viewport_height);
+Vec2 player_get_render_position(const Player& player, uint32_t, uint32_t) {
+    // Return pixel coordinates - renderer handles OpenGL conversion
+    return player.position;
 }
 
 }

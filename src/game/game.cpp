@@ -52,31 +52,31 @@ void update(float delta_time) {
 }
 
 void render() {
-    Renderer::render_sprite(g_state.scene.background, Vec2(0.0f, 0.0f), Vec2(2.0f, 2.0f),
+    // Background fills entire scene
+    Renderer::render_sprite(g_state.scene.background, 
+                           Vec2(0.0f, 0.0f),
+                           Vec2((float)g_state.scene.width, (float)g_state.scene.height),
                            Layers::get_z_depth(Layer::BACKGROUND));
     
+    // Props - use pixel coordinates directly
     for (const auto& prop : g_state.scene.props) {
-        Vec2 opengl_pos = Coords::pixel_to_opengl(prop.position, g_state.viewport_width, g_state.viewport_height);
-        Vec2 opengl_size = Vec2(
-            (prop.size.x / (float)g_state.viewport_width) * 2.0f,
-            (prop.size.y / (float)g_state.viewport_height) * 2.0f
-        );
-        Renderer::render_sprite(prop.texture, opengl_pos, opengl_size,
-                               Layers::get_z_depth(Layer::MIDGROUND));
+        Renderer::render_sprite(prop.texture, prop.position, prop.size,
+                               Layers::get_z_depth(Layer::MIDGROUND), prop.pivot);
     }
     
-    Vec2 player_render_pos = player_get_render_position(g_state.player, g_state.viewport_width, g_state.viewport_height);
+    // Player - use pixel coordinates
     const char* anim_name = (g_state.player.animation_state == AnimationState::Idle) ? "idle" : "walk";
     Renderer::SpriteAnimation* player_anim = g_state.playerAnimations.get(anim_name);
     if (player_anim) {
-        Renderer::render_sprite_animated(player_anim, player_render_pos, Vec2(0.1f, 0.1f),
-                                         Layers::get_z_depth(Layer::PLAYER));
+        // Player position is in pixels, size is in pixels
+        Renderer::render_sprite_animated(player_anim, g_state.player.position, Vec2(30.0f, 30.0f),
+                                         Layers::get_z_depth(Layer::PLAYER), g_state.player.pivot);
     }
     
+    // Debug overlay
     Vec2 mouse_pixel = Platform::get_mouse_pos();
-
-    #ifndef NDEBUG
-    Debug::render_overlay(mouse_pixel, g_state.viewport_width, g_state.viewport_height);
+#ifndef NDEBUG
+    Debug::render_overlay(mouse_pixel, 0, 0);
 #endif
 }
 

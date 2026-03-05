@@ -13,6 +13,7 @@ struct Prop {
     Vec2 size;
     Renderer::TextureID texture;
     std::string name;
+    PivotPoint pivot = PivotPoint::TOP_LEFT;
 };
 
 struct Scene {

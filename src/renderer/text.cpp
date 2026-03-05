@@ -24,8 +24,10 @@ void render_text(const char* text, Vec2 pos, float scale) {
     if (!text) return;
     
     Vec2 current_pos = pos;
-    float glyph_width_opengl = (GLYPH_WIDTH / FONT_TEXTURE_WIDTH) * 2.0f * scale;
-    float glyph_height_opengl = (GLYPH_HEIGHT / FONT_TEXTURE_HEIGHT) * 2.0f * scale;
+    
+    // Glyph size in pixels
+    float glyph_width_px = GLYPH_WIDTH * scale;
+    float glyph_height_px = GLYPH_HEIGHT * scale;
     
     for (const char* p = text; *p; p++) {
         const char* char_idx = strchr(FONT_CHARS, *p);
@@ -44,9 +46,10 @@ void render_text(const char* text, Vec2 pos, float scale) {
             
             Vec4 uv_range(min_u, min_v, max_u, max_v);
             
-            render_sprite(g_font_texture, current_pos, Vec2(glyph_width_opengl, glyph_height_opengl), 
+            // render_sprite expects pixel coordinates and sizes, will convert internally
+            render_sprite(g_font_texture, current_pos, Vec2(glyph_width_px, glyph_height_px), 
                          uv_range, -1.0f);
-            current_pos.x += glyph_width_opengl * 1.1f;
+            current_pos.x += glyph_width_px * 1.1f;
         }
     }
 }

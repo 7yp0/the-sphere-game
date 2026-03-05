@@ -10,9 +10,13 @@ static GLuint quadVAO = 0;
 static GLuint quadVBO = 0;
 static GLuint shaderProgram = 0;
 static GLuint colorShaderProgram = 0;
+static uint32_t g_viewport_width = 0;
+static uint32_t g_viewport_height = 0;
 
 void init_renderer(uint32_t width, uint32_t height)
 {
+    g_viewport_width = width;
+    g_viewport_height = height;
     glViewport(0, 0, width, height);
     
     glEnable(GL_DEPTH_TEST);
@@ -64,14 +68,34 @@ void clear_screen()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void render_sprite(TextureID tex, Vec2 pos, Vec2 size, float z_depth)
+void render_sprite(TextureID tex, Vec2 pos, Vec2 size, float z_depth, PivotPoint pivot)
 {
     // Default texture coordinate range (full texture)
-    render_sprite(tex, pos, size, Vec4(0.0f, 0.0f, 1.0f, 1.0f), z_depth);
+    render_sprite(tex, pos, size, Vec4(0.0f, 0.0f, 1.0f, 1.0f), z_depth, pivot);
 }
 
-void render_sprite(TextureID tex, Vec2 pos, Vec2 size, Vec4 tex_coord_range, float z_depth)
+void render_sprite(TextureID tex, Vec2 pos, Vec2 size, Vec4 tex_coord_range, float z_depth, PivotPoint pivot)
 {
+    // Convert pixel coordinates to OpenGL coordinates
+    Vec2 opengl_pos = Coords::pixel_to_opengl(pos, g_viewport_width, g_viewport_height);
+    Vec2 opengl_size = Vec2(
+        (size.x / (float)g_viewport_width) * 2.0f,
+        (size.y / (float)g_viewport_height) * 2.0f
+    );
+    
+    // Calculate offset from pivot point to center
+    Vec2 pivot_offset = Coords::get_pivot_offset(pivot, size.x, size.y);
+    Vec2 pivot_offset_opengl = Vec2(
+        (pivot_offset.x / (float)g_viewport_width) * 2.0f,
+        -(pivot_offset.y / (float)g_viewport_height) * 2.0f  // Negate because Y is inverted
+    );
+    
+    // Shader expects center point
+    Vec2 opengl_center = Vec2(
+        opengl_pos.x + pivot_offset_opengl.x,
+        opengl_pos.y + pivot_offset_opengl.y
+    );
+    
     glUseProgram(shaderProgram);
     
     GLint posLoc = glGetUniformLocation(shaderProgram, "spritePos");
@@ -79,8 +103,8 @@ void render_sprite(TextureID tex, Vec2 pos, Vec2 size, Vec4 tex_coord_range, flo
     GLint zLoc = glGetUniformLocation(shaderProgram, "spriteZ");
     GLint texCoordLoc = glGetUniformLocation(shaderProgram, "texCoordRange");
     
-    glUniform2f(posLoc, pos.x, pos.y);
-    glUniform2f(sizeLoc, size.x, size.y);
+    glUniform2f(posLoc, opengl_center.x, opengl_center.y);
+    glUniform2f(sizeLoc, opengl_size.x, opengl_size.y);
     glUniform1f(zLoc, z_depth);
     glUniform4f(texCoordLoc, tex_coord_range.x, tex_coord_range.y, tex_coord_range.z, tex_coord_range.w);
     
@@ -92,18 +116,38 @@ void render_sprite(TextureID tex, Vec2 pos, Vec2 size, Vec4 tex_coord_range, flo
     glBindVertexArray(0);
 }
 
-void render_sprite_animated(const SpriteAnimation* anim, Vec2 pos, Vec2 size, float z_depth)
+void render_sprite_animated(const SpriteAnimation* anim, Vec2 pos, Vec2 size, float z_depth, PivotPoint pivot)
 {
     if (!anim || anim->frames.empty()) {
         printf("ERROR: Invalid animation for rendering\n");
         return;
     }
     TextureID current_tex = anim->frames[anim->current_frame];
-    render_sprite(current_tex, pos, size, z_depth);
+    render_sprite(current_tex, pos, size, z_depth, pivot);
 }
 
-void render_rect(Vec2 pos, Vec2 size, Vec4 color, float z_depth)
+void render_rect(Vec2 pos, Vec2 size, Vec4 color, float z_depth, PivotPoint pivot)
 {
+    // Convert pixel coordinates to OpenGL coordinates
+    Vec2 opengl_pos = Coords::pixel_to_opengl(pos, g_viewport_width, g_viewport_height);
+    Vec2 opengl_size = Vec2(
+        (size.x / (float)g_viewport_width) * 2.0f,
+        (size.y / (float)g_viewport_height) * 2.0f
+    );
+    
+    // Calculate offset from pivot point to center
+    Vec2 pivot_offset = Coords::get_pivot_offset(pivot, size.x, size.y);
+    Vec2 pivot_offset_opengl = Vec2(
+        (pivot_offset.x / (float)g_viewport_width) * 2.0f,
+        -(pivot_offset.y / (float)g_viewport_height) * 2.0f  // Negate because Y is inverted
+    );
+    
+    // Shader expects center point
+    Vec2 opengl_center = Vec2(
+        opengl_pos.x + pivot_offset_opengl.x,
+        opengl_pos.y + pivot_offset_opengl.y
+    );
+    
     glUseProgram(colorShaderProgram);
     
     GLint posLoc = glGetUniformLocation(colorShaderProgram, "spritePos");
@@ -111,8 +155,8 @@ void render_rect(Vec2 pos, Vec2 size, Vec4 color, float z_depth)
     GLint zLoc = glGetUniformLocation(colorShaderProgram, "spriteZ");
     GLint colorLoc = glGetUniformLocation(colorShaderProgram, "rectColor");
     
-    glUniform2f(posLoc, pos.x, pos.y);
-    glUniform2f(sizeLoc, size.x, size.y);
+    glUniform2f(posLoc, opengl_center.x, opengl_center.y);
+    glUniform2f(sizeLoc, opengl_size.x, opengl_size.y);
     glUniform1f(zLoc, z_depth);
     glUniform4f(colorLoc, color.x, color.y, color.z, color.w);
     
