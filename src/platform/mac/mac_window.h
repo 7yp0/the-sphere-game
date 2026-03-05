@@ -16,8 +16,12 @@ void swap_buffers();
 bool window_should_close();
 void shutdown();
 
-// Input APIs
 Vec2 get_mouse_pos();
 bool mouse_clicked();
+bool key_pressed(int key_code);
+
+void set_mouse_pos(Vec2 pos);
+void set_mouse_clicked(bool clicked);
+void set_key_pressed(int key_code, bool pressed);
 
 }

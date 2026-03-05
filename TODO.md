@@ -58,23 +58,28 @@
 
 ---
 
-## Phase 3: Scene & Game World
+## Phase 3: Scene & Game World (COMPLETE)
 
-- [ ] **Scene System**
-  - [ ] `Game::Scene` struct
-  - [ ] `Game::Prop` struct
-  - [ ] Load props from simple data format (JSON/text)
-  - [ ] Render background texture
-  - [ ] Render all props in scene
+- [x] **Scene System**
+  - [x] `Game::Scene` struct with Props array
+  - [x] `Game::Prop` struct with pixel coordinates
+  - [x] Render background texture
+  - [x] Render all props in scene with correct z-depth
 
-- [ ] **Asset & Scene Loader**
-  - [ ] Asset loader for scenes
-  - [ ] Scene file format (JSON or text)
+- [x] **Pixel Coordinate System**
+  - [x] Central `Coords::pixel_to_opengl()` helper
+  - [x] All Props use pixel coordinates (not normalized)
+  - [x] Automatic conversion in render pipeline
 
-- [ ] **Game Loop Architecture**
-  - [ ] Main update function
-  - [ ] Collision detection stub
-  - [ ] Render order (background → props → player → lights)
+- [x] **Debug Overlay**
+  - [x] F1 toggle for debug display
+  - [x] Show mouse position in pixel coordinates
+  - [x] Platform::key_pressed() for input handling
+
+- [x] **Test Scene**
+  - [x] Load background (bg_field.png)
+  - [x] Place test props (tree, stone, chest)
+  - [x] Pixel-based placement system
 
 ---
 
@@ -249,3 +254,10 @@ Last Updated: March 4, 2026 - Phase 1 Complete (Sprites, Animation, Layers)
 - [ ] Integer-based scaling for pixel-perfect rendering
 - [ ] Depth-based character scaling (4x→1x based on depth)
 - [ ] Handle base resolution vs window resolution separation
+
+## FUTURE: Sprite Maps / Spritesheets
+
+- [ ] Convert individual sprite files to sprite maps (like Monkey Island <https://mattlane.co.nz/wp-content/uploads/2020/04/monkey-sprites-bigger.png>)
+- [ ] UV mapping system for animated frames from single texture
+- [ ] `AnimationBank` updated to use sprite map UV coordinates instead of separate TextureIDs
+- [ ] Reduces texture bindlings, better memory layout for large animation sets

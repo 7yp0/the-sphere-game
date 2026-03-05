@@ -4,6 +4,7 @@
 #include "types.h"
 #import <Cocoa/Cocoa.h>
 #import <OpenGL/gl3.h>
+#include <cstdio>
 
 // Forward declarations
 namespace Platform {
@@ -11,30 +12,58 @@ namespace Platform {
     void set_mouse_clicked(bool clicked);
 }
 
+@class OpenGLView;
+
+@interface KeyboardView : NSView
+@property (nonatomic, strong) OpenGLView* glView;
+@end
+
+@implementation KeyboardView
+
+- (BOOL)acceptsFirstResponder {
+    return YES;
+}
+
+- (BOOL)isOpaque {
+    return YES;
+}
+
+- (void)viewDidMoveToWindow {
+    if (self.window) {
+        [self.window makeFirstResponder:self];
+    }
+}
+
+- (void)drawRect:(NSRect)dirtyRect {
+    // Let GL view handle rendering
+    [self.glView display];
+}
+
+- (void)keyDown:(NSEvent *)event {
+    Platform::set_key_pressed(event.keyCode, true);
+}
+
+- (void)keyUp:(NSEvent *)event {
+    Platform::set_key_pressed(event.keyCode, false);
+}
+
+- (void)mouseDown:(NSEvent *)event {
+    Platform::set_mouse_clicked(true);
+}
+
+- (void)mouseMoved:(NSEvent *)event {
+    NSPoint loc = [event locationInWindow];
+    Platform::set_mouse_pos(Vec2(loc.x, loc.y));
+}
+
+@end
+
 @interface OpenGLView : NSOpenGLView
 @end
 
 @implementation OpenGLView
 - (BOOL)isOpaque {
     return YES;
-}
-- (void)viewDidMoveToWindow {
-    [super viewDidMoveToWindow];
-    if (self.window) {
-        NSTrackingArea* trackingArea = [[NSTrackingArea alloc]
-            initWithRect:self.bounds
-            options:(NSTrackingMouseMoved | NSTrackingActiveAlways)
-            owner:self
-            userInfo:nil];
-        [self addTrackingArea:trackingArea];
-    }
-}
-- (void)mouseDown:(NSEvent *)event {
-    Platform::set_mouse_clicked(true);
-}
-- (void)mouseMoved:(NSEvent *)event {
-    NSPoint loc = [event locationInWindow];
-    Platform::set_mouse_pos(Vec2(loc.x, loc.y));
 }
 @end
 
@@ -53,14 +82,25 @@ namespace Platform {
 
 static NSWindow* g_window = nil;
 static NSOpenGLContext* g_glContext = nil;
+static KeyboardView* g_keyboardView = nil;
 static bool g_shouldClose = false;
 static Vec2 g_mousePos = Vec2(0.0f, 0.0f);
 static bool g_mouseClicked = false;
+static bool g_keys[256] = {};
+
+void set_key_pressed(int key_code, bool pressed) {
+    if (key_code < 256) {
+        g_keys[key_code] = pressed;
+    }
+}
 
 bool init_window(const WindowConfig& config)
 {
     @autoreleasepool {
-        [NSApplication sharedApplication];
+        NSApplication* app = [NSApplication sharedApplication];
+        
+        // CRITICAL: Activate app BEFORE any window operations
+        [app activateIgnoringOtherApps:YES];
 
         NSUInteger style = NSWindowStyleMaskTitled |
                            NSWindowStyleMaskClosable |
@@ -90,6 +130,21 @@ bool init_window(const WindowConfig& config)
         OpenGLView* glView = [[OpenGLView alloc] initWithFrame:rect pixelFormat:pixelFormat];
         [glView setWantsBestResolutionOpenGLSurface:YES];
         
+        // Create keyboard handling view (TOP LEVEL)
+        g_keyboardView = [[KeyboardView alloc] initWithFrame:rect];
+        g_keyboardView.glView = glView;
+        
+        // Add GL view as subview of keyboard view
+        [g_keyboardView addSubview:glView];
+        
+        // Add tracking area for mouse movement
+        NSTrackingArea* trackingArea = [[NSTrackingArea alloc]
+            initWithRect:rect
+            options:(NSTrackingMouseMoved | NSTrackingActiveAlways)
+            owner:g_keyboardView
+            userInfo:nil];
+        [g_keyboardView addTrackingArea:trackingArea];
+        
         // Get the context from the view and make it current
         g_glContext = [glView openGLContext];
         [g_glContext makeCurrentContext];
@@ -98,17 +153,19 @@ bool init_window(const WindowConfig& config)
         GLint swapInt = 1;
         [g_glContext setValues:&swapInt forParameter:NSOpenGLCPSwapInterval];
 
-        // Set the OpenGL view as the window's content view
-        [g_window setContentView:glView];
+        // Set keyboard view as content view
+        [g_window setContentView:g_keyboardView];
+        
+        // CRITICAL: Make first responder IMMEDIATELY after setContentView
+        [g_window makeFirstResponder:g_keyboardView];
 
         // Set up window delegate for close events
         WindowDelegate* delegate = [[WindowDelegate alloc] init];
         delegate.shouldClosePtr = &g_shouldClose;
         [g_window setDelegate:delegate];
 
-        [NSApp finishLaunching];
+        [app finishLaunching];
         [g_window makeKeyAndOrderFront:nil];
-
         return true;
     }
 }
@@ -159,6 +216,14 @@ bool mouse_clicked()
     bool clicked = g_mouseClicked;
     g_mouseClicked = false;
     return clicked;
+}
+
+bool key_pressed(int key_code)
+{
+    if (key_code < 256) {
+        return g_keys[key_code];
+    }
+    return false;
 }
 
 void set_mouse_pos(Vec2 pos)

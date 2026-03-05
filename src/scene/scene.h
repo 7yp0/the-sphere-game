@@ -1,19 +1,26 @@
 #pragma once
 
 #include "types.h"
-#include "core/animation_bank.h"
+#include "renderer/renderer.h"
 #include <cstdint>
 #include <vector>
+#include <string>
 
 namespace Scene {
 
 struct Prop {
+    Vec2 position;
+    Vec2 size;
+    Renderer::TextureID texture;
+    std::string name;
 };
 
 struct Scene {
     std::string name;
     uint32_t width;
     uint32_t height;
+    Renderer::TextureID background;
+    std::vector<Prop> props;
 };
 
 struct SceneManager {

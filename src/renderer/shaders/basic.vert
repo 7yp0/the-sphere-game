@@ -6,6 +6,7 @@ layout(location = 1) in vec2 aTexCoord;
 uniform vec2 spritePos;    // world position (center)
 uniform vec2 spriteSize;   // width, height
 uniform float spriteZ;     // z-depth for layering
+uniform vec4 texCoordRange;  // min_u, min_v, max_u, max_v (default: 0,0,1,1)
 
 out vec2 uv;
 
@@ -16,5 +17,7 @@ void main() {
     vec2 final = scaled + spritePos;
     
     gl_Position = vec4(final, spriteZ, 1.0);
-    uv = aTexCoord;
+    
+    // Map quad UV (0-1) to texture coordinate range
+    uv = mix(texCoordRange.xy, texCoordRange.zw, aTexCoord);
 }

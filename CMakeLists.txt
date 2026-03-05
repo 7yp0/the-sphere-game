@@ -33,6 +33,14 @@ add_custom_command(TARGET the_sphere_game POST_BUILD
     COMMENT "Copying assets to build directory"
 )
 
+# Copy shaders to build directory
+add_custom_command(TARGET the_sphere_game POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/src/renderer/shaders
+        ${CMAKE_BINARY_DIR}/shaders
+    COMMENT "Copying shaders to build directory"
+)
+
 # Find ZLIB (used for PNG decompression)
 find_package(ZLIB REQUIRED)
 

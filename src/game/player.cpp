@@ -1,5 +1,6 @@
 #include "player.h"
 #include "platform/mac/mac_window.h"
+#include "types.h"
 #include <cmath>
 
 namespace Game {
@@ -84,9 +85,7 @@ void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_he
 }
 
 Vec2 player_get_render_position(const Player& player, uint32_t viewport_width, uint32_t viewport_height) {
-        float norm_x = (player.position.x / (float)viewport_width) * 2.0f - 1.0f;
-    float norm_y = (player.position.y / (float)viewport_height) * 2.0f - 1.0f;
-    return Vec2(norm_x, norm_y);
+    return Coords::pixel_to_opengl(player.position, viewport_width, viewport_height);
 }
 
 }

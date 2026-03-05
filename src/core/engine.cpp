@@ -17,16 +17,16 @@ int engine_run(int argc, char** argv)
     }
     
     Platform::WindowConfig config;
-    config.width = 1024;
-    config.height = 768;
+    config.width = 512;
+    config.height = 360;
     config.title = "The Sphere Game";
 
     if (!Platform::init_window(config))
         return -1;
 
     Renderer::init_renderer(config.width, config.height);
-    Game::init();
     Game::set_viewport(config.width, config.height);
+    Game::init();
 
     auto lastFrameTime = std::chrono::high_resolution_clock::now();
 

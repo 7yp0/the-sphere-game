@@ -3,6 +3,7 @@
 #include "types.h"
 #include "renderer/renderer.h"
 #include "core/animation_bank.h"
+#include "scene/scene.h"
 #include <cstdint>
 
 namespace Game {
@@ -24,13 +25,7 @@ struct Player {
 };
 
 struct GameState {
-    Renderer::TextureID blueTex;
-    Renderer::TextureID redTex;
-    Renderer::TextureID greenTex;
-    
-    Renderer::SpriteAnimation anim;
-    Renderer::SpriteAnimation reverseAnim;
-    
+    Scene::Scene scene;
     Core::AnimationBank playerAnimations;
     Player player;
     

@@ -2,22 +2,47 @@
 #include "game/game.h"
 #include "renderer/renderer.h"
 #include "renderer/texture_loader.h"
-#include "renderer/animation.h"
 
 using Game::g_state;
 
 namespace Scene {
 
 void init_scene_test() {
-    g_state.blueTex = Renderer::load_texture("test.png");
-    g_state.redTex = Renderer::load_texture("test_red.png");
-    g_state.greenTex = Renderer::load_texture("test_green.png");
-
-    Renderer::TextureID animFrames[] = { g_state.redTex, g_state.greenTex, g_state.blueTex };
-    g_state.anim = Renderer::create_animation(animFrames, 3, 0.5f);
-
-    Renderer::TextureID reverseFrames[] = { g_state.blueTex, g_state.greenTex, g_state.redTex };
-    g_state.reverseAnim = Renderer::create_animation(reverseFrames, 3, 0.5f);
+    Scene scene;
+    scene.name = "test";
+    scene.width = 512;
+    scene.height = 360;
+    scene.background = Renderer::load_texture("scenes/test/backgrounds/bg_field.png");
+    
+    Prop tree1;
+    tree1.position = Vec2(100.0f, 80.0f);
+    tree1.size = Vec2(40.0f, 48.0f);
+    tree1.texture = Renderer::load_texture("scenes/test/props/prop_tree.png");
+    tree1.name = "tree1";
+    scene.props.push_back(tree1);
+    
+    Prop tree2;
+    tree2.position = Vec2(380.0f, 100.0f);
+    tree2.size = Vec2(40.0f, 48.0f);
+    tree2.texture = Renderer::load_texture("scenes/test/props/prop_tree.png");
+    tree2.name = "tree2";
+    scene.props.push_back(tree2);
+    
+    Prop stone;
+    stone.position = Vec2(200.0f, 150.0f);
+    stone.size = Vec2(24.0f, 24.0f);
+    stone.texture = Renderer::load_texture("scenes/test/props/prop_stone.png");
+    stone.name = "stone";
+    scene.props.push_back(stone);
+    
+    Prop chest;
+    chest.position = Vec2(300.0f, 120.0f);
+    chest.size = Vec2(32.0f, 24.0f);
+    chest.texture = Renderer::load_texture("scenes/test/props/prop_chest.png");
+    chest.name = "chest";
+    scene.props.push_back(chest);
+    
+    g_state.scene = scene;
 }
 
 }
