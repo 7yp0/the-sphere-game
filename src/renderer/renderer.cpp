@@ -128,8 +128,13 @@ void render_sprite_animated(const SpriteAnimation* anim, Vec2 pos, Vec2 size, fl
                    anim->current_frame, anim->frames.size());
         return;
     }
-    TextureID current_tex = anim->frames[anim->current_frame];
-    render_sprite(current_tex, pos, size, z_depth, pivot);
+    
+    // Get UV coordinates for current frame
+    const SpriteFrame& frame = anim->frames[anim->current_frame];
+    Vec4 tex_coord_range(frame.u0, frame.v0, frame.u1, frame.v1);
+    
+    // Render using sprite map texture with UV mapping
+    render_sprite(anim->texture, pos, size, tex_coord_range, z_depth, pivot);
 }
 
 void render_rect(Vec2 pos, Vec2 size, Vec4 color, float z_depth, PivotPoint pivot)

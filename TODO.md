@@ -26,9 +26,24 @@
   - [x] Z-depth implementation with GL_DEPTH_TEST enabled
   - [x] `Layers::get_z_depth()` conversion from Layer enum to OpenGL range [-1, 1]
 
+- [x] **Sprite Maps / Spritesheets (Phase 1.6)**
+  - [x] UV mapping system for sprite frames within single texture
+  - [x] `SpriteFrame` struct with UV coordinates (u0, v0, u1, v1)
+  - [x] Updated `SpriteAnimation` to use sprite map texture + UV coords instead of separate TextureIDs
+  - [x] Created test sprite map (player_spritesheet.png with 4 frames: idle + 3 walk)
+  - [x] `Renderer::render_sprite_animated()` updated to use UV mapping from sprite map
+  - [x] Updated `create_animation()` API to take texture + SpriteFrame array
+  - [x] Reduces texture bindings (1 binde pro animation statt 1 binde pro frame), improves memory layout
+
 - [x] **Test Assets**
   - [x] test.png (64x64 blue)
   - [x] Verify loading and rendering works
+
+- [ ] **Pixel-Perfect Rendering & Scaling**
+  - [ ] Integer-based scaling for pixel-perfect rendering
+  - [ ] Handle base resolution vs window resolution separation
+  - [ ] Pixel-art graphics system with depth scaling
+  - [ ] Depth-based character scaling (4x→1x based on depth)
 
 ---
 
@@ -246,18 +261,4 @@
 **Point-and-Click Depth Logic:**
 Player Y-position determines if they're in front of or behind occlusion objects (handled in Phase 4 with Y-Sorting)
 
-Last Updated: March 4, 2026 - Phase 1 Complete (Sprites, Animation, Layers)
-
-## FUTURE: Pixel-Art & Scaling Roadmap
-
-- [ ] Pixel-art graphics system with depth scaling
-- [ ] Integer-based scaling for pixel-perfect rendering
-- [ ] Depth-based character scaling (4x→1x based on depth)
-- [ ] Handle base resolution vs window resolution separation
-
-## FUTURE: Sprite Maps / Spritesheets
-
-- [ ] Convert individual sprite files to sprite maps (like Monkey Island <https://mattlane.co.nz/wp-content/uploads/2020/04/monkey-sprites-bigger.png>)
-- [ ] UV mapping system for animated frames from single texture
-- [ ] `AnimationBank` updated to use sprite map UV coordinates instead of separate TextureIDs
-- [ ] Reduces texture bindlings, better memory layout for large animation sets
+Last Updated: March 5, 2026 - Phase 1 Complete (Sprites, Animation, Layers) + Logging System Complete

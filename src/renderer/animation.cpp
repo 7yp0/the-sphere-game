@@ -4,7 +4,7 @@
 
 namespace Renderer {
 
-SpriteAnimation create_animation(const TextureID frames[], uint32_t count, float frame_duration) {
+SpriteAnimation create_animation(TextureID texture, const SpriteFrame frames[], uint32_t count, float frame_duration) {
     if (count == 0) {
         DEBUG_ERROR("Animation frame count must be > 0");
         return SpriteAnimation();
@@ -14,6 +14,7 @@ SpriteAnimation create_animation(const TextureID frames[], uint32_t count, float
         return SpriteAnimation();
     }
     SpriteAnimation anim;
+    anim.texture = texture;
     anim.frames.assign(frames, frames + count);
     anim.frame_duration = frame_duration;
     anim.elapsed_time = 0.0f;
