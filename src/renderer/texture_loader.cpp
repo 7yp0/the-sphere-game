@@ -15,6 +15,11 @@ namespace Renderer {
 static std::map<std::string, TextureID> g_texture_cache;
 
 TextureID load_texture(const char* path) {
+    if (!path) {
+        printf("ERROR: load_texture called with nullptr path\n");
+        return create_test_texture();
+    }
+    
     std::string path_str(path);
     
     // Check cache first
@@ -47,6 +52,7 @@ TextureID load_texture(const char* path) {
         return tex;
     }
     
+    printf("WARNING: Could not load texture '%s', using fallback\n", path);
     return create_test_texture();
 }
 

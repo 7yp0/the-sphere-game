@@ -34,7 +34,11 @@ GLuint compile_and_link_shader(const char* vertexSrc, const char* fragSrc)
     if (!success) {
         char infoLog[512];
         glGetProgramInfoLog(program, 512, nullptr, infoLog);
-        printf("Shader linking error: %s\n", infoLog);
+        printf("ERROR: Shader linking failed: %s\n", infoLog);
+        glDeleteProgram(program);
+        glDeleteShader(vertexShader);
+        glDeleteShader(fragmentShader);
+        return 0;
     }
 
     glDeleteShader(vertexShader);

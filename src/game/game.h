@@ -6,10 +6,12 @@
 
 namespace Game {
 
+constexpr float PLAYER_SPEED = 300.0f;
+
 struct Player {
     Vec2 position;          // Pixel coordinates (0-1024, 0-768)
     Vec2 target_position;   // Pixel coordinates
-    float speed = 200.0f;   // pixels per second
+    float speed = PLAYER_SPEED;   // pixels per second
     Renderer::TextureID texture;
 };
 

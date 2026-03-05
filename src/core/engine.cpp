@@ -11,6 +11,8 @@ int engine_run(int argc, char** argv)
     // Initialize asset manager with executable path for resource loading
     if (argc > 0) {
         Renderer::init_asset_manager(argv[0]);
+    } else {
+        printf("WARNING: No argv provided, asset loading may fail.\n");
     }
     
     Platform::WindowConfig config;

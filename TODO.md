@@ -242,3 +242,10 @@
 Player Y-position determines if they're in front of or behind occlusion objects (handled in Phase 4 with Y-Sorting)
 
 Last Updated: March 4, 2026 - Phase 1 Complete (Sprites, Animation, Layers)
+
+## FUTURE: Pixel-Art & Scaling Roadmap
+
+- [ ] Pixel-art graphics system with depth scaling
+- [ ] Integer-based scaling for pixel-perfect rendering
+- [ ] Depth-based character scaling (4x→1x based on depth)
+- [ ] Handle base resolution vs window resolution separation

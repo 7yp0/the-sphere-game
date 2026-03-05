@@ -79,15 +79,11 @@ void render_sprite(TextureID tex, Vec2 pos, Vec2 size, float z_depth)
 
 void render_sprite_animated(const SpriteAnimation* anim, Vec2 pos, Vec2 size, float z_depth)
 {
-    if (!anim || anim->frame_count == 0) {
+    if (!anim || anim->frames.empty()) {
         printf("ERROR: Invalid animation for rendering\n");
         return;
     }
-    
-    // Get current frame texture
     TextureID current_tex = anim->frames[anim->current_frame];
-    
-    // Render with current frame
     render_sprite(current_tex, pos, size, z_depth);
 }
 
@@ -103,6 +99,4 @@ void shutdown()
         glDeleteBuffers(1, &quadVBO);
     }
 }
-
 }
-
