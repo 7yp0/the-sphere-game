@@ -1,7 +1,10 @@
 #include "player.h"
+#include "game.h"
 #include "platform/mac/mac_window.h"
 #include "types.h"
+#include "config.h"
 #include <cmath>
+#include <algorithm>
 
 namespace Game {
 
@@ -10,18 +13,27 @@ const float PLAYER_VIEWPORT_MARGIN = 0.0f;
 
 void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_height, 
                  Core::AnimationBank* animations) {
+    // Spawn player at center of scene
     player.position = Vec2(viewport_width * 0.5f, viewport_height * 0.5f);
     player.target_position = Vec2(viewport_width * 0.5f, viewport_height * 0.5f);
     player.speed = PLAYER_SPEED;
     player.animation_state = AnimationState::Idle;
     player.animations = animations;
+    // size is already initialized in Player struct
 }
 
 void player_handle_input(Player& player) {
     if (Platform::mouse_clicked()) {
         Vec2 mouse_pos = Platform::get_mouse_pos();
-        // Validate that mouse is within reasonable bounds (screen space)
-        // Platform should return valid coordinates, but sanity-check anyway
+        // Validate mouse position is within scene bounds before setting target
+        // Clamp to prevent target outside playable area
+        const float margin = 20.0f;  // Keep player away from edges
+        float scene_width = static_cast<float>(g_state.scene.width);
+        float scene_height = static_cast<float>(g_state.scene.height);
+        
+        mouse_pos.x = std::max(margin, std::min(scene_width - margin, mouse_pos.x));
+        mouse_pos.y = std::max(margin, std::min(scene_height - margin, mouse_pos.y));
+        
         player.target_position = mouse_pos;
     }
 }

@@ -5,6 +5,7 @@
 #include "renderer/texture_loader.h"
 #include "renderer/asset_manager.h"
 #include "game/game.h"
+#include "config.h"
 #include <chrono>
 
 int engine_run(int argc, char** argv)
@@ -17,9 +18,9 @@ int engine_run(int argc, char** argv)
     }
     
     Platform::WindowConfig config;
-    config.width = 512;
-    config.height = 360;
-    config.title = "The Sphere Game";
+    config.width = Config::VIEWPORT_WIDTH;
+    config.height = Config::VIEWPORT_HEIGHT;
+    config.title = Config::WINDOW_TITLE;
 
     if (!Platform::init_window(config))
         return -1;

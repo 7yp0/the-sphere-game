@@ -68,8 +68,8 @@ void render() {
     const char* anim_name = (g_state.player.animation_state == AnimationState::Idle) ? "idle" : "walk";
     Renderer::SpriteAnimation* player_anim = g_state.playerAnimations.get(anim_name);
     if (player_anim) {
-        // Player position is in pixels, size is in pixels
-        Renderer::render_sprite_animated(player_anim, g_state.player.position, Vec2(30.0f, 30.0f),
+        // Player position and size from player struct
+        Renderer::render_sprite_animated(player_anim, g_state.player.position, g_state.player.size,
                                          Layers::get_z_depth(Layer::PLAYER), g_state.player.pivot);
     }
     
@@ -81,6 +81,8 @@ void render() {
 }
 
 void shutdown() {
+    // Cleanup happens in Renderer::shutdown() and asset cleanup
+    // Player animations cleaned up through Core::AnimationBank destructor
 }
 
 }

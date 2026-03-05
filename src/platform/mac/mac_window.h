@@ -2,13 +2,14 @@
 
 #include <cstdint>
 #include "types.h"
+#include "config.h"
 
 namespace Platform {
 
 struct WindowConfig {
-    uint32_t width = 800;
-    uint32_t height = 600;
-    const char* title = "The Sphere Game";
+    uint32_t width = Config::VIEWPORT_WIDTH;
+    uint32_t height = Config::VIEWPORT_HEIGHT;
+    const char* title = Config::WINDOW_TITLE;
 };
 
 bool init_window(const WindowConfig& config);

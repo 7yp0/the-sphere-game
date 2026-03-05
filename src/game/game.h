@@ -4,6 +4,7 @@
 #include "renderer/renderer.h"
 #include "core/animation_bank.h"
 #include "scene/scene.h"
+#include "config.h"
 #include <cstdint>
 
 namespace Game {
@@ -17,8 +18,9 @@ enum class AnimationState {
 };
 
 struct Player {
-    Vec2 position;                              // Pixel coordinates (0-1024, 0-768)
-    Vec2 target_position;                       // Pixel coordinates
+    Vec2 position;                              // Pixel coordinates in scene space (0 to scene.width/height)
+    Vec2 target_position;                       // Pixel coordinates in scene space
+    Vec2 size = Vec2(30.0f, 30.0f);             // Sprite dimensions in pixels
     float speed = PLAYER_SPEED;                 // pixels per second
     AnimationState animation_state = AnimationState::Idle;
     Core::AnimationBank* animations;            // Generic animation bank for any entity
@@ -30,8 +32,8 @@ struct GameState {
     Core::AnimationBank playerAnimations;
     Player player;
     
-    uint32_t viewport_width = 1024;
-    uint32_t viewport_height = 768;
+    uint32_t viewport_width = Config::VIEWPORT_WIDTH;
+    uint32_t viewport_height = Config::VIEWPORT_HEIGHT;
 };
 
 extern GameState g_state;
