@@ -8,9 +8,6 @@ static std::string g_asset_base_path;
 
 void init_asset_manager(const char* executable_path)
 {
-    // Extract directory from executable path
-    // e.g., "/path/to/build/the_sphere_game" -> "/path/to/build"
-    
     std::string path_str(executable_path);
     size_t last_slash = path_str.find_last_of("/\\");
     
@@ -23,7 +20,6 @@ void init_asset_manager(const char* executable_path)
 
 std::string get_asset_path(const char* filename)
 {
-    // Returns: {executable_dir}/assets/{filename}
     return g_asset_base_path + "/assets/" + filename;
 }
 

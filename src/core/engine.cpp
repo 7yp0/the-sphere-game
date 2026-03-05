@@ -1,4 +1,5 @@
 #include "core/engine.h"
+#include "core/timing.h"
 #include "platform/mac/mac_window.h"
 #include "renderer/renderer.h"
 #include "renderer/texture_loader.h"
@@ -27,20 +28,17 @@ int engine_run(int argc, char** argv)
     Game::init();
     Game::set_viewport(config.width, config.height);
 
-    // Delta time tracking
     auto lastFrameTime = std::chrono::high_resolution_clock::now();
 
     bool running = true;
     while (running) {
-        // Calculate delta time
         auto now = std::chrono::high_resolution_clock::now();
         float deltaTime = std::chrono::duration<float>(now - lastFrameTime).count();
         lastFrameTime = now;
         
-        // Update game state and logic
+        Core::update_delta_time(deltaTime);
         Game::update(deltaTime);
 
-        // Render
         Renderer::clear_screen();
         Game::render();
         Platform::swap_buffers();
@@ -48,7 +46,6 @@ int engine_run(int argc, char** argv)
         running = !Platform::window_should_close();
     }
 
-    // Cleanup
     Game::shutdown();
     Renderer::clear_texture_cache();
     Renderer::shutdown();

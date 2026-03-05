@@ -15,10 +15,9 @@ void init_renderer(uint32_t width, uint32_t height)
     glViewport(0, 0, width, height);
     
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);  // Accept z <= depth_buffer (standard)
+    glDepthFunc(GL_LEQUAL);
 
     float vertices[] = {
-        // Position       // TexCoord
         -0.5f, -0.5f,     0.0f, 1.0f,
          0.5f, -0.5f,     1.0f, 1.0f,
         -0.5f,  0.5f,     0.0f, 0.0f,
@@ -32,7 +31,6 @@ void init_renderer(uint32_t width, uint32_t height)
     glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    // Position attribute
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
 

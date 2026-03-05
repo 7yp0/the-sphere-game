@@ -11,7 +11,6 @@
 
 namespace Renderer {
 
-// Texture cache: filename -> TextureID
 static std::map<std::string, TextureID> g_texture_cache;
 
 TextureID load_texture(const char* path) {
@@ -22,16 +21,12 @@ TextureID load_texture(const char* path) {
     
     std::string path_str(path);
     
-    // Check cache first
     auto it = g_texture_cache.find(path_str);
     if (it != g_texture_cache.end()) {
-        return it->second;  // Return cached texture
+        return it->second;
     }
-    
-    // Try PNG first
     PNGImage img = png_load(path);
     if (img.pixels != nullptr) {
-        // Create OpenGL texture
         GLuint tex = 0;
         glGenTextures(1, &tex);
         glBindTexture(GL_TEXTURE_2D, tex);
@@ -47,7 +42,6 @@ TextureID load_texture(const char* path) {
         glBindTexture(GL_TEXTURE_2D, 0);
         png_free(img);
         
-        // Cache it
         g_texture_cache[path_str] = tex;
         return tex;
     }
@@ -57,15 +51,14 @@ TextureID load_texture(const char* path) {
 }
 
 TextureID create_test_texture() {
-    // Create a simple 64x64 red test texture
     const int size = 64;
     unsigned char* data = new unsigned char[size * size * 4];
     
     for (int i = 0; i < size * size * 4; i += 4) {
-        data[i]     = 255;  // R
-        data[i + 1] = 0;    // G
-        data[i + 2] = 0;    // B
-        data[i + 3] = 255;  // A
+        data[i]     = 255;
+        data[i + 1] = 0;
+        data[i + 2] = 0;
+        data[i + 3] = 255;
     }
     
     GLuint tex;
@@ -86,11 +79,10 @@ void free_texture(TextureID tex) {
 }
 
 void clear_texture_cache() {
-    // Free all cached textures
     for (auto& pair : g_texture_cache) {
         glDeleteTextures(1, &pair.second);
     }
     g_texture_cache.clear();
 }
 
-} // namespace Renderer
+}

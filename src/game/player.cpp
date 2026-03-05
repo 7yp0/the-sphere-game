@@ -4,16 +4,16 @@
 
 namespace Game {
 
-// Player movement constants
-const float PLAYER_DISTANCE_THRESHOLD = 1.0f;  // pixels
-const float PLAYER_VIEWPORT_MARGIN = 0.0f;     // 0% margin, player can reach edge
+const float PLAYER_DISTANCE_THRESHOLD = 1.0f;
+const float PLAYER_VIEWPORT_MARGIN = 0.0f;
 
 void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_height, 
-                 Renderer::TextureID texture) {
+                 Core::AnimationBank* animations) {
     player.position = Vec2(viewport_width * 0.5f, viewport_height * 0.5f);
     player.target_position = Vec2(viewport_width * 0.5f, viewport_height * 0.5f);
     player.speed = PLAYER_SPEED;
-    player.texture = texture;
+    player.animation_state = AnimationState::Idle;
+    player.animations = animations;
 }
 
 void player_handle_input(Player& player) {
@@ -25,7 +25,6 @@ void player_handle_input(Player& player) {
     }
 }
 
-// Clamp player position to viewport bounds with safety margin
 static void clamp_player_position(Player& player, uint32_t viewport_width, uint32_t viewport_height) {
     const float left = PLAYER_VIEWPORT_MARGIN * viewport_width;
     const float right = (1.0f - PLAYER_VIEWPORT_MARGIN) * viewport_width;
@@ -37,40 +36,55 @@ static void clamp_player_position(Player& player, uint32_t viewport_width, uint3
 }
 
 void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_height, float delta_time) {
-    // Calculate direction vector to target
     Vec2 direction = Vec2(
         player.target_position.x - player.position.x,
         player.target_position.y - player.position.y
     );
     
-    // Calculate distance
     float distance_sq = direction.x * direction.x + direction.y * direction.y;
     float distance = std::sqrt(distance_sq);
+    bool is_moving = distance > PLAYER_DISTANCE_THRESHOLD;
     
-    // Only move if distance is significant (avoid jitter at target)
-    if (distance > PLAYER_DISTANCE_THRESHOLD) {
-        // Normalize direction
+    AnimationState new_state = is_moving ? AnimationState::Walking : AnimationState::Idle;
+    if (new_state != player.animation_state) {
+        player.animation_state = new_state;
+        if (player.animation_state == AnimationState::Idle && player.animations) {
+            Renderer::SpriteAnimation* idle_anim = player.animations->get("idle");
+            if (idle_anim) {
+                Renderer::animation_reset(idle_anim);
+            }
+        } else if (player.animation_state == AnimationState::Walking && player.animations) {
+            Renderer::SpriteAnimation* walk_anim = player.animations->get("walk");
+            if (walk_anim) {
+                Renderer::animation_reset(walk_anim);
+            }
+        }
+    }
+    
+    const char* anim_name = (player.animation_state == AnimationState::Idle) ? "idle" : "walk";
+    Renderer::SpriteAnimation* current_anim = 
+        (player.animations) ? player.animations->get(anim_name) : nullptr;
+    if (current_anim) {
+        Renderer::animate(current_anim, delta_time);
+    }
+    
+    if (is_moving) {
         direction.x /= distance;
         direction.y /= distance;
         
-        // Calculate movement
         Vec2 movement = Vec2(
             direction.x * player.speed * delta_time,
             direction.y * player.speed * delta_time
         );
         
-        // Update position
         player.position.x += movement.x;
         player.position.y += movement.y;
-        
-        // Keep within viewport bounds
         clamp_player_position(player, viewport_width, viewport_height);
     }
 }
 
 Vec2 player_get_render_position(const Player& player, uint32_t viewport_width, uint32_t viewport_height) {
-    // Convert pixel coordinates to normalized render space [-1, 1]
-    float norm_x = (player.position.x / (float)viewport_width) * 2.0f - 1.0f;
+        float norm_x = (player.position.x / (float)viewport_width) * 2.0f - 1.0f;
     float norm_y = (player.position.y / (float)viewport_height) * 2.0f - 1.0f;
     return Vec2(norm_x, norm_y);
 }
