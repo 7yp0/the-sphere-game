@@ -30,6 +30,4 @@ struct AnimationBank {
     }
 };
 
-void animation_bank_load_player(AnimationBank& bank);
-
 }

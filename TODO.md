@@ -43,7 +43,7 @@
   - [ ] Integer-based scaling for pixel-perfect rendering
   - [ ] Handle base resolution vs window resolution separation
   - [ ] Pixel-art graphics system with depth scaling
-  - [ ] Depth-based character scaling (4x→1x based on depth)
+  - [ ] Depth-based character scaling (4x→1x based on depth) based on horizont line (everything above or below (configurable) scales down or up)
 
 ---
 
@@ -100,21 +100,79 @@
 
 ## Phase 4: Collision & Interaction
 
-- [ ] **Collision Detection**
-  - [ ] AABB collision for props
-  - [ ] Pathfinding (simple grid-based A*)
-  - [ ] Walk around obstacles
-  - [ ] **Y-Sorting for Z-Depth** - Player z_depth = player.position.y to render behind/in front of props based on screen depth
+### 4.1 Polygon-Based Collision System (Foundation)
 
-- [ ] **Prop Interaction**
-  - [ ] Interaction detection (proximity to prop)
-  - [ ] Interactive vs non-interactive props
-  - [ ] Callback system for prop events
+- [ ] **Generic Polygon Utilities**
+  - [ ] `Polygon` struct: array of 2D points (Vec2), closed path
+  - [ ] `point_in_polygon()` - point-in-polygon test (used for: click within hotspot, point within walkable area)
+  - [ ] `closest_point_on_polygon()` - find nearest point on polygon boundary (used for: clamp target to walkable area edge)
+  - [ ] `line_intersects_polygon()` - path validation (used for: check if walk path crosses obstacle)
+  - [ ] `polygon_collision()` - polygon-vs-polygon (used for: obstacle detection)
+  - [ ] Location: `src/collision/polygon_utils.h/cpp` or `src/renderer/polygon_utils.h/cpp`
+
+- [ ] **Scene Geometry**
+  - [ ] `Game::SceneGeometry` struct contains:
+    - `Polygon[] walkable_areas` - player can walk here (outer boundary + inner holes as separate polygons)
+    - `Hotspot[] hotspots` - interactive regions (also polygons with callbacks)
+  - [ ] All stored in Scene
+  - [ ] Serialization: JSON format with polygon vertex arrays
+  - [ ] Render all polygons (walkable/hotspots) with different colors (D toggle)
+  - [ ] Display polygon vertices
+  - [ ] Show closest point on boundary when hovering/clicking
+
+### 4.2 Walkable Areas & Pathfinding
+
+- [ ] **Player Movement with Collision**
+  - [ ] On click: validate target point with `point_in_walkable_areas(target, walkable_areas[])`
+  - [ ] If outside all walkable areas: use `closest_point_on_any_polygon(target, walkable_areas[])` as actual destination
+  - [ ] Use `line_intersects_walkable(path_start, path_end, walkable_areas[])` to validate walk path
+  - [ ] On collision: slide along polygon edge (smooth wall following)
+
+- [ ] **Pathfinding System** (Ron Gilbert approach)
+  - [ ] When target is outside walkable areas: find closest valid point on any area boundary
+  - [ ] When target is inside any walkable area: move directly to target
+  - [ ] Player slides along polygon edges when path clips boundary
+  - [ ] Implementation: project target→closest-point, walk there, continue
+  - [ ] Holes in walkable area = separate negative polygons in walkable_areas[] array
+
+- [ ] **No Separate Obstacle System**
+  - [ ] Holes in walkable area = separate negative polygons in walkable_areas[] array
+  - [ ] "Not walkable" = "not in any walkable_areas polygon" (simplifies logic)
+  - [ ] pathfinding validates all moves against all walkable_areas polygons
+
+### 4.3 Hotspot System (Point-and-Click Interaction)
+
+- [ ] **Hotspot Definition**
+  - [ ] `Game::Hotspot` struct with: polygon (bounds), interaction_distance, enabled flag, callback
+  - [ ] Hotspots are polygons stored in SceneGeometry
+  - [ ] Each hotspot has a callback function pointer
+  - [ ] Interaction distance configurable per hotspot (0 = on boundary, N = range in pixels)
+
+- [ ] **Hotspot Click Detection**
+  - [ ] On mouse click: use `point_in_polygon(click_pos, hotspot.polygon)` for all hotspots
+  - [ ] For each hotspot hit: check if player can reach its interaction distance
+  - [ ] If reachable: player walks to closest walkable point within `interaction_distance` of hotspot, then triggers callback
+  - [ ] If unreachable: don't walk, trigger callback immediately to show feedback ("Can't reach")
+  - [ ] If player already within interaction distance: trigger action immediately (no walk needed)
+
+- [ ] **Interaction Flow**
+  - [ ] Player clicks hotspot → validate against walkable_areas[] to find reachable destination
+  - [ ] Player walks there (pathfinding against walkable_areas) → trigger hotspot callback
+  - [ ] Hotspot callback handles game logic (dialogue, item pickup, state change, etc.)
+  - [ ] Multiple hotspots per prop allowed (e.g., "look at tree", "climb tree")
+
+### 4.4 Player State & Depth
+
+- [ ] **Y-Sorting for Z-Depth**
+  - [ ] Player z_depth = player.position.y (camera depth coordinate)
+  - [ ] Props z_depth based on position.y
+  - [ ] Hotspots don't affect rendering (invisible, only interactive)
+  - [ ] Correct rendering order: behind/in-front based on screen depth
 
 - [ ] **Player State Machine** (minimal)
-  - [ ] Walk state
   - [ ] Idle state
-  - [ ] Interaction state (if needed)
+  - [ ] Walking state  
+  - [ ] Interacting state (brief, often immediate)
 
 ---
 
@@ -243,6 +301,34 @@
 - Don't add complexity until needed
 - Keep all code in `src/` (C++ where possible, Objective-C++ only for Platform)
 - Data before behavior (structs before functions)
+- Geometry Editor enables rapid iteration without code recompilation
+
+---
+
+## Geometry Data Format (JSON)
+
+```json
+{
+  "walkable_areas": [
+    {
+      "name": "main_area",
+      "points": [[100, 100], [500, 100], [500, 400], [100, 400]]
+    },
+    {
+      "name": "hole_1",
+      "points": [[200, 150], [300, 150], [300, 250], [200, 250]]
+    }
+  ],
+  "hotspots": [
+    {
+      "name": "tree",
+      "interaction_distance": 30,
+      "points": [[250, 80], [280, 80], [290, 120], [260, 130], [230, 120]],
+      "callback": "interact_tree"
+    }
+  ]
+}
+```
 
 ---
 
@@ -261,4 +347,7 @@
 **Point-and-Click Depth Logic:**
 Player Y-position determines if they're in front of or behind occlusion objects (handled in Phase 4 with Y-Sorting)
 
-Last Updated: March 5, 2026 - Phase 1 Complete (Sprites, Animation, Layers) + Logging System Complete
+Last Updated: March 6, 2026
+
+- Phase 1 Complete (Sprites, Animation, Layers) + Logging System + Player Architecture
+- Phase 4 Interaction System redesigned for Point-and-Click Adventure Game (Hotspot-based)

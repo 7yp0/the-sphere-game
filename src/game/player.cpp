@@ -3,6 +3,8 @@
 #include "platform/mac/mac_window.h"
 #include "types.h"
 #include "config.h"
+#include "renderer/texture_loader.h"
+#include "renderer/spritesheet_utils.h"
 #include <cmath>
 #include <algorithm>
 
@@ -13,13 +15,36 @@ const float PLAYER_BOUNDARY_MARGIN = 10.0f;  // Keep player away from scene edge
 
 void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_height, 
                  Core::AnimationBank* animations) {
-    // Spawn player at center of scene
+    // Load player spritesheet
+    Renderer::TextureID player_sprite_map = Renderer::load_texture("player/player_spritesheet.png");
+    
+    // Calculate UV coordinates for all 4 frames in a 4-column, 1-row grid
+    auto uv_frames = Renderer::create_uv_grid(4, 1);
+    
+    // Idle animation - frame 0 only
+    Renderer::SpriteAnimation idle_anim;
+    idle_anim.texture = player_sprite_map;
+    idle_anim.frames = { uv_frames[0] };
+    idle_anim.frame_duration = 1.0f;
+    idle_anim.elapsed_time = 0.0f;
+    idle_anim.current_frame = 0;
+    animations->add("idle", idle_anim);
+    
+    // Walk animation - frames 1, 2, 3
+    Renderer::SpriteAnimation walk_anim;
+    walk_anim.texture = player_sprite_map;
+    walk_anim.frames = { uv_frames[1], uv_frames[2], uv_frames[3] };
+    walk_anim.frame_duration = 0.2f;
+    walk_anim.elapsed_time = 0.0f;
+    walk_anim.current_frame = 0;
+    animations->add("walk", walk_anim);
+    
+    // Initialize player entity
     player.position = Vec2(viewport_width * 0.5f, viewport_height * 0.5f);
     player.target_position = Vec2(viewport_width * 0.5f, viewport_height * 0.5f);
     player.speed = PLAYER_SPEED;
     player.animation_state = AnimationState::Idle;
     player.animations = animations;
-    // size is already initialized in Player struct
 }
 
 void player_handle_input(Player& player) {

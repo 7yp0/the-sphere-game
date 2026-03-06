@@ -20,7 +20,6 @@ static bool g_prev_key_d = false;
 #endif
 
 static void init_player() {
-    Core::animation_bank_load_player(g_state.playerAnimations);
     player_init(g_state.player, g_state.viewport_width, g_state.viewport_height, 
                 &g_state.playerAnimations);
 }
