@@ -39,22 +39,6 @@
   - [x] test.png (64x64 blue)
   - [x] Verify loading and rendering works
 
-- [ ] **Pixel-Perfect Rendering & Scaling**
-  - [ ] Define base resolution (e.g., 320x180) where game logic lives
-  - [ ] Support any window resolution (e.g., 1920x1080)
-  - [ ] Float-based scaling: `scale_factor = window_res / base_res` (GPU handles upscaling smoothly)
-  - [ ] No integer-scaling requirement: allows flexible window sizes
-  - [ ] Scene stores `horizon_y` (pixel Y-coordinate where scale = 1.0)
-
-- [ ] **Depth-Based Character Scaling** (2.5D effect)
-  - [ ] Calculate character scale based on Y position relative to horizon
-  - [ ] Formula: `scale = 1.0 + (horizon_y - sprite.y) * scale_factor`
-  - [ ] Above horizon (smaller Y) → scale down (closer to camera = appear smaller)
-  - [ ] Below horizon (larger Y) → scale stays at 1.0 or below (away from camera)
-  - [ ] Character scale range: `0.01` (minimum) to `1.0` (maximum at/below horizon)
-  - [ ] Linear scaling: if non-linear needed, add multiple `horizon_y` regions with different gradient_factors
-  - [ ] Apply depth scaling in vertex shader or CPU before render call
-
 ---
 
 ## Phase 2: Core Input & Movement (COMPLETE)
@@ -105,6 +89,28 @@
   - [x] Load background (bg_field.png)
   - [x] Place test props (tree, stone, chest)
   - [x] Pixel-based placement system
+
+---
+
+## Phase 3.5: Pixel-Perfect Rendering & 2.5D Depth Scaling (COMPLETE)
+
+- [x] **Pixel-Perfect Rendering & Scaling**
+  - [x] Define base resolution (336x189) where game logic lives
+  - [x] Support any window resolution (672x378 viewport)
+  - [x] Float-based scaling: `scale_factor = viewport_height / BASE_HEIGHT` (GPU handles upscaling smoothly)
+  - [x] No integer-scaling requirement: allows flexible window sizes
+  - [x] Scene stores `HorizonLine` structs with y_position and scale_gradient per horizon
+
+- [x] **Depth-Based Character Scaling** (2.5D effect)
+  - [x] Calculate character scale based on Y position relative to horizon
+  - [x] Formula: `scale = 1.0 + (sprite_y - horizon_y) * scale_gradient`
+  - [x] Above horizon (smaller Y) → scale down (away from camera)
+  - [x] Below horizon (larger Y) → scale up (closer to camera)
+  - [x] Character scale range: `0.01` (minimum) to `2.0` (maximum when scaled up)
+  - [x] Multi-horizon zones: Between horizons = no scaling (scale = 1.0)
+  - [x] Configurable `scale_gradient` per horizon line for flexible scaling rates
+  - [x] Inverted mode support for isometric/top-down perspectives
+  - [x] Applied in render pipeline via `render_sprite_animated_with_depth()`
 
 ---
 

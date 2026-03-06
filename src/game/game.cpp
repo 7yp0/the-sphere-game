@@ -30,6 +30,11 @@ void init() {
 void set_viewport(uint32_t width, uint32_t height) {
     g_state.viewport_width = width;
     g_state.viewport_height = height;
+    
+    // Calculate 2.5D depth scaling factor
+    // scale_factor = viewport_height / base_height
+    // Used in depth scaling formula: scale = 1.0 + (horizon_y - sprite.y) * scale_factor
+    g_state.scale_factor = (float)height / (float)Config::BASE_HEIGHT;
 }
 
 void update(float delta_time) {
@@ -56,13 +61,30 @@ void render() {
                                Layers::get_z_depth(Layer::MIDGROUND), prop.pivot);
     }
     
-    // Player - use pixel coordinates
+    // Player - render with depth-based scaling for 2.5D effect
     const char* anim_name = (g_state.player.animation_state == AnimationState::Idle) ? "idle" : "walk";
     Renderer::SpriteAnimation* player_anim = g_state.playerAnimations.get(anim_name);
     if (player_anim) {
-        // Player position and size from player struct
-        Renderer::render_sprite_animated(player_anim, g_state.player.position, g_state.player.size,
-                                         Layers::get_z_depth(Layer::PLAYER), g_state.player.pivot);
+        Scene::HorizonLine* horizon = Scene::find_closest_horizon(g_state.scene, g_state.player.position.y);
+        if (horizon) {
+            Renderer::render_sprite_animated_with_depth(
+                player_anim, 
+                g_state.player.position, 
+                g_state.player.size,
+                g_state.player.position.y,
+                horizon->y_position,
+                horizon->scale_gradient,
+                horizon->depth_scale_inverted,
+                Layers::get_z_depth(Layer::PLAYER), 
+                g_state.player.pivot
+            );
+        } else {
+            // No horizons configured - render without depth scaling
+            Renderer::render_sprite_animated(player_anim, g_state.player.position, 
+                                            g_state.player.size,
+                                            Layers::get_z_depth(Layer::PLAYER),
+                                            g_state.player.pivot);
+        }
     }
     
     // Debug overlay

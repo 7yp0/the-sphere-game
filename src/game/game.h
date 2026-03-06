@@ -17,6 +17,10 @@ struct GameState {
     
     uint32_t viewport_width = Config::VIEWPORT_WIDTH;
     uint32_t viewport_height = Config::VIEWPORT_HEIGHT;
+    
+    // 2.5D depth scaling factor: (window_res / base_res)
+    // Used to translate base resolution Y-positions to depth scale calculations
+    float scale_factor = 1.0f;  // Will be calculated: viewport_height / BASE_HEIGHT
 };
 
 extern GameState g_state;

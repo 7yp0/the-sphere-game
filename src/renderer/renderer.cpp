@@ -4,6 +4,7 @@
 #include "texture_loader.h"
 #include "debug/debug_log.h"
 #include "opengl_compat.h"
+#include "config.h"
 
 namespace Renderer {
 
@@ -191,4 +192,61 @@ void shutdown()
         glDeleteBuffers(1, &quadVBO);
     }
 }
+
+// 2.5D Depth Scaling Implementation
+
+float calculate_depth_scale(float sprite_y, float horizon_y, float scale_gradient, bool inverted)
+{
+    float depth = inverted ? (horizon_y - sprite_y) : (sprite_y - horizon_y);
+    float scale = 1.0f + depth * scale_gradient;
+    
+    if (scale < Config::SCALE_MIN) scale = Config::SCALE_MIN;
+    if (scale > Config::SCALE_MAX) scale = Config::SCALE_MAX;
+    
+    return scale;
+}
+
+void render_sprite_with_depth(TextureID tex, Vec2 pos, Vec2 base_size, float sprite_y,
+                              float horizon_y, float scale_gradient, bool inverted,
+                              float z_depth, PivotPoint pivot)
+{
+    render_sprite_with_depth(tex, pos, base_size, Vec4(0.0f, 0.0f, 1.0f, 1.0f),
+                           sprite_y, horizon_y, scale_gradient, inverted, z_depth, pivot);
+}
+
+void render_sprite_with_depth(TextureID tex, Vec2 pos, Vec2 base_size, Vec4 tex_coord_range,
+                              float sprite_y, float horizon_y, float scale_gradient, bool inverted,
+                              float z_depth, PivotPoint pivot)
+{
+    float depth_scale = calculate_depth_scale(sprite_y, horizon_y, scale_gradient, inverted);
+    
+    Vec2 scaled_size = Vec2(
+        base_size.x * depth_scale,
+        base_size.y * depth_scale
+    );
+    
+    render_sprite(tex, pos, scaled_size, tex_coord_range, z_depth, pivot);
+}
+
+void render_sprite_animated_with_depth(const SpriteAnimation* anim, Vec2 pos, Vec2 base_size,
+                                       float sprite_y, float horizon_y, float scale_gradient, bool inverted,
+                                       float z_depth, PivotPoint pivot)
+{
+    if (!anim || anim->frames.empty()) {
+        DEBUG_ERROR("render_sprite_animated_with_depth() - invalid animation (null or empty frames)");
+        return;
+    }
+    if (anim->current_frame >= anim->frames.size()) {
+        DEBUG_ERROR("render_sprite_animated_with_depth() - current_frame (%u) out of bounds (size: %zu)",
+                   anim->current_frame, anim->frames.size());
+        return;
+    }
+    
+    const SpriteFrame& frame = anim->frames[anim->current_frame];
+    Vec4 tex_coord_range(frame.u0, frame.v0, frame.u1, frame.v1);
+    
+    render_sprite_with_depth(anim->texture, pos, base_size, tex_coord_range,
+                           sprite_y, horizon_y, scale_gradient, inverted, z_depth, pivot);
+}
+
 }
