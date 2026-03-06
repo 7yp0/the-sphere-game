@@ -5,19 +5,17 @@
 #include "renderer/renderer.h"
 #include "renderer/texture_loader.h"
 #include "renderer/animation.h"
-#include "platform/mac/mac_window.h"
+#include "platform.h"
 #include "scene/scene.h"
 #include "debug/debug.h"
 #include "types.h"
 #include <cmath>
 #include <cstdio>
+#include <cstdio>
 
 namespace Game {
 
 GameState g_state;
-#ifndef NDEBUG
-static bool g_prev_key_d = false;
-#endif
 
 static void init_player() {
     player_init(g_state.player, g_state.viewport_width, g_state.viewport_height, 
@@ -38,12 +36,7 @@ void update(float delta_time) {
     Core::update_delta_time(delta_time);
     
 #ifndef NDEBUG
-    // Toggle debug overlay on D key press (with edge detection)
-    bool key_d = Platform::key_pressed(2);
-    if (key_d && !g_prev_key_d) {
-        Debug::toggle_overlay();
-    }
-    g_prev_key_d = key_d;
+    Debug::handle_debug_keys();
 #endif
     
     player_handle_input(g_state.player);
@@ -75,7 +68,7 @@ void render() {
     // Debug overlay
     Vec2 mouse_pixel = Platform::get_mouse_pos();
 #ifndef NDEBUG
-    Debug::render_overlay(mouse_pixel, 0, 0);
+    Debug::render_overlay(mouse_pixel);
 #endif
 }
 

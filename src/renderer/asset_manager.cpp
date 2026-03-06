@@ -1,8 +1,12 @@
 #include "asset_manager.h"
+#include "../debug/debug_log.h"
 #include <cstring>
 #include <cstdlib>
 #ifdef __APPLE__
 #include <sys/stat.h>
+#endif
+#ifdef _WIN32
+#include <windows.h>
 #endif
 
 namespace Renderer {
@@ -12,7 +16,24 @@ static std::string g_asset_base_path;
 void init_asset_manager(const char* executable_path)
 {
     std::string path_str(executable_path);
-    size_t last_slash = path_str.find_last_of("/\\");
+    
+    // On Windows, argv[0] might be just the filename without path
+    // Use GetModuleFileName to get the full path
+#ifdef _WIN32
+    char full_path[MAX_PATH];
+    if (GetModuleFileNameA(nullptr, full_path, MAX_PATH)) {
+        path_str = full_path;
+        // Normalize: convert backslashes to forward slashes for consistency
+        for (auto& c : path_str) {
+            if (c == '\\') c = '/';
+        }
+        DEBUG_INFO("GetModuleFileName: %s", path_str.c_str());
+    } else {
+        DEBUG_INFO("GetModuleFileName failed, using argv[0]: %s", executable_path);
+    }
+#endif
+    
+    size_t last_slash = path_str.find_last_of("/");
     
     std::string exe_dir;
     if (last_slash != std::string::npos) {
@@ -40,7 +61,12 @@ void init_asset_manager(const char* executable_path)
 
 std::string get_asset_path(const char* filename)
 {
-    return g_asset_base_path + "/assets/" + filename;
+    // Windows: Executable is in build/Debug or build/Release
+    // Assets are copied to the same directory via post-build in build.ps1
+    // So just return the direct path
+    std::string result = g_asset_base_path + "/assets/" + filename;
+    DEBUG_INFO("get_asset_path('%s') -> '%s'", filename, result.c_str());
+    return result;
 }
 
 std::string get_shader_path(const char* filename)

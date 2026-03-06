@@ -3,7 +3,7 @@
 #include "shader_loader.h"
 #include "texture_loader.h"
 #include "debug/debug_log.h"
-#include <OpenGL/gl3.h>
+#include "opengl_compat.h"
 
 namespace Renderer {
 

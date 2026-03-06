@@ -218,6 +218,11 @@ Vec2 get_mouse_pos()
     return g_mousePos;
 }
 
+uint32_t get_window_width()
+{
+    return g_window_width;
+}
+
 uint32_t get_window_height()
 {
     return g_window_height;

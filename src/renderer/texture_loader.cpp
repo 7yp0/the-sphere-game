@@ -1,7 +1,7 @@
 #include "texture_loader.h"
 #include "png_loader.h"
 #include "../debug/debug_log.h"
-#include <OpenGL/gl3.h>
+#include "opengl_compat.h"
 #include <cstdint>
 #include <cstring>
 #include <fstream>

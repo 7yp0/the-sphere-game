@@ -1,5 +1,5 @@
 #include "renderer_utils.h"
-#include <OpenGL/gl3.h>
+#include "opengl_compat.h"
 #include "../debug/debug_log.h"
 
 namespace Renderer {

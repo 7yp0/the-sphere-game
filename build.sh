@@ -3,22 +3,27 @@
 
 set -e  # Exit on error
 
-echo "Building The Sphere Game..."
-
-# Build with CMake
-mkdir -p build
-cd build
+BUILD_TYPE="Debug"
 if [ "$1" == "release" ]; then
-    cmake -DCMAKE_BUILD_TYPE=Release ..
+    BUILD_TYPE="Release"
+fi
+
+echo "Building The Sphere Game ($BUILD_TYPE)..."
+
+# Build with CMake in build subdirectory
+mkdir -p build/$BUILD_TYPE
+cd build/$BUILD_TYPE
+if [ "$BUILD_TYPE" == "Release" ]; then
+    cmake -DCMAKE_BUILD_TYPE=Release ../..
 else
-    cmake -DCMAKE_BUILD_TYPE=Debug ..
+    cmake -DCMAKE_BUILD_TYPE=Debug ../..
 fi
 make -j$(sysctl -n hw.ncpu)
-cd ..
+cd ../..
 
 # Create .app bundle structure
 APP_NAME="The Sphere Game"
-BUNDLE_PATH="build/The Sphere Game.app"
+BUNDLE_PATH="build/$BUILD_TYPE/The Sphere Game.app"
 CONTENTS_PATH="$BUNDLE_PATH/Contents"
 MACOS_PATH="$CONTENTS_PATH/MacOS"
 RESOURCES_PATH="$CONTENTS_PATH/Resources"
@@ -28,11 +33,11 @@ mkdir -p "$MACOS_PATH"
 mkdir -p "$RESOURCES_PATH"
 
 # Copy executable
-cp "build/the_sphere_game" "$MACOS_PATH/the_sphere_game"
+cp "build/$BUILD_TYPE/the_sphere_game" "$MACOS_PATH/the_sphere_game"
 
 # Copy assets and shaders to Resources
-cp -r build/assets "$RESOURCES_PATH/"
-cp -r build/shaders "$RESOURCES_PATH/"
+cp -r build/$BUILD_TYPE/assets "$RESOURCES_PATH/"
+cp -r build/$BUILD_TYPE/shaders "$RESOURCES_PATH/"
 
 # Create Info.plist
 cat > "$CONTENTS_PATH/Info.plist" << 'EOF'
@@ -70,7 +75,7 @@ echo "✓ Signing app bundle..."
 codesign -s - -f "$BUNDLE_PATH"
 
 echo "✓ Build complete!"
-echo "✓ App bundle created: build/The Sphere Game.app"
+echo "✓ App bundle created: build/$BUILD_TYPE/The Sphere Game.app"
 echo ""
 echo "Run with:"
-echo "  open \"build/The Sphere Game.app\""
+echo "  open \"build/$BUILD_TYPE/The Sphere Game.app\""

@@ -3,6 +3,7 @@
 #include "renderer/renderer.h"
 #include "types.h"
 #include "game/game.h"
+#include "platform.h"
 #include <cstdio>
 #include <cstring>
 
@@ -14,7 +15,20 @@ void toggle_overlay() {
   overlay_enabled = !overlay_enabled;
 }
 
-void render_overlay(Vec2 mouse_pixel, uint32_t, uint32_t) {
+void handle_debug_keys() {
+#ifndef NDEBUG
+    // D key = 0x44
+    bool key_d = Platform::key_pressed(0x44);
+    static bool prev_d = false;
+    
+    if (key_d && !prev_d) {
+        toggle_overlay();
+    }
+    prev_d = key_d;
+#endif
+}
+
+void render_overlay(Vec2 mouse_pixel) {
     if (overlay_enabled) {
         char text_buffer[256];
         snprintf(text_buffer, sizeof(text_buffer), "Mouse: (%.0f, %.0f)", mouse_pixel.x, mouse_pixel.y);
@@ -30,5 +44,4 @@ void render_overlay(Vec2 mouse_pixel, uint32_t, uint32_t) {
         Renderer::render_text(text_buffer, text_pos, 1.0f);
     }
 }
-
 }

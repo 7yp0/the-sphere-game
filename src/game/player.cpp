@@ -1,6 +1,6 @@
 #include "player.h"
 #include "game.h"
-#include "platform/mac/mac_window.h"
+#include "platform.h"
 #include "types.h"
 #include "config.h"
 #include "renderer/texture_loader.h"
@@ -107,8 +107,16 @@ void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_he
             direction.y * player.speed * delta_time
         );
         
-        player.position.x += movement.x;
-        player.position.y += movement.y;
+        // Check if movement would overshoot the target
+        float move_distance = std::sqrt(movement.x * movement.x + movement.y * movement.y);
+        if (move_distance >= distance) {
+            // Snap to target to avoid oscillation
+            player.position = player.target_position;
+        } else {
+            player.position.x += movement.x;
+            player.position.y += movement.y;
+        }
+        
         clamp_player_position(player, viewport_width, viewport_height);
     }
 }

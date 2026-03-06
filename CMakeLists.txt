@@ -22,14 +22,28 @@ file(GLOB_RECURSE ENGINE_SOURCES
     src/*.mm
 )
 
+# Filter platform-specific files based on OS
+if(APPLE)
+    # On macOS: include only Mac platform files, exclude Windows files
+    list(FILTER ENGINE_SOURCES EXCLUDE REGEX ".*windows/.*")
+elseif(WIN32)
+    # On Windows: exclude Mac platform files (*.mm files)
+    list(FILTER ENGINE_SOURCES EXCLUDE REGEX ".*platform/mac/.*")
+    list(FILTER ENGINE_SOURCES EXCLUDE REGEX ".*\\.mm$")
+elseif(UNIX)
+    # On Linux: exclude both Mac and Windows platform files
+    list(FILTER ENGINE_SOURCES EXCLUDE REGEX ".*platform/(mac|windows)/.*")
+    list(FILTER ENGINE_SOURCES EXCLUDE REGEX ".*\\.mm$")
+endif()
+
 add_executable(the_sphere_game ${ENGINE_SOURCES})
 
-# Copy assets to build directory
-# This ensures the executable can find assets relative to its location
+# Copy assets to build directory alongside the executable
+# For multi-config generators (Visual Studio), this goes to build/Debug or build/Release
 add_custom_command(TARGET the_sphere_game POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/assets
-        ${CMAKE_BINARY_DIR}/assets
+        $<CONFIG>/assets
     COMMENT "Copying assets to build directory"
 )
 
@@ -37,12 +51,13 @@ add_custom_command(TARGET the_sphere_game POST_BUILD
 add_custom_command(TARGET the_sphere_game POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/src/renderer/shaders
-        ${CMAKE_BINARY_DIR}/shaders
+        $<CONFIG>/shaders
     COMMENT "Copying shaders to build directory"
 )
 
 # Find ZLIB (used for PNG decompression)
 find_package(ZLIB REQUIRED)
+find_package(GLEW CONFIG REQUIRED)
 
 if(APPLE)
     target_link_libraries(the_sphere_game
@@ -56,9 +71,12 @@ if(APPLE)
         "-Wno-deprecated-declarations"
     )
 elseif(WIN32)
-    # Windows: ZLIB should be available via vcpkg or system
     target_link_libraries(the_sphere_game
+        opengl32
+        user32
+        gdi32
         ZLIB::ZLIB
+        GLEW::GLEW
     )
 elseif(UNIX)
     # Linux: ZLIB from system package manager

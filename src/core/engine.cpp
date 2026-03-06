@@ -1,6 +1,6 @@
 #include "core/engine.h"
 #include "core/timing.h"
-#include "platform/mac/mac_window.h"
+#include "platform.h"
 #include "renderer/renderer.h"
 #include "renderer/texture_loader.h"
 #include "renderer/asset_manager.h"
@@ -26,8 +26,12 @@ int engine_run(int argc, char** argv)
     if (!Platform::init_window(config))
         return -1;
 
-    Renderer::init_renderer(config.width, config.height);
-    Game::set_viewport(config.width, config.height);
+    // Use actual client rect dimensions, not requested window size
+    uint32_t actual_width = Platform::get_window_width();
+    uint32_t actual_height = Platform::get_window_height();
+    
+    Renderer::init_renderer(actual_width, actual_height);
+    Game::set_viewport(actual_width, actual_height);
     Game::init();
 
     auto lastFrameTime = std::chrono::high_resolution_clock::now();
