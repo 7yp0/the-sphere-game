@@ -57,7 +57,11 @@ add_custom_command(TARGET the_sphere_game POST_BUILD
 
 # Find ZLIB (used for PNG decompression)
 find_package(ZLIB REQUIRED)
-find_package(GLEW CONFIG REQUIRED)
+
+# Find GLEW only on Windows/Linux (not needed on macOS with native OpenGL)
+if(NOT APPLE)
+    find_package(GLEW CONFIG REQUIRED)
+endif()
 
 if(APPLE)
     target_link_libraries(the_sphere_game

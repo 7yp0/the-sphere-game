@@ -36,8 +36,26 @@ mkdir -p "$RESOURCES_PATH"
 cp "build/$BUILD_TYPE/the_sphere_game" "$MACOS_PATH/the_sphere_game"
 
 # Copy assets and shaders to Resources
-cp -r build/$BUILD_TYPE/assets "$RESOURCES_PATH/"
-cp -r build/$BUILD_TYPE/shaders "$RESOURCES_PATH/"
+# CMake places them in build/$BUILD_TYPE/$BUILD_TYPE/ due to $<CONFIG> generator expression
+ASSET_SRC="build/$BUILD_TYPE/$BUILD_TYPE/assets"
+SHADER_SRC="build/$BUILD_TYPE/$BUILD_TYPE/shaders"
+
+# Fallback to build/$BUILD_TYPE if the above doesn't exist
+if [ ! -d "$ASSET_SRC" ]; then
+    ASSET_SRC="build/$BUILD_TYPE/assets"
+fi
+if [ ! -d "$SHADER_SRC" ]; then
+    SHADER_SRC="build/$BUILD_TYPE/shaders"
+fi
+
+if [ -d "$ASSET_SRC" ]; then
+    cp -r "$ASSET_SRC" "$RESOURCES_PATH/"
+    echo "✓ Copied assets from $ASSET_SRC"
+fi
+if [ -d "$SHADER_SRC" ]; then
+    cp -r "$SHADER_SRC" "$RESOURCES_PATH/"
+    echo "✓ Copied shaders from $SHADER_SRC"
+fi
 
 # Create Info.plist
 cat > "$CONTENTS_PATH/Info.plist" << 'EOF'

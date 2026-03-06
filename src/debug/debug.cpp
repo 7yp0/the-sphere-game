@@ -17,8 +17,14 @@ void toggle_overlay() {
 
 void handle_debug_keys() {
 #ifndef NDEBUG
-    // D key = 0x44
-    bool key_d = Platform::key_pressed(0x44);
+    // D key: macOS = 2, Windows = 0x44 (68)
+    #ifdef __APPLE__
+        const int KEY_D = 2;  // macOS virtual key code for D
+    #else
+        const int KEY_D = 0x44;  // Windows/Linux virtual key code for D
+    #endif
+    
+    bool key_d = Platform::key_pressed(KEY_D);
     static bool prev_d = false;
     
     if (key_d && !prev_d) {
