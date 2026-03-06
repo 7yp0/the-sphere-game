@@ -40,10 +40,20 @@
   - [x] Verify loading and rendering works
 
 - [ ] **Pixel-Perfect Rendering & Scaling**
-  - [ ] Integer-based scaling for pixel-perfect rendering
-  - [ ] Handle base resolution vs window resolution separation
-  - [ ] Pixel-art graphics system with depth scaling
-  - [ ] Depth-based character scaling (4x→1x based on depth) based on horizont line (everything above or below (configurable) scales down or up)
+  - [ ] Define base resolution (e.g., 320x180) where game logic lives
+  - [ ] Support any window resolution (e.g., 1920x1080)
+  - [ ] Float-based scaling: `scale_factor = window_res / base_res` (GPU handles upscaling smoothly)
+  - [ ] No integer-scaling requirement: allows flexible window sizes
+  - [ ] Scene stores `horizon_y` (pixel Y-coordinate where scale = 1.0)
+
+- [ ] **Depth-Based Character Scaling** (2.5D effect)
+  - [ ] Calculate character scale based on Y position relative to horizon
+  - [ ] Formula: `scale = 1.0 + (horizon_y - sprite.y) * scale_factor`
+  - [ ] Above horizon (smaller Y) → scale down (closer to camera = appear smaller)
+  - [ ] Below horizon (larger Y) → scale stays at 1.0 or below (away from camera)
+  - [ ] Character scale range: `0.01` (minimum) to `1.0` (maximum at/below horizon)
+  - [ ] Linear scaling: if non-linear needed, add multiple `horizon_y` regions with different gradient_factors
+  - [ ] Apply depth scaling in vertex shader or CPU before render call
 
 ---
 
@@ -309,6 +319,11 @@
 
 ```json
 {
+  "scene_config": {
+    "horizon_y": 250,
+    "scale_min": 0.01,
+    "scale_max": 1.0
+  },
   "walkable_areas": [
     {
       "name": "main_area",
