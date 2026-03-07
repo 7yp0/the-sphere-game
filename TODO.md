@@ -158,24 +158,24 @@
 
 ### 4.3 Hotspot System (Point-and-Click Interaction)
 
-- [ ] **Hotspot Definition**
-  - [ ] `Game::Hotspot` struct with: polygon (bounds), interaction_distance, enabled flag, callback
-  - [ ] Hotspots are polygons stored in SceneGeometry
-  - [ ] Each hotspot has a callback function pointer
-  - [ ] Interaction distance configurable per hotspot (0 = on boundary, N = range in pixels)
+- [x] **Hotspot Definition**
+  - [x] `Game::Hotspot` struct with: polygon (bounds), interaction_distance, enabled flag, callback
+  - [x] Hotspots are polygons stored in SceneGeometry
+  - [x] Each hotspot has a callback function pointer
+  - [x] Interaction distance configurable per hotspot (0 = on boundary, N = range in pixels)
 
-- [ ] **Hotspot Click Detection**
-  - [ ] On mouse click: use `point_in_polygon(click_pos, hotspot.polygon)` for all hotspots
-  - [ ] For each hotspot hit: check if player can reach its interaction distance
-  - [ ] If reachable: player walks to closest walkable point within `interaction_distance` of hotspot, then triggers callback
-  - [ ] If unreachable: don't walk, trigger callback immediately to show feedback ("Can't reach")
-  - [ ] If player already within interaction distance: trigger action immediately (no walk needed)
+- [x] **Hotspot Click Detection**
+  - [x] On mouse click: use `point_in_polygon(click_pos, hotspot.polygon)` for all hotspots
+  - [x] For each hotspot hit: check if player can reach its interaction distance
+  - [x] If reachable: player walks to closest walkable point within `interaction_distance` of hotspot, then triggers callback
+  - [x] If unreachable: don't walk, trigger callback immediately to show feedback ("Can't reach")
+  - [x] If player already within interaction distance: trigger action immediately (no walk needed)
 
-- [ ] **Interaction Flow**
-  - [ ] Player clicks hotspot → validate against walkable_areas[] to find reachable destination
-  - [ ] Player walks there (pathfinding against walkable_areas) → trigger hotspot callback
-  - [ ] Hotspot callback handles game logic (dialogue, item pickup, state change, etc.)
-  - [ ] Multiple hotspots per prop allowed (e.g., "look at tree", "climb tree")
+- [x] **Interaction Flow**
+  - [x] Player clicks hotspot → validate against walkable_areas[] to find reachable destination
+  - [x] Player walks there (pathfinding against walkable_areas) → trigger hotspot callback
+  - [x] Hotspot callback handles game logic (dialogue, item pickup, state change, etc.)
+  - [x] Multiple hotspots per prop allowed (e.g., "look at tree", "climb tree")
 
 ### 4.4 Player State & Depth
 

@@ -2,6 +2,7 @@
 #include "game/game.h"
 #include "renderer/renderer.h"
 #include "renderer/texture_loader.h"
+#include "debug/debug_log.h"
 
 using Game::g_state;
 
@@ -67,6 +68,55 @@ void init_scene_test() {
         Vec2(100.0f, 650.0f)
     };
     scene.geometry.walkable_areas.push_back(main_walkable);
+    
+    // Create hotspots as polygons around props
+    // Hotspot 1: Around tree1 (310, 382)
+    Hotspot tree1_hotspot;
+    tree1_hotspot.name = "tree1_hotspot";
+    tree1_hotspot.interaction_distance = 999.0f;
+    tree1_hotspot.enabled = true;
+    tree1_hotspot.bounds.points = {
+        Vec2(250.0f, 330.0f),
+        Vec2(370.0f, 330.0f),
+        Vec2(370.0f, 430.0f),
+        Vec2(250.0f, 430.0f)
+    };
+    tree1_hotspot.callback = []() {
+        DEBUG_LOG("Clicked tree1 hotspot!");
+    };
+    scene.geometry.hotspots.push_back(tree1_hotspot);
+    
+    // Hotspot 2: Around tree2 (1024, 461)
+    Hotspot tree2_hotspot;
+    tree2_hotspot.name = "tree2_hotspot";
+    tree2_hotspot.interaction_distance = 60.0f;
+    tree2_hotspot.enabled = true;
+    tree2_hotspot.bounds.points = {
+        Vec2(964.0f, 409.0f),
+        Vec2(1084.0f, 409.0f),
+        Vec2(1084.0f, 509.0f),
+        Vec2(964.0f, 509.0f)
+    };
+    tree2_hotspot.callback = []() {
+        DEBUG_LOG("Clicked tree2 hotspot!");
+    };
+    scene.geometry.hotspots.push_back(tree2_hotspot);
+    
+    // Hotspot 3: Around chest (910, 612)
+    Hotspot chest_hotspot;
+    chest_hotspot.name = "chest_hotspot";
+    chest_hotspot.interaction_distance = 50.0f;
+    chest_hotspot.enabled = true;
+    chest_hotspot.bounds.points = {
+        Vec2(850.0f, 570.0f),
+        Vec2(970.0f, 570.0f),
+        Vec2(970.0f, 650.0f),
+        Vec2(850.0f, 650.0f)
+    };
+    chest_hotspot.callback = []() {
+        DEBUG_LOG("Clicked chest hotspot! You found the treasure!");
+    };
+    scene.geometry.hotspots.push_back(chest_hotspot);
     
     g_state.scene = scene;
 }
