@@ -6,18 +6,18 @@ namespace Config {
 
 // Base resolution: logical game world resolution
 // Game logic and positioning uses this coordinate space
-constexpr uint32_t BASE_WIDTH = 336;
-constexpr uint32_t BASE_HEIGHT = 189;
+constexpr uint32_t BASE_WIDTH = 320;
+constexpr uint32_t BASE_HEIGHT = 180;
 
 // Viewport and rendering resolution
 // Must match expected scene dimensions for correct coordinate system behavior
-constexpr uint32_t VIEWPORT_WIDTH = 672;
-constexpr uint32_t VIEWPORT_HEIGHT = 378;
+constexpr uint32_t VIEWPORT_WIDTH = 1280;
+constexpr uint32_t VIEWPORT_HEIGHT = 720;
 
 // Depth scaling (2.5D effect)
 // horizon_y: pixel Y-coordinate where character scale = 1.0
 // Default: middle of screen where normal scale applies
-constexpr float DEFAULT_HORIZON_Y = 189.0f;
+constexpr float DEFAULT_HORIZON_Y = 360.0f;
 
 // Depth scale gradient: how much scale changes per pixel of distance from horizon
 // Formula: scale = 1.0 + (horizon_y - sprite_y) * DEPTH_GRADIENT
