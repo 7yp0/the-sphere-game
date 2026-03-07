@@ -118,43 +118,43 @@
 
 ### 4.1 Polygon-Based Collision System (Foundation)
 
-- [ ] **Generic Polygon Utilities**
-  - [ ] `Polygon` struct: array of 2D points (Vec2), closed path
-  - [ ] `point_in_polygon()` - point-in-polygon test (used for: click within hotspot, point within walkable area)
-  - [ ] `closest_point_on_polygon()` - find nearest point on polygon boundary (used for: clamp target to walkable area edge)
-  - [ ] `line_intersects_polygon()` - path validation (used for: check if walk path crosses obstacle)
-  - [ ] `polygon_collision()` - polygon-vs-polygon (used for: obstacle detection)
-  - [ ] Location: `src/collision/polygon_utils.h/cpp` or `src/renderer/polygon_utils.h/cpp`
+- [x] **Generic Polygon Utilities**
+  - [x] `Polygon` struct: array of 2D points (Vec2), closed path
+  - [x] `point_in_polygon()` - point-in-polygon test (used for: click within hotspot, point within walkable area)
+  - [x] `closest_point_on_polygon()` - find nearest point on polygon boundary (used for: clamp target to walkable area edge)
+  - [x] `line_intersects_polygon()` - path validation (used for: check if walk path crosses obstacle)
+  - [x] `polygon_collision()` - polygon-vs-polygon (used for: obstacle detection)
+  - [x] Location: `src/collision/polygon_utils.h/cpp` or `src/renderer/polygon_utils.h/cpp`
 
-- [ ] **Scene Geometry**
-  - [ ] `Game::SceneGeometry` struct contains:
+- [x] **Scene Geometry**
+  - [x] `Game::SceneGeometry` struct contains:
     - `Polygon[] walkable_areas` - player can walk here (outer boundary + inner holes as separate polygons)
     - `Hotspot[] hotspots` - interactive regions (also polygons with callbacks)
-  - [ ] All stored in Scene
-  - [ ] Serialization: JSON format with polygon vertex arrays
-  - [ ] Render all polygons (walkable/hotspots) with different colors (D toggle)
-  - [ ] Display polygon vertices
-  - [ ] Show closest point on boundary when hovering/clicking
+  - [x] All stored in Scene
+  - [x] Serialization: JSON format with polygon vertex arrays
+  - [x] Render all polygons (walkable/hotspots) with different colors (D toggle)
+  - [x] Display polygon vertices
+  - [x] Show closest point on boundary when hovering/clicking
 
 ### 4.2 Walkable Areas & Pathfinding
 
-- [ ] **Player Movement with Collision**
-  - [ ] On click: validate target point with `point_in_walkable_areas(target, walkable_areas[])`
-  - [ ] If outside all walkable areas: use `closest_point_on_any_polygon(target, walkable_areas[])` as actual destination
-  - [ ] Use `line_intersects_walkable(path_start, path_end, walkable_areas[])` to validate walk path
-  - [ ] On collision: slide along polygon edge (smooth wall following)
+- [x] **Player Movement with Collision**
+  - [x] On click: validate target point with `point_in_walkable_areas(target, walkable_areas[])`
+  - [x] If outside all walkable areas: use `closest_point_on_any_polygon(target, walkable_areas[])` as actual destination
+  - [x] Use `line_intersects_walkable(path_start, path_end, walkable_areas[])` to validate walk path
+  - [x] On collision: slide along polygon edge (smooth wall following)
 
-- [ ] **Pathfinding System** (Ron Gilbert approach)
-  - [ ] When target is outside walkable areas: find closest valid point on any area boundary
-  - [ ] When target is inside any walkable area: move directly to target
-  - [ ] Player slides along polygon edges when path clips boundary
-  - [ ] Implementation: project target→closest-point, walk there, continue
-  - [ ] Holes in walkable area = separate negative polygons in walkable_areas[] array
+- [x] **Pathfinding System** (Ron Gilbert approach)
+  - [x] When target is outside walkable areas: find closest valid point on any area boundary
+  - [x] When target is inside any walkable area: move directly to target
+  - [x] Player slides along polygon edges when path clips boundary
+  - [x] Implementation: project target→closest-point, walk there, continue
+  - [x] Holes in walkable area = separate negative polygons in walkable_areas[] array
 
-- [ ] **No Separate Obstacle System**
-  - [ ] Holes in walkable area = separate negative polygons in walkable_areas[] array
-  - [ ] "Not walkable" = "not in any walkable_areas polygon" (simplifies logic)
-  - [ ] pathfinding validates all moves against all walkable_areas polygons
+- [x] **No Separate Obstacle System**
+  - [x] Holes in walkable area = separate negative polygons in walkable_areas[] array
+  - [x] "Not walkable" = "not in any walkable_areas polygon" (simplifies logic)
+  - [x] pathfinding validates all moves against all walkable_areas polygons
 
 ### 4.3 Hotspot System (Point-and-Click Interaction)
 

@@ -15,6 +15,7 @@ void render_sprite(TextureID tex, Vec2 pos, Vec2 size, float z_depth = 0.0f, Piv
 void render_sprite(TextureID tex, Vec2 pos, Vec2 size, Vec4 tex_coord_range, float z_depth = 0.0f, PivotPoint pivot = PivotPoint::TOP_LEFT);
 void render_sprite_animated(const SpriteAnimation* anim, Vec2 pos, Vec2 size, float z_depth = 0.0f, PivotPoint pivot = PivotPoint::TOP_LEFT);
 void render_rect(Vec2 pos, Vec2 size, Vec4 color, float z_depth = 0.0f, PivotPoint pivot = PivotPoint::TOP_LEFT);
+void render_line(Vec2 start, Vec2 end, Vec4 color, float thickness = 1.0f, float z_depth = 0.0f);
 
 // 2.5D Depth Scaling Functions
 // Calculate sprite scale based on Y position relative to horizon

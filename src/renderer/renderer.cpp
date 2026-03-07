@@ -5,6 +5,7 @@
 #include "debug/debug_log.h"
 #include "opengl_compat.h"
 #include "config.h"
+#include <cmath>
 
 namespace Renderer {
 
@@ -175,6 +176,23 @@ void render_rect(Vec2 pos, Vec2 size, Vec4 color, float z_depth, PivotPoint pivo
     glBindVertexArray(quadVAO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
+}
+
+void render_line(Vec2 start, Vec2 end, Vec4 color, float thickness, float z_depth)
+{
+    // Draw line as a series of small quads along the path
+    Vec2 diff = Vec2(end.x - start.x, end.y - start.y);
+    float length = std::sqrt(diff.x * diff.x + diff.y * diff.y);
+    
+    if (length < 0.01f) return;
+    
+    int segment_count = (int)(length / (thickness * 2.0f)) + 1;
+    Vec2 step = Vec2(diff.x / segment_count, diff.y / segment_count);
+    
+    for (int i = 0; i < segment_count; i++) {
+        Vec2 pos = Vec2(start.x + step.x * i, start.y + step.y * i);
+        render_rect(pos, Vec2(thickness * 2.0f, thickness * 2.0f), color, z_depth);
+    }
 }
 
 void shutdown()

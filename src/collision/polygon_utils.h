@@ -1,0 +1,47 @@
+#pragma once
+
+#include "types.h"
+#include <vector>
+
+namespace Collision {
+
+struct Polygon {
+    std::vector<Vec2> points;
+    
+    Polygon() = default;
+    explicit Polygon(const std::vector<Vec2>& vertices) : points(vertices) {}
+    
+    bool is_valid() const { return points.size() >= 3; }
+    size_t vertex_count() const { return points.size(); }
+};
+
+// Point-in-polygon test using ray casting algorithm
+// Returns true if point is inside the polygon (including boundary)
+bool point_in_polygon(Vec2 point, const Polygon& polygon);
+
+// Find the closest point on the polygon boundary to the given point
+// Returns the closest point on the polygon perimeter
+Vec2 closest_point_on_polygon(Vec2 point, const Polygon& polygon);
+
+// Check if a line segment intersects with the polygon boundary
+// start: line segment start point
+// end: line segment end point
+// Returns true if the line segment intersects any polygon edge
+bool line_intersects_polygon(Vec2 start, Vec2 end, const Polygon& polygon);
+
+// Check if a point is on the polygon edge (within epsilon tolerance)
+// Returns true if point lies on any edge
+bool point_on_polygon_edge(Vec2 point, const Polygon& polygon, float epsilon = 0.1f);
+
+// Polygon-polygon collision test
+// Returns true if the two polygons overlap or touch
+bool polygons_intersect(const Polygon& poly1, const Polygon& poly2);
+
+// Utility: Check if point is inside any polygon in the list
+bool point_in_any_polygon(Vec2 point, const std::vector<Polygon>& polygons);
+
+// Utility: Find the closest point across all polygons
+// Returns closest point on any polygon boundary
+Vec2 closest_point_on_any_polygon(Vec2 point, const std::vector<Polygon>& polygons);
+
+}

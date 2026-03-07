@@ -2,11 +2,13 @@
 
 #include "types.h"
 #include "renderer/renderer.h"
+#include "collision/polygon_utils.h"
 #include <cstdint>
 #include <cmath>
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <functional>
 
 namespace Scene {
 
@@ -24,6 +26,19 @@ struct HorizonLine {
     bool depth_scale_inverted = false; // true = isometric/inverted perspective
 };
 
+struct Hotspot {
+    std::string name;
+    Collision::Polygon bounds;
+    float interaction_distance = 0.0f;
+    bool enabled = true;
+    std::function<void()> callback;
+};
+
+struct SceneGeometry {
+    std::vector<Collision::Polygon> walkable_areas;
+    std::vector<Hotspot> hotspots;
+};
+
 struct Scene {
     std::string name;
     uint32_t width;
@@ -32,6 +47,7 @@ struct Scene {
     std::vector<Prop> props;
     
     std::vector<HorizonLine> horizons;
+    SceneGeometry geometry;
 };
 
 struct SceneManager {

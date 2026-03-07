@@ -5,6 +5,7 @@
 #include "config.h"
 #include "renderer/texture_loader.h"
 #include "renderer/spritesheet_utils.h"
+#include "collision/polygon_utils.h"
 #include <cmath>
 #include <algorithm>
 
@@ -50,7 +51,6 @@ void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_heig
 void player_handle_input(Player& player) {
     if (Platform::mouse_clicked()) {
         Vec2 mouse_pos = Platform::get_mouse_pos();
-        // Store target position - bounds checking happens in player_update()
         player.target_position = mouse_pos;
     }
 }
@@ -65,7 +65,36 @@ static void clamp_player_position(Player& player, uint32_t viewport_width, uint3
     player.position.y = std::max(top, std::min(bottom, player.position.y));
 }
 
+static void apply_collision_response(Player& player, Vec2 old_position, const std::vector<Collision::Polygon>& walkable_areas) {
+    if (walkable_areas.empty()) return;
+    
+    // If player is inside walkable areas, no collision
+    if (Collision::point_in_any_polygon(player.position, walkable_areas)) {
+        return;
+    }
+    
+    // Collision detected - try wall sliding
+    // Try X-axis only movement
+    Vec2 x_only = Vec2(player.position.x, old_position.y);
+    if (Collision::point_in_any_polygon(x_only, walkable_areas)) {
+        player.position = x_only;
+        return;
+    }
+    
+    // Try Y-axis only movement
+    Vec2 y_only = Vec2(old_position.x, player.position.y);
+    if (Collision::point_in_any_polygon(y_only, walkable_areas)) {
+        player.position = y_only;
+        return;
+    }
+    
+    // Both blocked - revert to old position (full stop)
+    player.position = old_position;
+}
+
 void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_height, float delta_time) {
+    Vec2 old_position = player.position;  // Save for collision response
+    
     Vec2 direction = Vec2(
         player.target_position.x - player.position.x,
         player.target_position.y - player.position.y
@@ -118,6 +147,7 @@ void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_he
         }
         
         clamp_player_position(player, viewport_width, viewport_height);
+        apply_collision_response(player, old_position, g_state.scene.geometry.walkable_areas);
     }
 }
 

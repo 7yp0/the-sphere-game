@@ -58,6 +58,16 @@ void init_scene_test() {
     chest.pivot = PivotPoint::BOTTOM_CENTER;
     scene.props.push_back(chest);
     
+    // Setup scene geometry (walkable areas and hotspots)
+    Collision::Polygon main_walkable;
+    main_walkable.points = {
+        Vec2(100.0f, 100.0f),
+        Vec2(1180.0f, 100.0f),
+        Vec2(1180.0f, 650.0f),
+        Vec2(100.0f, 650.0f)
+    };
+    scene.geometry.walkable_areas.push_back(main_walkable);
+    
     g_state.scene = scene;
 }
 
