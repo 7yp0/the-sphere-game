@@ -198,20 +198,90 @@
 
 ## Phase 5: 2.5D Lighting
 
-- [ ] **Dynamic Lights**
-  - [ ] `Game::Light` struct
-  - [ ] Multiple lights in scene
-  - [ ] Light rendering pass (additive)
-  - [ ] Light color and intensity
+### 5.1 Foundation: Light & Shadow Data
 
-- [ ] **Shadow System**
-  - [ ] Shadow generation from props
-  - [ ] Simple shadow rendering (multiplicative blend)
-  - [ ] Light-to-shadow calculations
+- [ ] **Light Struct & Management**
+  - [ ] `Game::Light` struct: position (x, y), radius, intensity, color (RGB)
+  - [ ] Light falloff curve: linear, quadratic, or smooth (configurable)
+  - [ ] `Game::LightManager` or array in Scene with active_lights
+  - [ ] Max lights per scene (e.g., 16 for performance)
+  - [ ] Light on/off toggle (torches, lamps)
 
-- [ ] **Night/Day Lighting**
-  - [ ] Ambient light control
-  - [ ] Transition between light states
+- [ ] **Scene Light Data**
+  - [ ] JSON format: `"lights": [{"name": "torch_1", "x": 250, "y": 100, "radius": 200, "intensity": 1.0, "color": [1.0, 0.8, 0.6]}]`
+  - [ ] Load/save lights from geometry JSON
+  - [ ] Editor support (place lights in debug mode)
+
+### 5.2 Shadow System (Pixel-Perfect)
+
+- [ ] **Shadow Projection (2.5D Geometry)**
+  - [ ] Calculate shadow position on floor based on:
+    - Sprite Y-position (visual base)
+    - Sprite center X-position
+    - Light position (x, y, height inferred from level context)
+    - Shadow direction = normalize(sprite_pos - light_pos)
+  - [ ] Shadow length = (sprite_y - floor_y) * projection_factor (adjustable)
+  - [ ] Result: shadow quad position and scale
+
+- [ ] **Per-Light Shadow Rendering**
+  - [ ] For each light: render shadow sprites at calculated position
+  - [ ] Shadow color: dark + tinted (e.g., darkened ground color + light color tone)
+  - [ ] Shadow alpha: based on light intensity and distance
+  - [ ] Soft shadow edges: render shadow at slightly larger scale with alpha falloff
+
+- [ ] **Shadow Blending**
+  - [ ] Multiple shadows blend multiplicatively (darken)
+  - [ ] Shadow pass: render all shadows for all lights, then composite with scene
+  - [ ] Alternative: additive pass for shadow intensity or multiplicative for darkening
+
+### 5.3 Lighting Shader & Normal Maps
+
+- [ ] **Normal Map Support**
+  - [ ] Load normal map texture alongside diffuse texture
+  - [ ] Update `AssetManager` to load `.normal` variants
+  - [ ] Fragment shader: sample normal, apply to light calculation
+
+- [ ] **GPU-Based Calculations (Heavy Workloads)**
+  - [ ] All light calculations in fragment shader (GPU parallel)
+  - [ ] Shadow projection in vertex shader (transform to world space)
+  - [ ] Falloff curves (linear/quadratic/smooth) computed per-pixel in shader
+  - [ ] Distance attenuation: `1.0 / (1.0 + distance² * attenuation_factor)`
+  - [ ] CPU only handles: light setup, culling, passing uniforms
+  - [ ] Avoid CPU loops over lights per-vertex (pass all lights as uniform array)
+
+- [ ] **Per-Pixel Lighting (Phong/Simple)**
+  - [ ] Fragment shader receives:
+    - Diffuse color (sampled)
+    - Normal (sampled from normal map)
+    - Light position & color
+    - Surface position (world space)
+  - [ ] Calculate: light direction, diffuse factor (dot product)
+  - [ ] Specular highlights (optional): Phong model or simplified
+  - [ ] Result: lit color = diffuse_color * (ambient + light_contribution)
+
+- [ ] **Ambient Light Baseline**
+  - [ ] Global ambient color/intensity (configurable per scene)
+  - [ ] Ensures no completely black areas (readability)
+  - [ ] Transition support for time-of-day
+
+### 5.4 Multi-Light Rendering Pipeline
+
+- [ ] **Light Pass Architecture**
+  - [ ] Render base scene with ambient light
+  - [ ] For each active light:
+    - [ ] Render light contribution pass (quadratic falloff)
+    - [ ] Render shadow pass (multiplicative)
+  - [ ] Composite all passes (additive for lights, multiplicative for shadows)
+
+- [ ] **Light Culling & Performance**
+  - [ ] Only lights within screen bounds or affecting on-screen entities
+  - [ ] Light radius-based frustum culling
+  - [ ] Fallback: limit max active lights per frame (e.g., 8)
+
+- [ ] **Shadow Optimization**
+  - [ ] Shadow sprites cached: position, scale, alpha per light
+  - [ ] Batch shadow rendering if possible
+  - [ ] Soft shadows: pre-rendered shadow texture with gradient edge
 
 ---
 

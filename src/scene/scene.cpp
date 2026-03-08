@@ -89,7 +89,7 @@ void init_scene_test() {
     // Hotspot 2: Around tree2 (1024, 461)
     Hotspot tree2_hotspot;
     tree2_hotspot.name = "tree2_hotspot";
-    tree2_hotspot.interaction_distance = 60.0f;
+    tree2_hotspot.interaction_distance = 1.0f;
     tree2_hotspot.enabled = true;
     tree2_hotspot.bounds.points = {
         Vec2(964.0f, 409.0f),
@@ -105,7 +105,7 @@ void init_scene_test() {
     // Hotspot 3: Around chest (910, 612)
     Hotspot chest_hotspot;
     chest_hotspot.name = "chest_hotspot";
-    chest_hotspot.interaction_distance = 50.0f;
+    chest_hotspot.interaction_distance = 1.0f;
     chest_hotspot.enabled = true;
     chest_hotspot.bounds.points = {
         Vec2(850.0f, 570.0f),
