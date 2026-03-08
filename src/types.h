@@ -41,10 +41,7 @@ struct Color {
 
 enum class Layer : int {
     BACKGROUND = 0,
-    MIDGROUND  = 10,
-    ENTITIES   = 20,
-    PLAYER     = 30,
-    OCCLUSION  = 40,
+    MIDGROUND  = 25,
     FOREGROUND = 50,
     UI         = 100
 };
@@ -104,21 +101,20 @@ inline Vec2 opengl_to_pixel(Vec2 opengl_pos, uint32_t viewport_width, uint32_t v
 namespace Layers {
     inline float get_parallax(Layer layer) {
         switch (layer) {
-            case Layer::BACKGROUND:  return 0.1f;
-            case Layer::MIDGROUND:   return 1.0f;
-            case Layer::ENTITIES:    return 1.0f;
-            case Layer::PLAYER:      return 1.0f;
-            case Layer::OCCLUSION:   return 1.0f;
-            case Layer::FOREGROUND:  return 1.2f;
-            case Layer::UI:          return 0.0f;
+            case Layer::BACKGROUND:  return 0.1f;   // Parallax effect
+            case Layer::MIDGROUND:   return 1.0f;   // No parallax (default)
+            case Layer::FOREGROUND:  return 1.2f;   // Inverse parallax
+            case Layer::UI:          return 0.0f;   // Static UI
             default:                 return 1.0f;
         }
     }
     
     inline float get_z_depth(Layer layer) {
         // With GL_LESS: smaller z = closer to camera (rendered on top)
-        // layer 0 (BACKGROUND) → z = 1.0 (far)
-        // layer 100 (UI) → z = -1.0 (near)
-        return 1.0f - (static_cast<float>(layer) / 100.0f) * 2.0f;
+        // Map layers from 0-100 to range 0.999 to -0.999 (slightly inside frustum)
+        // layer 0 (BACKGROUND) → z ≈ 0.999 (far, but not exactly 1.0)
+        // layer 100 (UI) → z ≈ -0.999 (near)
+        float normalized = static_cast<float>(layer) / 100.0f;  // 0.0 to 1.0
+        return 0.999f - normalized * 1.998f;  // Maps to ~0.999 to ~-0.999
     }
 }

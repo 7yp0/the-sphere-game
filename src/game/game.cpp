@@ -50,118 +50,58 @@ void update(float delta_time) {
 }
 
 void render() {
-    // Background fills entire scene - apply lighting
+    // Background - use BACKGROUND layer for depth
     Renderer::render_sprite_lit(g_state.scene.background, 
                                Vec3(0.0f, 0.0f, Layers::get_z_depth(Layer::BACKGROUND)),
                                Vec2((float)g_state.scene.width, (float)g_state.scene.height),
-                               g_state.scene.lights);
+                               g_state.scene.lights,
+                               g_state.scene.background_normal_map);
     
-    // Helper: Calculate visual base Y position (bottom of sprite for sorting)
-    auto get_sort_y = [](Vec3 pos, Vec2 size, PivotPoint pivot) -> float {
-        switch (pivot) {
-            case PivotPoint::TOP_LEFT:
-            case PivotPoint::TOP_CENTER:
-            case PivotPoint::TOP_RIGHT:
-                return pos.y + size.y;
-            case PivotPoint::CENTER_LEFT:
-            case PivotPoint::CENTER:
-            case PivotPoint::CENTER_RIGHT:
-                return pos.y + size.y * 0.5f;
-            case PivotPoint::BOTTOM_LEFT:
-            case PivotPoint::BOTTOM_CENTER:
-            case PivotPoint::BOTTOM_RIGHT:
-                return pos.y;
-            default:
-                return pos.y;
-        }
-    };
-    
-    // Collect all renderable entities for Y-sorting
-    struct Renderable {
-        float sort_y;          // Sort key (visual base of sprite)
-        bool is_player;        // true = player, false = prop
-        size_t prop_index;     // Only valid if !is_player
-        
-        Renderable(float y, bool player, size_t idx) 
-            : sort_y(y), is_player(player), prop_index(idx) {}
-    };
-    std::vector<Renderable> renderables;
-    
-    // Add all props with their visual base Y
+    // Render all props with their z-depth from scene definition
     for (size_t i = 0; i < g_state.scene.props.size(); ++i) {
         const Scene::Prop& prop = g_state.scene.props[i];
-        float sort_y = get_sort_y(prop.position, prop.size, prop.pivot);
-        renderables.push_back(Renderable(sort_y, false, i));
+        
+        // Calculate depth scaling for 2.5D effect (based on height map at position)
+        float depth_scale = Scene::get_depth_scaling(g_state.scene, prop.position.x, prop.position.y);
+        Vec2 scaled_size = Vec2(
+            prop.size.x * depth_scale,
+            prop.size.y * depth_scale
+        );
+        
+        // Use actual 3D position from scene (z-coordinate from scene definition)
+        Renderer::render_sprite_lit(prop.texture, prop.position, scaled_size,
+                                   g_state.scene.lights, prop.normal_map, prop.pivot);
     }
     
-    // Add player with their visual base Y
-    float player_sort_y = get_sort_y(g_state.player.position, g_state.player.size, g_state.player.pivot);
-    renderables.push_back(Renderable(player_sort_y, true, 0));
-    
-    // Sort by visual base Y position (descending: larger base means closer to viewer)
-    for (size_t i = 0; i < renderables.size(); ++i) {
-        for (size_t j = i + 1; j < renderables.size(); ++j) {
-            if (renderables[j].sort_y > renderables[i].sort_y) {  // If j is larger (closer)
-                // Swap
-                Renderable temp = renderables[i];
-                renderables[i] = renderables[j];
-                renderables[j] = temp;
-            }
-        }
-    }
-    
-    // Render in sorted order with proper z-depth
-    for (size_t i = 0; i < renderables.size(); ++i) {
-        const Renderable& entity = renderables[i];
+    // Render player with its actual 3D position from game state
+    const char* anim_name = player_get_animation_name(g_state.player);
+    Renderer::SpriteAnimation* player_anim = g_state.playerAnimations.get(anim_name);
+    if (player_anim) {
+        // Calculate depth scaling for 2.5D effect (based on height map at position)
+        float depth_scale = Scene::get_depth_scaling(g_state.scene, g_state.player.position.x, g_state.player.position.y);
+        Vec2 scaled_size = Vec2(
+            g_state.player.size.x * depth_scale,
+            g_state.player.size.y * depth_scale
+        );
         
-        // Calculate z_depth based on sort order (earlier = further back)
-        // Map sort index to z-depth range (-1 to 1)
-        float z_depth = -1.0f + (2.0f * i / (renderables.size() - 1.0f + 0.001f));
-        
-        if (entity.is_player) {
-            // Player - render with depth-based scaling for 2.5D effect
-            const char* anim_name = player_get_animation_name(g_state.player);
-            Renderer::SpriteAnimation* player_anim = g_state.playerAnimations.get(anim_name);
-            if (player_anim) {
-                // Calculate depth scaling (uses height map if available, falls back to horizon lines)
-                float depth_scale = Scene::get_depth_scaling(g_state.scene, g_state.player.position.y);
-                Vec2 scaled_size = Vec2(
-                    g_state.player.size.x * depth_scale,
-                    g_state.player.size.y * depth_scale
-                );
-                
-                // Create Vec3 position with z_depth as z component
-                Vec3 player_pos(g_state.player.position.x, g_state.player.position.y, z_depth);
-                
-                Renderer::render_sprite_animated_lit(player_anim, 
-                                                    player_pos, 
-                                                    scaled_size,
-                                                    g_state.scene.lights,
-                                                    g_state.player.pivot);
-            }
-        } else {
-            // Prop
-            const Scene::Prop& prop = g_state.scene.props[entity.prop_index];
-            
-            // Calculate depth scaling for prop
-            float depth_scale = Scene::get_depth_scaling(g_state.scene, prop.position.y);
-            Vec2 scaled_size = Vec2(
-                prop.size.x * depth_scale,
-                prop.size.y * depth_scale
-            );
-            
-            // Create Vec3 position with z_depth as z component
-            Vec3 prop_pos(prop.position.x, prop.position.y, z_depth);
-            
-            Renderer::render_sprite_lit(prop.texture, prop_pos, scaled_size,
-                                       g_state.scene.lights, prop.pivot);
-        }
+        // Use actual 3D position from game state (z-coordinate is set during initialization)
+        Renderer::render_sprite_animated_lit(player_anim, 
+                                            g_state.player.position, 
+                                            scaled_size,
+                                            g_state.scene.lights,
+                                            0,  // normal_map: use default
+                                            g_state.player.pivot);
     }
     
     // Debug overlay
     Vec2 mouse_pixel = Platform::get_mouse_pos();
 #ifndef NDEBUG
     Debug::render_overlay(mouse_pixel);
+    // Print player Z value
+    static uint32_t frame_counter = 0;
+    if (frame_counter++ % 30 == 0) {  // Print every ~30 frames (~0.5s at 60fps)
+        printf("[PLAYER] Y: %.1f, Z: %.4f\n", g_state.player.position.y, g_state.player.position.z);
+    }
 #endif
 }
 

@@ -31,7 +31,7 @@ struct Player {
     // State
     Vec3 position;                              // Pixel coordinates in scene space (xy) + z-depth (z)
     Vec3 target_position;                       // Pixel coordinates in scene space + z-depth
-    Vec2 size = Vec2(64.0f, 100.0f);            // Sprite dimensions in pixels (Guybrush frame size)
+    Vec2 size = Vec2(100.0f, 150.0f);            // Sprite dimensions in pixels (display size, scaled from original 36x46)
     AnimationState animation_state = AnimationState::Idle;
     WalkDirection walk_direction = WalkDirection::Down;  // Current facing direction
     Core::AnimationBank* animations;            // Generic animation bank for any entity

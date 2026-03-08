@@ -92,7 +92,7 @@ static void handle_hotspot_click(Player& player, Vec2 mouse_pos) {
                 if (hotspot.callback) {
                     hotspot.callback();
                 }
-                player.target_position = player.position;  // Preserve z component
+                player.target_position = player.position;
                 player.hotspot_state = HotspotInteractionState::InRange;
                 return;
             }
@@ -121,7 +121,9 @@ static void handle_hotspot_click(Player& player, Vec2 mouse_pos) {
                 closest_on_hotspot.y + to_player.y * hotspot.interaction_distance
             );
             
-            player.target_position = Vec3(approach_point_2d.x, approach_point_2d.y, player.position.z);
+            // Sample Z from height map based on world position
+            float target_z = Scene::get_z_from_height_map(g_state.scene, approach_point_2d.x, approach_point_2d.y);
+            player.target_position = Vec3(approach_point_2d.x, approach_point_2d.y, target_z);
             player.hotspot_state = HotspotInteractionState::Approaching;
             return;
         }
@@ -130,7 +132,9 @@ static void handle_hotspot_click(Player& player, Vec2 mouse_pos) {
 
 // Helper function: Handle regular movement click
 static void handle_movement_click(Player& player, Vec2 mouse_pos) {
-    player.target_position = Vec3(mouse_pos.x, mouse_pos.y, player.position.z);  // Preserve z
+    // Sample Z from height map based on world position of click
+    float target_z = Scene::get_z_from_height_map(g_state.scene, mouse_pos.x, mouse_pos.y);
+    player.target_position = Vec3(mouse_pos.x, mouse_pos.y, target_z);
     player.active_hotspot_index = -1;
     player.hotspot_state = HotspotInteractionState::None;
 }
@@ -245,7 +249,7 @@ void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_heig
     // Initialize player entity
     player.position = Vec3(viewport_width * 0.5f, viewport_height * 0.5f, 0.0f);
     player.target_position = Vec3(viewport_width * 0.5f, viewport_height * 0.5f, 0.0f);
-    player.size = Vec2(36.0f, 46.0f);  // Lenore frame size
+    // player.size comes from struct default (100x150)
     player.animation_state = AnimationState::Idle;
     player.walk_direction = WalkDirection::Down;
     player.animations = animations;
@@ -273,7 +277,7 @@ static void clamp_player_position(Player& player, uint32_t viewport_width, uint3
     player.position.y = std::max(top, std::min(bottom, player.position.y));
 }
 
-static void apply_collision_response(Player& player, Vec3 old_position, const std::vector<Collision::Polygon>& walkable_areas) {
+static void apply_collision_response(Player& player, Vec3 old_position, const std::vector<Collision::Polygon>& walkable_areas, const Scene::Scene& scene) {
     if (walkable_areas.empty()) return;
     
     // If player is inside walkable areas, no collision
@@ -285,14 +289,14 @@ static void apply_collision_response(Player& player, Vec3 old_position, const st
     // Try X-axis only movement
     Vec2 x_only = Vec2(player.position.x, old_position.y);
     if (Collision::point_in_any_polygon(x_only, walkable_areas)) {
-        player.position = Vec3(x_only.x, x_only.y, player.position.z);  // Preserve z
+        player.position = Vec3(x_only.x, x_only.y, Scene::get_z_from_height_map(scene, x_only.x, x_only.y));
         return;
     }
     
     // Try Y-axis only movement
     Vec2 y_only = Vec2(old_position.x, player.position.y);
     if (Collision::point_in_any_polygon(y_only, walkable_areas)) {
-        player.position = Vec3(y_only.x, y_only.y, player.position.z);  // Preserve z
+        player.position = Vec3(y_only.x, y_only.y, Scene::get_z_from_height_map(scene, y_only.x, y_only.y));
         return;
     }
     
@@ -359,10 +363,12 @@ void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_he
         } else {
             player.position.x += movement.x;
             player.position.y += movement.y;
+            // Update Z continuously based on Y position during movement
+            player.position.z = Scene::get_z_from_height_map(g_state.scene, player.position.x, player.position.y);
         }
         
         clamp_player_position(player, viewport_width, viewport_height);
-        apply_collision_response(player, old_position, g_state.scene.geometry.walkable_areas);
+        apply_collision_response(player, old_position, g_state.scene.geometry.walkable_areas, g_state.scene);
         
         // Check if player actually moved (not stuck against walls) - using squared comparison
         Vec2 position_delta = Vec2(

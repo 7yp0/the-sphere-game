@@ -5,12 +5,12 @@ in vec2 fragWorldPos;   // World position of this fragment
 in float fragDepth;     // Z-depth of this sprite (-1 to 1)
 
 uniform sampler2D texture0;
+uniform sampler2D normalMap;  // Normal map texture (unit 1)
 
 // Point light constants
 #define MAX_LIGHTS 8
 uniform int numLights;
-uniform vec2 lightPositions[MAX_LIGHTS];
-uniform float lightDepths[MAX_LIGHTS];     // 0 to 1 range (0=far, 1=near)
+uniform vec3 lightPositions[MAX_LIGHTS];   // Full 3D positions
 uniform vec3 lightColors[MAX_LIGHTS];
 uniform float lightIntensities[MAX_LIGHTS];
 uniform float lightRadii[MAX_LIGHTS];
@@ -25,27 +25,27 @@ void main() {
         discard;
     }
     
+    // Sample normal from normal map
+    // Normal map format: RGB is (X, Y, Z) in [0, 1] range
+    // Convert from [0, 1] to [-1, 1] range for true 3D normal
+    vec3 normal = texture(normalMap, uv).rgb;
+    normal = normalize(normal * 2.0 - 1.0);  // True 3D normal
+    
     // Start with base color
     vec3 finalColor = texColor.rgb;
     
     // Apply point lights
     vec3 lightingColor = vec3(0.0);
     
-    // Convert sprite z-depth from [-1, 1] to [0, 1] for comparison
-    float spriteDepthNorm = (fragDepth + 1.0) * 0.5;
-    
     for (int i = 0; i < numLights; i++) {
         if (i >= MAX_LIGHTS) break;
         
-        // Only apply light if it's between camera and this sprite
-        // Light must be closer to camera (higher depth value) than sprite
-        if (lightDepths[i] < spriteDepthNorm) {
-            continue;  // Light is farther away - no effect
-        }
-        
-        // Calculate distance from fragment to light
-        vec2 toLight = lightPositions[i] - fragWorldPos;
+        // Calculate full 3D direction from fragment to light
+        // Fragment is at (fragWorldPos.xy, fragDepth in z)
+        vec3 fragmentPos = vec3(fragWorldPos, fragDepth);
+        vec3 toLight = lightPositions[i] - fragmentPos;
         float distance = length(toLight);
+        vec3 lightDir = normalize(toLight);  // Full 3D normalized direction
         
         // Check if fragment is within light radius
         if (distance <= lightRadii[i]) {
@@ -53,8 +53,12 @@ void main() {
             float falloff = 1.0 - (distance / lightRadii[i]);
             falloff = falloff * falloff;  // Quadratic falloff
             
-            // Accumulate colored lighting
-            lightingColor += lightColors[i] * lightIntensities[i] * falloff;
+            // Use true 3D normal dot product with 3D light direction for proper Lambert lighting
+            float normalInfluence = dot(normal, lightDir);
+            normalInfluence = max(normalInfluence, 0.0);  // Only consider front-facing surfaces
+            
+            // Accumulate colored lighting with proper diffuse (Lambert) model
+            lightingColor += lightColors[i] * lightIntensities[i] * falloff * normalInfluence;
         }
     }
     

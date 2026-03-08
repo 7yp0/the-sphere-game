@@ -25,7 +25,7 @@ void init_renderer(uint32_t width, uint32_t height)
     glViewport(0, 0, width, height);
     
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
+    glDepthFunc(GL_LESS);  // Standard: render if z is LESS than (closer to camera than) existing z
     
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -79,6 +79,7 @@ void init_renderer(uint32_t width, uint32_t height)
     
     glUseProgram(litShaderProgram);
     glUniform1i(glGetUniformLocation(litShaderProgram, "texture0"), 0);
+    glUniform1i(glGetUniformLocation(litShaderProgram, "normalMap"), 1);  // Texture unit 1 for normal maps
     glUseProgram(0);
 }
 
@@ -293,14 +294,19 @@ void render_sprite_animated_with_depth(const SpriteAnimation* anim, Vec3 pos, Ve
 // Point Light Rendering Implementation
 
 void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, const std::vector<Scene::PointLight>& lights,
-                       PivotPoint pivot)
+                       TextureID normal_map, PivotPoint pivot)
 {
-    render_sprite_lit(tex, pos, size, Vec4(0.0f, 0.0f, 1.0f, 1.0f), lights, pivot);
+    render_sprite_lit(tex, pos, size, Vec4(0.0f, 0.0f, 1.0f, 1.0f), lights, normal_map, pivot);
 }
 
 void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range, const std::vector<Scene::PointLight>& lights,
-                       PivotPoint pivot)
+                       TextureID normal_map, PivotPoint pivot)
 {
+    // If no normal map provided, use the diffuse texture as fallback (assumes flat surface)
+    if (normal_map == 0) {
+        normal_map = tex;
+    }
+    
     // Convert pixel coordinates to OpenGL coordinates
     Vec2 opengl_pos = Coords::pixel_to_opengl(Vec2(pos.x, pos.y), g_viewport_width, g_viewport_height);
     Vec2 opengl_size = Vec2(
@@ -338,23 +344,19 @@ void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range,
     uint32_t num_lights = lights.size() > 8 ? 8 : (uint32_t)lights.size();
     glUniform1i(glGetUniformLocation(litShaderProgram, "numLights"), num_lights);
     
-    // DEBUG: Print light info on first few calls
-    static int debug_lit_calls = 0;
-    if (debug_lit_calls++ < 2) {
-        DEBUG_LOG("[LIT] Rendering with %u lights, spriteZ=%.3f", num_lights, pos.z);
-    }
-    
-    std::vector<Vec2> light_positions;
-    std::vector<float> light_depths, light_intensities, light_radii;
+    // Send lights as full 3D vectors
+    std::vector<Vec3> light_positions_3d;
+    std::vector<float> light_intensities, light_radii;
     std::vector<Vec3> light_colors;
     
     for (uint32_t i = 0; i < num_lights; i++) {
         const Scene::PointLight& light = lights[i];
         
-        // Convert light position to OpenGL coordinates (use x, y from Vec3)
-        Vec2 light_opengl = Coords::pixel_to_opengl(Vec2(light.position.x, light.position.y), g_viewport_width, g_viewport_height);
-        light_positions.push_back(light_opengl);
-        light_depths.push_back(light.position.z);  // Use z component from Vec3
+        // Convert light position to OpenGL coordinates (full 3D)
+        Vec2 light_xy_opengl = Coords::pixel_to_opengl(Vec2(light.position.x, light.position.y), g_viewport_width, g_viewport_height);
+        // Keep z-depth as-is (already in OpenGL space: -1 to 1)
+        Vec3 light_pos_opengl(light_xy_opengl.x, light_xy_opengl.y, light.position.z);
+        light_positions_3d.push_back(light_pos_opengl);
         light_colors.push_back(light.color);
         light_intensities.push_back(light.intensity);
         // Convert radius to OpenGL scale (in pixel space it's relative to viewport)
@@ -362,15 +364,18 @@ void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range,
         light_radii.push_back(radius_ndc);
     }
     
-    // Set arrays
-    glUniform2fv(glGetUniformLocation(litShaderProgram, "lightPositions"), num_lights, (float*)light_positions.data());
-    glUniform1fv(glGetUniformLocation(litShaderProgram, "lightDepths"), num_lights, light_depths.data());
+    // Set arrays (all 3D now)
+    glUniform3fv(glGetUniformLocation(litShaderProgram, "lightPositions"), num_lights, (float*)light_positions_3d.data());
     glUniform3fv(glGetUniformLocation(litShaderProgram, "lightColors"), num_lights, (float*)light_colors.data());
     glUniform1fv(glGetUniformLocation(litShaderProgram, "lightIntensities"), num_lights, light_intensities.data());
     glUniform1fv(glGetUniformLocation(litShaderProgram, "lightRadii"), num_lights, light_radii.data());
     
+    // Bind textures
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, tex);
+    
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, normal_map);
     
     glBindVertexArray(quadVAO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -378,7 +383,7 @@ void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range,
 }
 
 void render_sprite_animated_lit(const SpriteAnimation* anim, Vec3 pos, Vec2 size, const std::vector<Scene::PointLight>& lights,
-                                PivotPoint pivot)
+                                TextureID normal_map, PivotPoint pivot)
 {
     if (!anim || anim->frames.empty()) {
         DEBUG_ERROR("render_sprite_animated_lit() - invalid animation (null or empty frames)");
@@ -395,7 +400,7 @@ void render_sprite_animated_lit(const SpriteAnimation* anim, Vec3 pos, Vec2 size
     Vec4 tex_coord_range(frame.u0, frame.v0, frame.u1, frame.v1);
     
     // Render using sprite map texture with UV mapping and lighting
-    render_sprite_lit(anim->texture, pos, size, tex_coord_range, lights, pivot);
+    render_sprite_lit(anim->texture, pos, size, tex_coord_range, lights, normal_map, pivot);
 }
 
 }

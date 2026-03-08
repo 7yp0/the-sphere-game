@@ -10,12 +10,17 @@
 #include <algorithm>
 #include <functional>
 
+// Undefine Windows macros that conflict with std::min/std::max
+#undef min
+#undef max
+
 namespace Scene {
 
 struct Prop {
     Vec3 position;
     Vec2 size;
     Renderer::TextureID texture;
+    Renderer::TextureID normal_map;  // Normal map for lighting (optional)
     std::string name;
     PivotPoint pivot = PivotPoint::TOP_LEFT;
 };
@@ -51,7 +56,8 @@ struct Scene {
     uint32_t width;
     uint32_t height;
     Renderer::TextureID background;
-    Renderer::TextureID height_map;  // Height map for depth-based sprite scaling
+    Renderer::TextureID background_normal_map;  // Normal map for background lighting
+    Renderer::HeightMapData height_map;  // Height map data for depth-based sampling
     std::vector<Prop> props;
     
     std::vector<HorizonLine> horizons;  // Legacy - will be removed when height map fully works
@@ -64,25 +70,57 @@ struct SceneManager {
 };
 
 // Forward declare find_closest_horizon for get_depth_scaling
-inline HorizonLine* find_closest_horizon(Scene& scene, float sprite_y);
+HorizonLine* find_closest_horizon(Scene& scene, float sprite_y);
 
-// Calculate depth scaling based on sprite Y position
-// Uses height map if available, otherwise uses legacy horizon lines
-inline float get_depth_scaling(Scene& scene, float sprite_y) {
-    if (scene.height_map) {
-        // Height map available - calculate scale based on Y position
-        // Map sprite_y from screen space (0-720) to depth (0.8 to 1.2 scale)
-        float t = sprite_y / scene.height;  // Normalize to 0-1 (0=top, 1=bottom)
-        // Deeper (bottom) = larger scale, higher (top) = smaller scale
-        return 0.8f + (t * 0.4f);  // Scales from 0.8 (top) to 1.2 (bottom)
-    } else {
-        // Fallback to horizon line system
-        HorizonLine* closest_horizon = find_closest_horizon(scene, sprite_y);
-        if (!closest_horizon) return 1.0f;  // No scaling
+// Calculate Z-depth based on height map sampling
+// Convention: Z = -1 (near camera = large), Z = 1 (far from camera = small)
+// White pixels (255) = near, Black pixels (0) = far
+inline float get_z_from_height_map(const Scene& scene, float world_x, float world_y) {
+    if (scene.height_map.is_valid()) {
+        // Normalize world position to texture coordinates [0, 1]
+        float tex_u = world_x / scene.width;
+        float tex_v = world_y / scene.height;
         
-        float scale = 1.0f + (closest_horizon->depth_scale_inverted ? -1.0f : 1.0f) * 
-                      (sprite_y - closest_horizon->y_position) * closest_horizon->scale_gradient;
+        // Clamp to [0, 1]
+        tex_u = std::max(0.0f, std::min(1.0f, tex_u));
+        tex_v = std::max(0.0f, std::min(1.0f, tex_v));
+        
+        // Convert to pixel coordinates
+        int32_t pixel_x = (int32_t)(tex_u * (scene.height_map.width - 1));
+        int32_t pixel_y = (int32_t)(tex_v * (scene.height_map.height - 1));
+        
+        // Sample height value (0-255)
+        uint32_t pixel_index = pixel_y * scene.height_map.width + pixel_x;
+        uint8_t height_value = scene.height_map.pixels[pixel_index];
+        
+        // Normalize to [0, 1]
+        float normalized_height = height_value / 255.0f;
+        
+        // Map to Z range: white (255) = near (-0.8), black (0) = far (0.8)
+        float z = 0.8f - (normalized_height * 1.6f);
+        
+        return z;
+    } else {
+        // No height map - neutral depth
+        return 0.0f;
+    }
+}
+
+// Calculate depth scaling based on height map sampling
+// Matches the Z-coordinate: negative Z (near) = larger scale, positive Z (far) = smaller scale
+inline float get_depth_scaling(const Scene& scene, float world_x, float world_y) {
+    if (scene.height_map.is_valid()) {
+        // Get Z value from height map (which encodes depth)
+        float z_value = get_z_from_height_map(scene, world_x, world_y);
+        
+        // Map Z to scale: z=-0.8 (near, large) -> scale=1.4, z=0.8 (far, small) -> scale=0.6
+        // Formula: scale = 1.0 - (z_value / 0.8) * 0.4
+        float scale = 1.0f - (z_value / 0.8f) * 0.4f;
         return scale;
+    } else {
+        // Fallback: use Y-based scaling if no height map
+        float t = world_y / scene.height;
+        return 0.6f + (t * 0.8f);
     }
 }
 

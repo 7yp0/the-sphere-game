@@ -78,6 +78,59 @@ void free_texture(TextureID tex) {
     glDeleteTextures(1, &tex);
 }
 
+HeightMapData load_height_map(const char* path) {
+    HeightMapData result;
+    result.texture_id = 0;
+    result.width = 0;
+    result.height = 0;
+    
+    if (!path) {
+        DEBUG_ERROR("load_height_map called with nullptr path");
+        return result;
+    }
+    
+    // Load PNG
+    PNGImage img = png_load(path);
+    if (img.pixels == nullptr) {
+        DEBUG_ERROR("Failed to load height map: %s", path);
+        return result;
+    }
+    
+    // Store dimensions
+    result.width = img.width;
+    result.height = img.height;
+    
+    // Convert RGBA to grayscale and store
+    result.pixels.resize(img.width * img.height);
+    for (uint32_t i = 0; i < img.width * img.height; ++i) {
+        uint8_t r = img.pixels[i * 4 + 0];
+        uint8_t g = img.pixels[i * 4 + 1];
+        uint8_t b = img.pixels[i * 4 + 2];
+        // Standard grayscale conversion
+        result.pixels[i] = (uint8_t)((r * 0.299f + g * 0.587f + b * 0.114f));
+    }
+    
+    // Create OpenGL texture
+    GLuint tex = 0;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, img.width, img.height, 0,
+                 GL_RED, GL_UNSIGNED_BYTE, result.pixels.data());
+    
+    glBindTexture(GL_TEXTURE_2D, 0);
+    png_free(img);
+    
+    result.texture_id = tex;
+    DEBUG_LOG("Height map loaded: %s (%ux%u)", path, result.width, result.height);
+    return result;
+}
+
 void clear_texture_cache() {
     for (auto& pair : g_texture_cache) {
         glDeleteTextures(1, &pair.second);
