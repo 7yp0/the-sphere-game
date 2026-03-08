@@ -52,13 +52,12 @@ void update(float delta_time) {
 void render() {
     // Background fills entire scene - apply lighting
     Renderer::render_sprite_lit(g_state.scene.background, 
-                               Vec2(0.0f, 0.0f),
+                               Vec3(0.0f, 0.0f, Layers::get_z_depth(Layer::BACKGROUND)),
                                Vec2((float)g_state.scene.width, (float)g_state.scene.height),
-                               g_state.scene.lights,
-                               Layers::get_z_depth(Layer::BACKGROUND));
+                               g_state.scene.lights);
     
     // Helper: Calculate visual base Y position (bottom of sprite for sorting)
-    auto get_sort_y = [](Vec2 pos, Vec2 size, PivotPoint pivot) -> float {
+    auto get_sort_y = [](Vec3 pos, Vec2 size, PivotPoint pivot) -> float {
         switch (pivot) {
             case PivotPoint::TOP_LEFT:
             case PivotPoint::TOP_CENTER:
@@ -131,11 +130,13 @@ void render() {
                     g_state.player.size.y * depth_scale
                 );
                 
+                // Create Vec3 position with z_depth as z component
+                Vec3 player_pos(g_state.player.position.x, g_state.player.position.y, z_depth);
+                
                 Renderer::render_sprite_animated_lit(player_anim, 
-                                                    g_state.player.position, 
+                                                    player_pos, 
                                                     scaled_size,
                                                     g_state.scene.lights,
-                                                    z_depth,
                                                     g_state.player.pivot);
             }
         } else {
@@ -149,9 +150,11 @@ void render() {
                 prop.size.y * depth_scale
             );
             
-            Renderer::render_sprite_lit(prop.texture, prop.position, scaled_size,
-                                       g_state.scene.lights,
-                                       z_depth, prop.pivot);
+            // Create Vec3 position with z_depth as z component
+            Vec3 prop_pos(prop.position.x, prop.position.y, z_depth);
+            
+            Renderer::render_sprite_lit(prop.texture, prop_pos, scaled_size,
+                                       g_state.scene.lights, prop.pivot);
         }
     }
     

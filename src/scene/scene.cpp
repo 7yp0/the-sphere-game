@@ -29,7 +29,7 @@ void init_scene_test() {
     scene.horizons.push_back(scale_up_horizon);
     
     Prop bg_box;
-    bg_box.position = Vec2(300.0f, 520.0f);
+    bg_box.position = Vec3(300.0f, 520.0f, 0.0f);  // z=0 is default depth
     bg_box.size = Vec2(100.0f, 100.0f);
     bg_box.texture = Renderer::load_texture("scenes/test/props/bg_box.png");
     bg_box.name = "bg_box";
@@ -64,24 +64,21 @@ void init_scene_test() {
     
     // Setup point lights for dynamic scene illumination
     PointLight warm_light;
-    warm_light.position = Vec2(640.0f, 380.0f);  // Center screen
-    warm_light.depth = 1.0f;  // Always at camera plane to light everything
+    warm_light.position = Vec3(640.0f, 380.0f, 1.0f);  // Center screen, z=1.0 to light everything
     warm_light.color = Vec3(1.0f, 0.6f, 0.2f);   // Orange-red
     warm_light.intensity = 1.2f;                  // Strong
     warm_light.radius = 600.0f;
     scene.lights.push_back(warm_light);
     
     PointLight cool_light;
-    cool_light.position = Vec2(300.0f, 300.0f);  // Near left
-    cool_light.depth = 1.0f;  // Always at camera plane to light everything
+    cool_light.position = Vec3(300.0f, 300.0f, 1.0f);  // Near left, z=1.0 to light everything
     cool_light.color = Vec3(0.2f, 0.8f, 1.0f);   // Cyan-blue
     cool_light.intensity = 1.0f;
     cool_light.radius = 500.0f;
     scene.lights.push_back(cool_light);
     
     PointLight green_light;
-    green_light.position = Vec2(1000.0f, 400.0f);  // Right side
-    green_light.depth = 1.0f;  // Always at camera plane to light everything
+    green_light.position = Vec3(1000.0f, 400.0f, 1.0f);  // Right side, z=1.0 to light everything
     green_light.color = Vec3(0.3f, 1.0f, 0.4f);   // Green
     green_light.intensity = 0.8f;
     green_light.radius = 450.0f;

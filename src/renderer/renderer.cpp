@@ -74,7 +74,7 @@ void init_renderer(uint32_t width, uint32_t height)
     if (litShaderProgram == 0) {
         DEBUG_ERROR("Failed to compile basic_lit shader program!");
     } else {
-        DEBUG_LOG("Successfully loaded basic_lit shader program (ID: %u)", litShaderProgram);
+        DEBUG_INFO("Successfully loaded basic_lit shader program (ID: %u)", litShaderProgram);
     }
     
     glUseProgram(litShaderProgram);
@@ -88,16 +88,16 @@ void clear_screen()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void render_sprite(TextureID tex, Vec2 pos, Vec2 size, float z_depth, PivotPoint pivot)
+void render_sprite(TextureID tex, Vec3 pos, Vec2 size, PivotPoint pivot)
 {
     // Default texture coordinate range (full texture)
-    render_sprite(tex, pos, size, Vec4(0.0f, 0.0f, 1.0f, 1.0f), z_depth, pivot);
+    render_sprite(tex, pos, size, Vec4(0.0f, 0.0f, 1.0f, 1.0f), pivot);
 }
 
-void render_sprite(TextureID tex, Vec2 pos, Vec2 size, Vec4 tex_coord_range, float z_depth, PivotPoint pivot)
+void render_sprite(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range, PivotPoint pivot)
 {
     // Convert pixel coordinates to OpenGL coordinates
-    Vec2 opengl_pos = Coords::pixel_to_opengl(pos, g_viewport_width, g_viewport_height);
+    Vec2 opengl_pos = Coords::pixel_to_opengl(Vec2(pos.x, pos.y), g_viewport_width, g_viewport_height);
     Vec2 opengl_size = Vec2(
         (size.x / (float)g_viewport_width) * 2.0f,
         (size.y / (float)g_viewport_height) * 2.0f
@@ -125,7 +125,7 @@ void render_sprite(TextureID tex, Vec2 pos, Vec2 size, Vec4 tex_coord_range, flo
     
     glUniform2f(posLoc, opengl_center.x, opengl_center.y);
     glUniform2f(sizeLoc, opengl_size.x, opengl_size.y);
-    glUniform1f(zLoc, z_depth);
+    glUniform1f(zLoc, pos.z);  // Use z component from Vec3
     glUniform4f(texCoordLoc, tex_coord_range.x, tex_coord_range.y, tex_coord_range.z, tex_coord_range.w);
     
     glActiveTexture(GL_TEXTURE0);
@@ -136,7 +136,7 @@ void render_sprite(TextureID tex, Vec2 pos, Vec2 size, Vec4 tex_coord_range, flo
     glBindVertexArray(0);
 }
 
-void render_sprite_animated(const SpriteAnimation* anim, Vec2 pos, Vec2 size, float z_depth, PivotPoint pivot)
+void render_sprite_animated(const SpriteAnimation* anim, Vec3 pos, Vec2 size, PivotPoint pivot)
 {
     if (!anim || anim->frames.empty()) {
         DEBUG_ERROR("render_sprite_animated() - invalid animation (null or empty frames)");
@@ -153,13 +153,13 @@ void render_sprite_animated(const SpriteAnimation* anim, Vec2 pos, Vec2 size, fl
     Vec4 tex_coord_range(frame.u0, frame.v0, frame.u1, frame.v1);
     
     // Render using sprite map texture with UV mapping
-    render_sprite(anim->texture, pos, size, tex_coord_range, z_depth, pivot);
+    render_sprite(anim->texture, pos, size, tex_coord_range, pivot);
 }
 
-void render_rect(Vec2 pos, Vec2 size, Vec4 color, float z_depth, PivotPoint pivot)
+void render_rect(Vec3 pos, Vec2 size, Vec4 color, PivotPoint pivot)
 {
     // Convert pixel coordinates to OpenGL coordinates
-    Vec2 opengl_pos = Coords::pixel_to_opengl(pos, g_viewport_width, g_viewport_height);
+    Vec2 opengl_pos = Coords::pixel_to_opengl(Vec2(pos.x, pos.y), g_viewport_width, g_viewport_height);
     Vec2 opengl_size = Vec2(
         (size.x / (float)g_viewport_width) * 2.0f,
         (size.y / (float)g_viewport_height) * 2.0f
@@ -187,7 +187,7 @@ void render_rect(Vec2 pos, Vec2 size, Vec4 color, float z_depth, PivotPoint pivo
     
     glUniform2f(posLoc, opengl_center.x, opengl_center.y);
     glUniform2f(sizeLoc, opengl_size.x, opengl_size.y);
-    glUniform1f(zLoc, z_depth);
+    glUniform1f(zLoc, pos.z);  // Use z component from Vec3
     glUniform4f(colorLoc, color.x, color.y, color.z, color.w);
     
     glBindVertexArray(quadVAO);
@@ -195,7 +195,7 @@ void render_rect(Vec2 pos, Vec2 size, Vec4 color, float z_depth, PivotPoint pivo
     glBindVertexArray(0);
 }
 
-void render_line(Vec2 start, Vec2 end, Vec4 color, float thickness, float z_depth)
+void render_line(Vec3 start, Vec3 end, Vec4 color, float thickness)
 {
     // Draw line as a series of small quads along the path
     Vec2 diff = Vec2(end.x - start.x, end.y - start.y);
@@ -206,9 +206,12 @@ void render_line(Vec2 start, Vec2 end, Vec4 color, float thickness, float z_dept
     int segment_count = (int)(length / (thickness * 2.0f)) + 1;
     Vec2 step = Vec2(diff.x / segment_count, diff.y / segment_count);
     
+    // Use the average z-depth for the line
+    float z_avg = (start.z + end.z) * 0.5f;
+    
     for (int i = 0; i < segment_count; i++) {
-        Vec2 pos = Vec2(start.x + step.x * i, start.y + step.y * i);
-        render_rect(pos, Vec2(thickness * 2.0f, thickness * 2.0f), color, z_depth);
+        Vec3 pos = Vec3(start.x + step.x * i, start.y + step.y * i, z_avg);
+        render_rect(pos, Vec2(thickness * 2.0f, thickness * 2.0f), color);
     }
 }
 
@@ -244,17 +247,17 @@ float calculate_depth_scale(float sprite_y, float horizon_y, float scale_gradien
     return scale;
 }
 
-void render_sprite_with_depth(TextureID tex, Vec2 pos, Vec2 base_size, float sprite_y,
+void render_sprite_with_depth(TextureID tex, Vec3 pos, Vec2 base_size, float sprite_y,
                               float horizon_y, float scale_gradient, bool inverted,
-                              float z_depth, PivotPoint pivot)
+                              PivotPoint pivot)
 {
     render_sprite_with_depth(tex, pos, base_size, Vec4(0.0f, 0.0f, 1.0f, 1.0f),
-                           sprite_y, horizon_y, scale_gradient, inverted, z_depth, pivot);
+                           sprite_y, horizon_y, scale_gradient, inverted, pivot);
 }
 
-void render_sprite_with_depth(TextureID tex, Vec2 pos, Vec2 base_size, Vec4 tex_coord_range,
+void render_sprite_with_depth(TextureID tex, Vec3 pos, Vec2 base_size, Vec4 tex_coord_range,
                               float sprite_y, float horizon_y, float scale_gradient, bool inverted,
-                              float z_depth, PivotPoint pivot)
+                              PivotPoint pivot)
 {
     float depth_scale = calculate_depth_scale(sprite_y, horizon_y, scale_gradient, inverted);
     
@@ -263,12 +266,12 @@ void render_sprite_with_depth(TextureID tex, Vec2 pos, Vec2 base_size, Vec4 tex_
         base_size.y * depth_scale
     );
     
-    render_sprite(tex, pos, scaled_size, tex_coord_range, z_depth, pivot);
+    render_sprite(tex, pos, scaled_size, tex_coord_range, pivot);
 }
 
-void render_sprite_animated_with_depth(const SpriteAnimation* anim, Vec2 pos, Vec2 base_size,
+void render_sprite_animated_with_depth(const SpriteAnimation* anim, Vec3 pos, Vec2 base_size,
                                        float sprite_y, float horizon_y, float scale_gradient, bool inverted,
-                                       float z_depth, PivotPoint pivot)
+                                       PivotPoint pivot)
 {
     if (!anim || anim->frames.empty()) {
         DEBUG_ERROR("render_sprite_animated_with_depth() - invalid animation (null or empty frames)");
@@ -284,22 +287,22 @@ void render_sprite_animated_with_depth(const SpriteAnimation* anim, Vec2 pos, Ve
     Vec4 tex_coord_range(frame.u0, frame.v0, frame.u1, frame.v1);
     
     render_sprite_with_depth(anim->texture, pos, base_size, tex_coord_range,
-                           sprite_y, horizon_y, scale_gradient, inverted, z_depth, pivot);
+                           sprite_y, horizon_y, scale_gradient, inverted, pivot);
 }
 
 // Point Light Rendering Implementation
 
-void render_sprite_lit(TextureID tex, Vec2 pos, Vec2 size, const std::vector<Scene::PointLight>& lights,
-                       float z_depth, PivotPoint pivot)
+void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, const std::vector<Scene::PointLight>& lights,
+                       PivotPoint pivot)
 {
-    render_sprite_lit(tex, pos, size, Vec4(0.0f, 0.0f, 1.0f, 1.0f), lights, z_depth, pivot);
+    render_sprite_lit(tex, pos, size, Vec4(0.0f, 0.0f, 1.0f, 1.0f), lights, pivot);
 }
 
-void render_sprite_lit(TextureID tex, Vec2 pos, Vec2 size, Vec4 tex_coord_range, const std::vector<Scene::PointLight>& lights,
-                       float z_depth, PivotPoint pivot)
+void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range, const std::vector<Scene::PointLight>& lights,
+                       PivotPoint pivot)
 {
     // Convert pixel coordinates to OpenGL coordinates
-    Vec2 opengl_pos = Coords::pixel_to_opengl(pos, g_viewport_width, g_viewport_height);
+    Vec2 opengl_pos = Coords::pixel_to_opengl(Vec2(pos.x, pos.y), g_viewport_width, g_viewport_height);
     Vec2 opengl_size = Vec2(
         (size.x / (float)g_viewport_width) * 2.0f,
         (size.y / (float)g_viewport_height) * 2.0f
@@ -328,7 +331,7 @@ void render_sprite_lit(TextureID tex, Vec2 pos, Vec2 size, Vec4 tex_coord_range,
     
     glUniform2f(posLoc, opengl_center.x, opengl_center.y);
     glUniform2f(sizeLoc, opengl_size.x, opengl_size.y);
-    glUniform1f(zLoc, z_depth);
+    glUniform1f(zLoc, pos.z);  // Use z component from Vec3
     glUniform4f(texCoordLoc, tex_coord_range.x, tex_coord_range.y, tex_coord_range.z, tex_coord_range.w);
     
     // Set light uniforms (max 8 lights)
@@ -338,7 +341,7 @@ void render_sprite_lit(TextureID tex, Vec2 pos, Vec2 size, Vec4 tex_coord_range,
     // DEBUG: Print light info on first few calls
     static int debug_lit_calls = 0;
     if (debug_lit_calls++ < 2) {
-        DEBUG_LOG("[LIT] Rendering with %u lights, spriteZ=%.3f", num_lights, z_depth);
+        DEBUG_LOG("[LIT] Rendering with %u lights, spriteZ=%.3f", num_lights, pos.z);
     }
     
     std::vector<Vec2> light_positions;
@@ -348,10 +351,10 @@ void render_sprite_lit(TextureID tex, Vec2 pos, Vec2 size, Vec4 tex_coord_range,
     for (uint32_t i = 0; i < num_lights; i++) {
         const Scene::PointLight& light = lights[i];
         
-        // Convert light position to OpenGL coordinates
-        Vec2 light_opengl = Coords::pixel_to_opengl(light.position, g_viewport_width, g_viewport_height);
+        // Convert light position to OpenGL coordinates (use x, y from Vec3)
+        Vec2 light_opengl = Coords::pixel_to_opengl(Vec2(light.position.x, light.position.y), g_viewport_width, g_viewport_height);
         light_positions.push_back(light_opengl);
-        light_depths.push_back(light.depth);
+        light_depths.push_back(light.position.z);  // Use z component from Vec3
         light_colors.push_back(light.color);
         light_intensities.push_back(light.intensity);
         // Convert radius to OpenGL scale (in pixel space it's relative to viewport)
@@ -374,8 +377,8 @@ void render_sprite_lit(TextureID tex, Vec2 pos, Vec2 size, Vec4 tex_coord_range,
     glBindVertexArray(0);
 }
 
-void render_sprite_animated_lit(const SpriteAnimation* anim, Vec2 pos, Vec2 size, const std::vector<Scene::PointLight>& lights,
-                                float z_depth, PivotPoint pivot)
+void render_sprite_animated_lit(const SpriteAnimation* anim, Vec3 pos, Vec2 size, const std::vector<Scene::PointLight>& lights,
+                                PivotPoint pivot)
 {
     if (!anim || anim->frames.empty()) {
         DEBUG_ERROR("render_sprite_animated_lit() - invalid animation (null or empty frames)");
@@ -392,7 +395,7 @@ void render_sprite_animated_lit(const SpriteAnimation* anim, Vec2 pos, Vec2 size
     Vec4 tex_coord_range(frame.u0, frame.v0, frame.u1, frame.v1);
     
     // Render using sprite map texture with UV mapping and lighting
-    render_sprite_lit(anim->texture, pos, size, tex_coord_range, lights, z_depth, pivot);
+    render_sprite_lit(anim->texture, pos, size, tex_coord_range, lights, pivot);
 }
 
 }

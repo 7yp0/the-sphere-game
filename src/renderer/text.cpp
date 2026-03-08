@@ -23,7 +23,7 @@ void render_text(const char* text, Vec2 pos, float scale) {
     if (!g_font_texture) init_text_renderer();
     if (!text) return;
     
-    Vec2 current_pos = pos;
+    Vec3 current_pos = Vec3(pos, -1.0f);  // Use z=-1.0f for UI text depth
     
     // Glyph size in pixels
     float glyph_width_px = GLYPH_WIDTH * scale;
@@ -48,7 +48,7 @@ void render_text(const char* text, Vec2 pos, float scale) {
             
             // render_sprite expects pixel coordinates and sizes, will convert internally
             render_sprite(g_font_texture, current_pos, Vec2(glyph_width_px, glyph_height_px), 
-                         uv_range, -1.0f);
+                         uv_range);
             current_pos.x += glyph_width_px * 1.1f;
         }
     }

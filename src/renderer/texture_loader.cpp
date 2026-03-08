@@ -46,7 +46,7 @@ TextureID load_texture(const char* path) {
         return tex;
     }
     
-    DEBUG_LOG("Could not load texture '%s', using fallback", path);
+    DEBUG_INFO("Could not load texture '%s', using fallback", path);
     return create_test_texture();
 }
 

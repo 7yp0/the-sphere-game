@@ -13,7 +13,7 @@
 namespace Scene {
 
 struct Prop {
-    Vec2 position;
+    Vec3 position;
     Vec2 size;
     Renderer::TextureID texture;
     std::string name;
@@ -35,9 +35,8 @@ struct Hotspot {
 };
 
 struct PointLight {
-    Vec2 position;      // World position (screen space)
-    float depth;        // Z-depth (0=far from camera, 1=near). Lights only affect sprites beyond this depth
-    Vec3 color;        // RGB color (0-1 range)
+    Vec3 position;      // World position (screen space + z-depth)
+    Vec3 color;         // RGB color (0-1 range)
     float intensity;    // Brightness multiplier
     float radius;       // Maximum distance from light where it has effect
 };

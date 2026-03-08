@@ -29,8 +29,8 @@ enum class HotspotInteractionState {
 
 struct Player {
     // State
-    Vec2 position;                              // Pixel coordinates in scene space (0 to scene.width/height)
-    Vec2 target_position;                       // Pixel coordinates in scene space
+    Vec3 position;                              // Pixel coordinates in scene space (xy) + z-depth (z)
+    Vec3 target_position;                       // Pixel coordinates in scene space + z-depth
     Vec2 size = Vec2(64.0f, 100.0f);            // Sprite dimensions in pixels (Guybrush frame size)
     AnimationState animation_state = AnimationState::Idle;
     WalkDirection walk_direction = WalkDirection::Down;  // Current facing direction

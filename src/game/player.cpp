@@ -92,7 +92,7 @@ static void handle_hotspot_click(Player& player, Vec2 mouse_pos) {
                 if (hotspot.callback) {
                     hotspot.callback();
                 }
-                player.target_position = player.position;
+                player.target_position = player.position;  // Preserve z component
                 player.hotspot_state = HotspotInteractionState::InRange;
                 return;
             }
@@ -116,12 +116,12 @@ static void handle_hotspot_click(Player& player, Vec2 mouse_pos) {
             }
             
             // Set target at interaction_distance away from hotspot boundary
-            Vec2 approach_point = Vec2(
+            Vec2 approach_point_2d = Vec2(
                 closest_on_hotspot.x + to_player.x * hotspot.interaction_distance,
                 closest_on_hotspot.y + to_player.y * hotspot.interaction_distance
             );
             
-            player.target_position = approach_point;
+            player.target_position = Vec3(approach_point_2d.x, approach_point_2d.y, player.position.z);
             player.hotspot_state = HotspotInteractionState::Approaching;
             return;
         }
@@ -130,7 +130,7 @@ static void handle_hotspot_click(Player& player, Vec2 mouse_pos) {
 
 // Helper function: Handle regular movement click
 static void handle_movement_click(Player& player, Vec2 mouse_pos) {
-    player.target_position = mouse_pos;
+    player.target_position = Vec3(mouse_pos.x, mouse_pos.y, player.position.z);  // Preserve z
     player.active_hotspot_index = -1;
     player.hotspot_state = HotspotInteractionState::None;
 }
@@ -243,8 +243,8 @@ void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_heig
     animations->add("idle", idle_down_anim);
     
     // Initialize player entity
-    player.position = Vec2(viewport_width * 0.5f, viewport_height * 0.5f);
-    player.target_position = Vec2(viewport_width * 0.5f, viewport_height * 0.5f);
+    player.position = Vec3(viewport_width * 0.5f, viewport_height * 0.5f, 0.0f);
+    player.target_position = Vec3(viewport_width * 0.5f, viewport_height * 0.5f, 0.0f);
     player.size = Vec2(36.0f, 46.0f);  // Lenore frame size
     player.animation_state = AnimationState::Idle;
     player.walk_direction = WalkDirection::Down;
@@ -273,7 +273,7 @@ static void clamp_player_position(Player& player, uint32_t viewport_width, uint3
     player.position.y = std::max(top, std::min(bottom, player.position.y));
 }
 
-static void apply_collision_response(Player& player, Vec2 old_position, const std::vector<Collision::Polygon>& walkable_areas) {
+static void apply_collision_response(Player& player, Vec3 old_position, const std::vector<Collision::Polygon>& walkable_areas) {
     if (walkable_areas.empty()) return;
     
     // If player is inside walkable areas, no collision
@@ -285,14 +285,14 @@ static void apply_collision_response(Player& player, Vec2 old_position, const st
     // Try X-axis only movement
     Vec2 x_only = Vec2(player.position.x, old_position.y);
     if (Collision::point_in_any_polygon(x_only, walkable_areas)) {
-        player.position = x_only;
+        player.position = Vec3(x_only.x, x_only.y, player.position.z);  // Preserve z
         return;
     }
     
     // Try Y-axis only movement
     Vec2 y_only = Vec2(old_position.x, player.position.y);
     if (Collision::point_in_any_polygon(y_only, walkable_areas)) {
-        player.position = y_only;
+        player.position = Vec3(y_only.x, y_only.y, player.position.z);  // Preserve z
         return;
     }
     
@@ -301,7 +301,7 @@ static void apply_collision_response(Player& player, Vec2 old_position, const st
 }
 
 void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_height, float delta_time) {
-    Vec2 old_position = player.position;  // Save for collision response
+    Vec3 old_position = player.position;  // Save for collision response (includes z)
     
     Vec2 direction = Vec2(
         player.target_position.x - player.position.x,

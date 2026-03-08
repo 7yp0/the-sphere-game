@@ -2,19 +2,28 @@
 
 #include <cstdint>
 
-struct Vec2 {
-    float x, y;
-    
-    Vec2() : x(0), y(0) {}
-    Vec2(float x, float y) : x(x), y(y) {}
-};
+// Forward declarations
+struct Vec2;
+struct Vec3;
 
 struct Vec3 {
     float x, y, z;
     
     Vec3() : x(0), y(0), z(0) {}
     Vec3(float x, float y, float z) : x(x), y(y), z(z) {}
+    Vec3(const Vec2& v, float z = 0.0f);  // Forward declare, defined below
 };
+
+struct Vec2 {
+    float x, y;
+    
+    Vec2() : x(0), y(0) {}
+    Vec2(float x, float y) : x(x), y(y) {}
+    Vec2(const Vec3& v) : x(v.x), y(v.y) {}  // Extract x, y from Vec3
+};
+
+// Define Vec3 constructor from Vec2
+inline Vec3::Vec3(const Vec2& v, float z) : x(v.x), y(v.y), z(z) {}
 
 struct Vec4 {
     float x, y, z, w;
