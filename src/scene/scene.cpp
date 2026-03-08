@@ -14,6 +14,7 @@ void init_scene_test() {
     scene.width = 1280;
     scene.height = 720;
     scene.background = Renderer::load_texture("scenes/test/backgrounds/bg_room.png");
+    scene.height_map = Renderer::load_texture("scenes/test/backgrounds/bg_room_height_map.png");
     
     HorizonLine scale_down_horizon;
     scale_down_horizon.y_position = 460.0f;

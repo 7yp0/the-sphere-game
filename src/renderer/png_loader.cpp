@@ -104,9 +104,9 @@ PNGImage png_load(const char* filename) {
     }
     fclose(f);
 
-    // Validate format (support 8-bit RGBA or 8-bit indexed color)
-    if (bit_depth != 8 || (color_type != 6 && color_type != 3)) {
-        DEBUG_LOG("PNG format not fully supported (need 8-bit RGBA or 8-bit indexed)");
+    // Validate format (support 8-bit RGBA, 8-bit indexed color, or 8-bit grayscale)
+    if (bit_depth != 8 || (color_type != 6 && color_type != 3 && color_type != 0)) {
+        DEBUG_LOG("PNG format not fully supported (need 8-bit RGBA, 8-bit indexed, or 8-bit grayscale)");
         DEBUG_LOG("  bit_depth=%d, color_type=%d", bit_depth, color_type);
         return error_image();
     }
@@ -132,9 +132,9 @@ PNGImage png_load(const char* filename) {
     stream.avail_in = idat_data.size();
     stream.next_in = idat_data.data();
 
-    // For indexed: width * height * 1 byte; for RGBA: width * height * 4 bytes
+    // For indexed/grayscale: width * height * 1 byte; for RGBA: width * height * 4 bytes
     // Add 1 byte per scanline for filter type
-    uint32_t bytes_per_pixel = (color_type == 3) ? 1 : 4;
+    uint32_t bytes_per_pixel = (color_type == 3 || color_type == 0) ? 1 : 4;
     std::vector<uint8_t> decompressed;
     decompressed.resize(height * (width * bytes_per_pixel + 1));
 
@@ -153,44 +153,44 @@ PNGImage png_load(const char* filename) {
     // PNG uses prediction filters per scanline - we need to reverse them
     uint8_t* pixels = new uint8_t[width * height * 4];
     
-    // For indexed color, keep previous scanline's unfiltered indices for filtering
-    uint8_t* prev_unfiltered_indices = nullptr;
-    if (color_type == 3) {
-        prev_unfiltered_indices = new uint8_t[width];
-        memset(prev_unfiltered_indices, 0, width);
+    // For indexed/grayscale color, keep previous scanline's unfiltered data for filtering
+    uint8_t* prev_unfiltered_data = nullptr;
+    if (color_type == 3 || color_type == 0) {
+        prev_unfiltered_data = new uint8_t[width];
+        memset(prev_unfiltered_data, 0, width);
     }
     
     for (uint32_t y = 0; y < height; y++) {
         uint8_t filter_type = decompressed[y * (width * bytes_per_pixel + 1)];
         uint8_t* scanline = &decompressed[y * (width * bytes_per_pixel + 1) + 1];
-        uint8_t* output_line = (color_type == 3) ? nullptr : &pixels[y * width * 4];
+        uint8_t* output_line = (color_type == 3 || color_type == 0) ? nullptr : &pixels[y * width * 4];
         
-        // For indexed color, we need an intermediate buffer to store unfiltered indices
-        uint8_t* unfiltered_indices = nullptr;
-        if (color_type == 3) {
-            unfiltered_indices = new uint8_t[width];
+        // For indexed/grayscale, we need an intermediate buffer to store unfiltered data
+        uint8_t* unfiltered_data = nullptr;
+        if (color_type == 3 || color_type == 0) {
+            unfiltered_data = new uint8_t[width];
         }
         
         for (uint32_t x = 0; x < width * bytes_per_pixel; x++) {
             uint8_t left = (x >= bytes_per_pixel) ? 
-                ((color_type == 3) ? unfiltered_indices[x - 1] : output_line[x - bytes_per_pixel]) : 0;
+                ((color_type == 3 || color_type == 0) ? unfiltered_data[x - 1] : output_line[x - bytes_per_pixel]) : 0;
             
-            // For indexed: get from previous scanline's indices; for RGBA: get from previous pixels
+            // For indexed/grayscale: get from previous scanline's data; for RGBA: get from previous pixels
             uint8_t above = 0;
-            if (color_type == 3) {
-                // For indexed color, x is the pixel index (bytes_per_pixel=1), so use x directly
-                if (prev_unfiltered_indices) {
-                    above = prev_unfiltered_indices[x];
+            if (color_type == 3 || color_type == 0) {
+                // For indexed/grayscale, x is the pixel index (bytes_per_pixel=1), so use x directly
+                if (prev_unfiltered_data) {
+                    above = prev_unfiltered_data[x];
                 }
             } else if (y > 0) {
                 above = pixels[(y - 1) * width * 4 + x];
             }
             
             uint8_t above_left = 0;
-            if (color_type == 3) {
-                // For indexed color, get left neighbor from previous scanline
-                if (prev_unfiltered_indices && x >= 1) {
-                    above_left = prev_unfiltered_indices[x - 1];
+            if (color_type == 3 || color_type == 0) {
+                // For indexed/grayscale, get left neighbor from previous scanline
+                if (prev_unfiltered_data && x >= 1) {
+                    above_left = prev_unfiltered_data[x - 1];
                 }
             } else if (y > 0 && x >= bytes_per_pixel) {
                 above_left = pixels[(y - 1) * width * 4 + (x - bytes_per_pixel)];
@@ -202,7 +202,7 @@ PNGImage png_load(const char* filename) {
             if (filter_type > 4) {
                 DEBUG_ERROR("Invalid PNG filter type %d at scanline %u", filter_type, y);
                 delete[] pixels;
-                if (unfiltered_indices) delete[] unfiltered_indices;
+                if (unfiltered_data) delete[] unfiltered_data;
                 return error_image();
             }
             
@@ -238,18 +238,18 @@ PNGImage png_load(const char* filename) {
                     break;
             }
             
-            if (color_type == 3) {
-                unfiltered_indices[x] = unfiltered;
+            if (color_type == 3 || color_type == 0) {
+                unfiltered_data[x] = unfiltered;
             } else {
                 output_line[x] = unfiltered;
             }
         }
         
-        // Convert indexed color to RGBA
+        // Convert indexed/grayscale color to RGBA
         if (color_type == 3) {
             uint8_t* output_line = &pixels[y * width * 4];
             for (uint32_t x = 0; x < width; x++) {
-                uint8_t index = unfiltered_indices[x];
+                uint8_t index = unfiltered_data[x];
                 
                 // Ensure index is within palette bounds
                 if (index * 3 + 2 < palette.size()) {
@@ -272,14 +272,28 @@ PNGImage png_load(const char* filename) {
                 }
             }
             
-            // Save current unfiltered indices as previous for next scanline
-            memcpy(prev_unfiltered_indices, unfiltered_indices, width);
-            delete[] unfiltered_indices;
+            // Save current unfiltered data as previous for next scanline
+            memcpy(prev_unfiltered_data, unfiltered_data, width);
+            delete[] unfiltered_data;
+        } else if (color_type == 0) {
+            // Grayscale to RGBA conversion
+            uint8_t* output_line = &pixels[y * width * 4];
+            for (uint32_t x = 0; x < width; x++) {
+                uint8_t gray = unfiltered_data[x];
+                output_line[x * 4 + 0] = gray;  // R
+                output_line[x * 4 + 1] = gray;  // G
+                output_line[x * 4 + 2] = gray;  // B
+                output_line[x * 4 + 3] = 255;  // Full opacity
+            }
+            
+            // Save current unfiltered data as previous for next scanline
+            memcpy(prev_unfiltered_data, unfiltered_data, width);
+            delete[] unfiltered_data;
         }
     }
 
-    if (color_type == 3 && prev_unfiltered_indices) {
-        delete[] prev_unfiltered_indices;
+    if ((color_type == 3 || color_type == 0) && prev_unfiltered_data) {
+        delete[] prev_unfiltered_data;
     }
 
     return {width, height, pixels};

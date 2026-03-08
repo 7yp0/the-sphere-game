@@ -123,31 +123,31 @@ void render() {
             const char* anim_name = player_get_animation_name(g_state.player);
             Renderer::SpriteAnimation* player_anim = g_state.playerAnimations.get(anim_name);
             if (player_anim) {
-                Scene::HorizonLine* horizon = Scene::find_closest_horizon(g_state.scene, g_state.player.position.y);
-                if (horizon) {
-                    Renderer::render_sprite_animated_with_depth(
-                        player_anim, 
-                        g_state.player.position, 
-                        g_state.player.size,
-                        g_state.player.position.y,
-                        horizon->y_position,
-                        horizon->scale_gradient,
-                        horizon->depth_scale_inverted,
-                        z_depth,
-                        g_state.player.pivot
-                    );
-                } else {
-                    // No horizons configured - render without depth scaling
-                    Renderer::render_sprite_animated(player_anim, g_state.player.position, 
-                                                    g_state.player.size,
-                                                    z_depth,
-                                                    g_state.player.pivot);
-                }
+                // Calculate depth scaling (uses height map if available, falls back to horizon lines)
+                float depth_scale = Scene::get_depth_scaling(g_state.scene, g_state.player.position.y);
+                Vec2 scaled_size = Vec2(
+                    g_state.player.size.x * depth_scale,
+                    g_state.player.size.y * depth_scale
+                );
+                
+                Renderer::render_sprite_animated(player_anim, 
+                                                g_state.player.position, 
+                                                scaled_size,
+                                                z_depth,
+                                                g_state.player.pivot);
             }
         } else {
             // Prop
             const Scene::Prop& prop = g_state.scene.props[entity.prop_index];
-            Renderer::render_sprite(prop.texture, prop.position, prop.size,
+            
+            // Calculate depth scaling for prop
+            float depth_scale = Scene::get_depth_scaling(g_state.scene, prop.position.y);
+            Vec2 scaled_size = Vec2(
+                prop.size.x * depth_scale,
+                prop.size.y * depth_scale
+            );
+            
+            Renderer::render_sprite(prop.texture, prop.position, scaled_size,
                                    z_depth, prop.pivot);
         }
     }
