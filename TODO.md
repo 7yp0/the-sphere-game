@@ -179,16 +179,20 @@
 
 ### 4.4 Player State & Depth
 
-- [ ] **Y-Sorting for Z-Depth**
-  - [ ] Player z_depth = player.position.y (camera depth coordinate)
-  - [ ] Props z_depth based on position.y
-  - [ ] Hotspots don't affect rendering (invisible, only interactive)
-  - [ ] Correct rendering order: behind/in-front based on screen depth
+- [x] **Y-Sorting for Z-Depth**
+  - [x] Collect all entities (Player + Props) with visual base Y position
+  - [x] Sort by visual base Y (account for Pivot Points: TOP_LEFT, BOTTOM_CENTER, etc.)
+  - [x] Dynamic z-depth assignment based on sort order (-1 to +1 range)
+  - [x] Correct rendering order: behind/in-front based on screen depth ✅
+  - [x] Props don't interfere with correct layering
+  - [x] Hotspots don't affect rendering (invisible, only interactive)
 
-- [ ] **Player State Machine** (minimal)
-  - [ ] Idle state
-  - [ ] Walking state  
-  - [ ] Interacting state (brief, often immediate)
+- [x] **Alpha-Test Depth Correction (Pixel-Perfect Layering)**
+  - [x] Modified GLSL fragment shader with alpha discard
+  - [x] If alpha < 0.5: discard pixel (transparent parts don't write depth)
+  - [x] Enables proper depth testing with transparent pixels
+  - [x] Player can now render behind semi-transparent prop areas
+  - [x] No more visual glitches at transparent asset boundaries ✅
 
 ---
 

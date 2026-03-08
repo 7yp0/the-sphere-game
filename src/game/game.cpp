@@ -10,7 +10,8 @@
 #include "debug/debug.h"
 #include "types.h"
 #include <cmath>
-#include <cstdio>
+#include <algorithm>
+#include <vector>
 #include <cstdio>
 
 namespace Game {
@@ -55,35 +56,99 @@ void render() {
                            Vec2((float)g_state.scene.width, (float)g_state.scene.height),
                            Layers::get_z_depth(Layer::BACKGROUND));
     
-    // Props - use pixel coordinates directly
-    for (const auto& prop : g_state.scene.props) {
-        Renderer::render_sprite(prop.texture, prop.position, prop.size,
-                               Layers::get_z_depth(Layer::MIDGROUND), prop.pivot);
+    // Helper: Calculate visual base Y position (bottom of sprite for sorting)
+    auto get_sort_y = [](Vec2 pos, Vec2 size, PivotPoint pivot) -> float {
+        switch (pivot) {
+            case PivotPoint::TOP_LEFT:
+            case PivotPoint::TOP_CENTER:
+            case PivotPoint::TOP_RIGHT:
+                return pos.y + size.y;
+            case PivotPoint::CENTER_LEFT:
+            case PivotPoint::CENTER:
+            case PivotPoint::CENTER_RIGHT:
+                return pos.y + size.y * 0.5f;
+            case PivotPoint::BOTTOM_LEFT:
+            case PivotPoint::BOTTOM_CENTER:
+            case PivotPoint::BOTTOM_RIGHT:
+                return pos.y;
+            default:
+                return pos.y;
+        }
+    };
+    
+    // Collect all renderable entities for Y-sorting
+    struct Renderable {
+        float sort_y;          // Sort key (visual base of sprite)
+        bool is_player;        // true = player, false = prop
+        size_t prop_index;     // Only valid if !is_player
+        
+        Renderable(float y, bool player, size_t idx) 
+            : sort_y(y), is_player(player), prop_index(idx) {}
+    };
+    std::vector<Renderable> renderables;
+    
+    // Add all props with their visual base Y
+    for (size_t i = 0; i < g_state.scene.props.size(); ++i) {
+        const Scene::Prop& prop = g_state.scene.props[i];
+        float sort_y = get_sort_y(prop.position, prop.size, prop.pivot);
+        renderables.push_back(Renderable(sort_y, false, i));
     }
     
-    // Player - render with depth-based scaling for 2.5D effect
-    const char* anim_name = (g_state.player.animation_state == AnimationState::Idle) ? "idle" : "walk";
-    Renderer::SpriteAnimation* player_anim = g_state.playerAnimations.get(anim_name);
-    if (player_anim) {
-        Scene::HorizonLine* horizon = Scene::find_closest_horizon(g_state.scene, g_state.player.position.y);
-        if (horizon) {
-            Renderer::render_sprite_animated_with_depth(
-                player_anim, 
-                g_state.player.position, 
-                g_state.player.size,
-                g_state.player.position.y,
-                horizon->y_position,
-                horizon->scale_gradient,
-                horizon->depth_scale_inverted,
-                Layers::get_z_depth(Layer::PLAYER), 
-                g_state.player.pivot
-            );
+    // Add player with their visual base Y
+    float player_sort_y = get_sort_y(g_state.player.position, g_state.player.size, g_state.player.pivot);
+    renderables.push_back(Renderable(player_sort_y, true, 0));
+    
+    // Sort by visual base Y position (descending: larger base means closer to viewer)
+    for (size_t i = 0; i < renderables.size(); ++i) {
+        for (size_t j = i + 1; j < renderables.size(); ++j) {
+            if (renderables[j].sort_y > renderables[i].sort_y) {  // If j is larger (closer)
+                // Swap
+                Renderable temp = renderables[i];
+                renderables[i] = renderables[j];
+                renderables[j] = temp;
+            }
+        }
+    }
+    
+    // Render in sorted order with proper z-depth
+    for (size_t i = 0; i < renderables.size(); ++i) {
+        const Renderable& entity = renderables[i];
+        
+        // Calculate z_depth based on sort order (earlier = further back)
+        // Map sort index to z-depth range (-1 to 1)
+        float z_depth = -1.0f + (2.0f * i / (renderables.size() - 1.0f + 0.001f));
+        
+        if (entity.is_player) {
+            // Player - render with depth-based scaling for 2.5D effect
+            const char* anim_name = (g_state.player.animation_state == AnimationState::Idle) ? "idle" : "walk";
+            Renderer::SpriteAnimation* player_anim = g_state.playerAnimations.get(anim_name);
+            if (player_anim) {
+                Scene::HorizonLine* horizon = Scene::find_closest_horizon(g_state.scene, g_state.player.position.y);
+                if (horizon) {
+                    Renderer::render_sprite_animated_with_depth(
+                        player_anim, 
+                        g_state.player.position, 
+                        g_state.player.size,
+                        g_state.player.position.y,
+                        horizon->y_position,
+                        horizon->scale_gradient,
+                        horizon->depth_scale_inverted,
+                        z_depth,
+                        g_state.player.pivot
+                    );
+                } else {
+                    // No horizons configured - render without depth scaling
+                    Renderer::render_sprite_animated(player_anim, g_state.player.position, 
+                                                    g_state.player.size,
+                                                    z_depth,
+                                                    g_state.player.pivot);
+                }
+            }
         } else {
-            // No horizons configured - render without depth scaling
-            Renderer::render_sprite_animated(player_anim, g_state.player.position, 
-                                            g_state.player.size,
-                                            Layers::get_z_depth(Layer::PLAYER),
-                                            g_state.player.pivot);
+            // Prop
+            const Scene::Prop& prop = g_state.scene.props[entity.prop_index];
+            Renderer::render_sprite(prop.texture, prop.position, prop.size,
+                                   z_depth, prop.pivot);
         }
     }
     
