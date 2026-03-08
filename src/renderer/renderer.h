@@ -16,6 +16,7 @@ using TextureID = uint32_t;
 
 void init_renderer(uint32_t width, uint32_t height);
 void clear_screen();
+void set_height_map_data(TextureID heightMapTexture, uint32_t sceneWidth, uint32_t sceneHeight);
 void render_sprite(TextureID tex, Vec3 pos, Vec2 size, PivotPoint pivot = PivotPoint::TOP_LEFT);
 void render_sprite(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range, PivotPoint pivot = PivotPoint::TOP_LEFT);
 void render_sprite_animated(const SpriteAnimation* anim, Vec3 pos, Vec2 size, PivotPoint pivot = PivotPoint::TOP_LEFT);

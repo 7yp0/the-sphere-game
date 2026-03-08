@@ -249,6 +249,9 @@ void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_heig
     // Initialize player entity
     player.position = Vec3(viewport_width * 0.5f, viewport_height * 0.5f, 0.0f);
     player.target_position = Vec3(viewport_width * 0.5f, viewport_height * 0.5f, 0.0f);
+    // Calculate player Z position from height map based on initial XY coordinates
+    player.position.z = Scene::get_z_from_height_map(g_state.scene, player.position.x, player.position.y);
+    player.target_position.z = player.position.z;
     // player.size comes from struct default (100x150)
     player.animation_state = AnimationState::Idle;
     player.walk_direction = WalkDirection::Down;

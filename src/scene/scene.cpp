@@ -70,27 +70,32 @@ void init_scene_test() {
     
     // Setup point lights for dynamic scene illumination
     PointLight warm_light;
-    warm_light.position = Vec3(640.0f, 380.0f, 0.0f);  // Center screen, same depth as objects
+    warm_light.position = Vec3(640.0f, 380.0f, 0.0f);  // Center screen
     warm_light.color = Vec3(1.0f, 0.6f, 0.2f);   // Orange-red
     warm_light.intensity = 1.2f;                  // Strong
     warm_light.radius = 600.0f;
     scene.lights.push_back(warm_light);
     
     PointLight cool_light;
-    cool_light.position = Vec3(380.0f, 520.0f, 0.0f);  // Near left, same depth as objects
+    cool_light.position = Vec3(380.0f, 520.0f, 0.0f);  // Near left
     cool_light.color = Vec3(0.2f, 0.8f, 1.0f);   // Cyan-blue
     cool_light.intensity = 1.0f;
     cool_light.radius = 500.0f;
     scene.lights.push_back(cool_light);
     
     PointLight green_light;
-    green_light.position = Vec3(1050.0f, 60.0f, 0.0f);  // Right side, same depth as objects
+    green_light.position = Vec3(1050.0f, 60.0f, 0.0f);  // Right side
     green_light.color = Vec3(0.3f, 1.0f, 0.4f);   // Green
     green_light.intensity = 0.8f;
     green_light.radius = 450.0f;
     scene.lights.push_back(green_light);
     
     g_state.scene = scene;
+    
+    // Setup height map data in renderer for shader sampling
+    if (g_state.scene.height_map.is_valid()) {
+        Renderer::set_height_map_data(g_state.scene.height_map.texture_id, g_state.scene.width, g_state.scene.height);
+    }
 }
 
 }

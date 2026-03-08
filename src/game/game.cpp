@@ -97,11 +97,6 @@ void render() {
     Vec2 mouse_pixel = Platform::get_mouse_pos();
 #ifndef NDEBUG
     Debug::render_overlay(mouse_pixel);
-    // Print player Z value
-    static uint32_t frame_counter = 0;
-    if (frame_counter++ % 30 == 0) {  // Print every ~30 frames (~0.5s at 60fps)
-        printf("[PLAYER] Y: %.1f, Z: %.4f\n", g_state.player.position.y, g_state.player.position.z);
-    }
 #endif
 }
 

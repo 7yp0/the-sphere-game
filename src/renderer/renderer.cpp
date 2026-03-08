@@ -17,6 +17,9 @@ static GLuint colorShaderProgram = 0;
 static GLuint litShaderProgram = 0;  // Shader program for point-lit rendering
 static uint32_t g_viewport_width = 0;
 static uint32_t g_viewport_height = 0;
+static TextureID g_height_map_texture = 0;
+static uint32_t g_scene_width = 0;
+static uint32_t g_scene_height = 0;
 
 void init_renderer(uint32_t width, uint32_t height)
 {
@@ -80,7 +83,15 @@ void init_renderer(uint32_t width, uint32_t height)
     glUseProgram(litShaderProgram);
     glUniform1i(glGetUniformLocation(litShaderProgram, "texture0"), 0);
     glUniform1i(glGetUniformLocation(litShaderProgram, "normalMap"), 1);  // Texture unit 1 for normal maps
+    glUniform1i(glGetUniformLocation(litShaderProgram, "heightMap"), 2);  // Texture unit 2 for height maps
     glUseProgram(0);
+}
+
+void set_height_map_data(TextureID heightMapTexture, uint32_t sceneWidth, uint32_t sceneHeight)
+{
+    g_height_map_texture = heightMapTexture;
+    g_scene_width = sceneWidth;
+    g_scene_height = sceneHeight;
 }
 
 void clear_screen()
@@ -344,6 +355,9 @@ void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range,
     uint32_t num_lights = lights.size() > 8 ? 8 : (uint32_t)lights.size();
     glUniform1i(glGetUniformLocation(litShaderProgram, "numLights"), num_lights);
     
+    // Set scene size for height map sampling
+    glUniform2f(glGetUniformLocation(litShaderProgram, "sceneSize"), (float)g_scene_width, (float)g_scene_height);
+    
     // Send lights as full 3D vectors
     std::vector<Vec3> light_positions_3d;
     std::vector<float> light_intensities, light_radii;
@@ -376,6 +390,9 @@ void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range,
     
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, normal_map);
+    
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, g_height_map_texture);
     
     glBindVertexArray(quadVAO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
