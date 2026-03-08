@@ -104,10 +104,12 @@ PNGImage png_load(const char* filename) {
     }
     fclose(f);
 
-    // Validate format (support 8-bit RGBA, RGB, indexed color, grayscale, or grayscale+alpha)
+    // Validate format (support 8-bit and lower RGBA, RGB, indexed color, grayscale, or grayscale+alpha)
     // color_type: 0=grayscale, 2=RGB, 3=indexed, 4=grayscale+alpha, 6=RGBA
-    if (bit_depth != 8 || (color_type != 0 && color_type != 2 && color_type != 3 && color_type != 4 && color_type != 6)) {
-        DEBUG_INFO("PNG format not fully supported (need 8-bit grayscale, RGB, indexed, grayscale+alpha, or RGBA)");
+    // Supported bit depths: 1, 2, 4, 8 (lower depths will be upscaled)
+    if ((bit_depth != 1 && bit_depth != 2 && bit_depth != 4 && bit_depth != 8) || 
+        (color_type != 0 && color_type != 2 && color_type != 3 && color_type != 4 && color_type != 6)) {
+        DEBUG_INFO("PNG format not fully supported (need 1-8 bit grayscale, RGB, indexed, grayscale+alpha, or RGBA)");
         DEBUG_INFO("  bit_depth=%d, color_type=%d", bit_depth, color_type);
         return error_image();
     }
@@ -133,21 +135,44 @@ PNGImage png_load(const char* filename) {
     stream.avail_in = idat_data.size();
     stream.next_in = idat_data.data();
 
+    // Calculate bytes per pixel in the PNG stream (after unpacking sub-byte data)
+    // For 4-bit indexed: 2 pixels per byte -> after unpacking will be 1 byte per pixel
     // For indexed/grayscale: width * height * 1 byte; for RGB: width * height * 3 bytes; 
     // for grayscale+alpha: width * height * 2 bytes; For RGBA: width * height * 4 bytes
     // Add 1 byte per scanline for filter type
-    uint32_t bytes_per_pixel;
+    uint32_t bytes_per_scanline_in_stream;
+    uint32_t bytes_per_pixel;  // After unpacking sub-byte data
+    
     if (color_type == 0 || color_type == 3) {
-        bytes_per_pixel = 1;  // Grayscale or indexed
+        if (bit_depth == 8) {
+            bytes_per_scanline_in_stream = width;
+            bytes_per_pixel = 1;
+        } else if (bit_depth == 4) {
+            bytes_per_scanline_in_stream = (width + 1) / 2;  // 2 pixels per byte
+            bytes_per_pixel = 1;  // After unpacking
+        } else if (bit_depth == 2) {
+            bytes_per_scanline_in_stream = (width + 3) / 4;  // 4 pixels per byte
+            bytes_per_pixel = 1;
+        } else if (bit_depth == 1) {
+            bytes_per_scanline_in_stream = (width + 7) / 8;  // 8 pixels per byte
+            bytes_per_pixel = 1;
+        } else {
+            bytes_per_scanline_in_stream = width;
+            bytes_per_pixel = 1;
+        }
     } else if (color_type == 2) {
-        bytes_per_pixel = 3;  // RGB
+        bytes_per_scanline_in_stream = width * 3;
+        bytes_per_pixel = 3;
     } else if (color_type == 4) {
-        bytes_per_pixel = 2;  // Grayscale + Alpha
+        bytes_per_scanline_in_stream = width * 2;
+        bytes_per_pixel = 2;
     } else {
-        bytes_per_pixel = 4;  // RGBA
+        bytes_per_scanline_in_stream = width * 4;
+        bytes_per_pixel = 4;
     }
+    
     std::vector<uint8_t> decompressed;
-    decompressed.resize(height * (width * bytes_per_pixel + 1));
+    decompressed.resize(height * (bytes_per_scanline_in_stream + 1));
 
     stream.avail_out = decompressed.size();
     stream.next_out = decompressed.data();
@@ -167,22 +192,22 @@ PNGImage png_load(const char* filename) {
     // For indexed/grayscale/RGB/grayscale+alpha color, keep previous scanline's unfiltered data for filtering
     uint8_t* prev_unfiltered_data = nullptr;
     if (color_type != 6) {  // Not RGBA
-        prev_unfiltered_data = new uint8_t[width * bytes_per_pixel];
-        memset(prev_unfiltered_data, 0, width * bytes_per_pixel);
+        prev_unfiltered_data = new uint8_t[bytes_per_scanline_in_stream];
+        memset(prev_unfiltered_data, 0, bytes_per_scanline_in_stream);
     }
     
     for (uint32_t y = 0; y < height; y++) {
-        uint8_t filter_type = decompressed[y * (width * bytes_per_pixel + 1)];
-        uint8_t* scanline = &decompressed[y * (width * bytes_per_pixel + 1) + 1];
+        uint8_t filter_type = decompressed[y * (bytes_per_scanline_in_stream + 1)];
+        uint8_t* scanline = &decompressed[y * (bytes_per_scanline_in_stream + 1) + 1];
         uint8_t* output_line = (color_type != 6 && color_type != 2) ? nullptr : &pixels[y * width * 4];
         
         // For non-RGBA, we need an intermediate buffer to store unfiltered data
         uint8_t* unfiltered_data = nullptr;
         if (color_type != 6) {
-            unfiltered_data = new uint8_t[width * bytes_per_pixel];
+            unfiltered_data = new uint8_t[bytes_per_scanline_in_stream];
         }
         
-        for (uint32_t x = 0; x < width * bytes_per_pixel; x++) {
+        for (uint32_t x = 0; x < bytes_per_scanline_in_stream; x++) {
             uint8_t left = (x >= bytes_per_pixel) ? 
                 ((color_type != 6) ? unfiltered_data[x - bytes_per_pixel] : output_line[x - bytes_per_pixel]) : 0;
             
@@ -256,11 +281,53 @@ PNGImage png_load(const char* filename) {
             }
         }
         
-        // Convert indexed/grayscale/RGB/grayscale+alpha color to RGBA
+        // Convert indexed color to RGBA (handling sub-byte unpacking)
         if (color_type == 3) {
             uint8_t* output_line = &pixels[y * width * 4];
+            
+            // Unpack sub-byte indexed data to get actual indices
+            uint8_t* index_data = nullptr;
+            bool allocated_index_data = false;
+            
+            if (bit_depth < 8) {
+                allocated_index_data = true;
+                index_data = new uint8_t[width];
+                
+                if (bit_depth == 4) {
+                    // 2 pixels per byte - high nibble is first pixel, low nibble is second
+                    for (uint32_t x = 0; x < width; x++) {
+                        uint32_t byte_idx = x / 2;
+                        uint8_t byte_val = unfiltered_data[byte_idx];
+                        if (x % 2 == 0) {
+                            index_data[x] = (byte_val >> 4) & 0x0F;  // High nibble
+                        } else {
+                            index_data[x] = byte_val & 0x0F;  // Low nibble
+                        }
+                    }
+                } else if (bit_depth == 2) {
+                    // 4 pixels per byte
+                    for (uint32_t x = 0; x < width; x++) {
+                        uint32_t byte_idx = x / 4;
+                        uint8_t byte_val = unfiltered_data[byte_idx];
+                        uint32_t shift = (3 - (x % 4)) * 2;  // Shift for MSB first order
+                        index_data[x] = (byte_val >> shift) & 0x03;
+                    }
+                } else if (bit_depth == 1) {
+                    // 8 pixels per byte
+                    for (uint32_t x = 0; x < width; x++) {
+                        uint32_t byte_idx = x / 8;
+                        uint8_t byte_val = unfiltered_data[byte_idx];
+                        uint32_t shift = 7 - (x % 8);  // MSB first
+                        index_data[x] = (byte_val >> shift) & 0x01;
+                    }
+                }
+            } else {
+                index_data = unfiltered_data;  // Already full bytes
+            }
+            
+            // Convert palette indices to RGBA
             for (uint32_t x = 0; x < width; x++) {
-                uint8_t index = unfiltered_data[x];
+                uint8_t index = index_data[x];
                 
                 // Ensure index is within palette bounds
                 if (index * 3 + 2 < palette.size()) {
@@ -283,22 +350,65 @@ PNGImage png_load(const char* filename) {
                 }
             }
             
-            // Save current unfiltered data as previous for next scanline
-            memcpy(prev_unfiltered_data, unfiltered_data, width);
+            if (allocated_index_data) {
+                delete[] index_data;
+            }
+            
+            // Save current unfiltered data as previous for next scanline (only the compressed portion)
+            memcpy(prev_unfiltered_data, unfiltered_data, bytes_per_scanline_in_stream);
             delete[] unfiltered_data;
         } else if (color_type == 0) {
             // Grayscale to RGBA conversion
             uint8_t* output_line = &pixels[y * width * 4];
+            
+            // Unpack sub-byte grayscale if needed
+            uint8_t* gray_values = nullptr;
+            if (bit_depth < 8) {
+                gray_values = new uint8_t[width];
+                if (bit_depth == 4) {
+                    for (uint32_t x = 0; x < width; x++) {
+                        uint32_t byte_idx = x / 2;
+                        uint8_t byte_val = unfiltered_data[byte_idx];
+                        uint8_t nibble = (x % 2 == 0) ? ((byte_val >> 4) & 0x0F) : (byte_val & 0x0F);
+                        // Scale 4-bit (0-15) to 8-bit (0-255)
+                        gray_values[x] = (nibble * 255) / 15;
+                    }
+                } else if (bit_depth == 2) {
+                    for (uint32_t x = 0; x < width; x++) {
+                        uint32_t byte_idx = x / 4;
+                        uint8_t byte_val = unfiltered_data[byte_idx];
+                        uint32_t shift = (3 - (x % 4)) * 2;
+                        uint8_t val = (byte_val >> shift) & 0x03;
+                        // Scale 2-bit (0-3) to 8-bit (0-255)
+                        gray_values[x] = (val * 255) / 3;
+                    }
+                } else if (bit_depth == 1) {
+                    for (uint32_t x = 0; x < width; x++) {
+                        uint32_t byte_idx = x / 8;
+                        uint8_t byte_val = unfiltered_data[byte_idx];
+                        uint32_t shift = 7 - (x % 8);
+                        uint8_t val = (byte_val >> shift) & 0x01;
+                        gray_values[x] = val ? 255 : 0;
+                    }
+                }
+            } else {
+                gray_values = unfiltered_data;  // Already 8-bit
+            }
+            
             for (uint32_t x = 0; x < width; x++) {
-                uint8_t gray = unfiltered_data[x];
+                uint8_t gray = gray_values[x];
                 output_line[x * 4 + 0] = gray;  // R
                 output_line[x * 4 + 1] = gray;  // G
                 output_line[x * 4 + 2] = gray;  // B
                 output_line[x * 4 + 3] = 255;  // Full opacity
             }
             
+            if (bit_depth < 8 && gray_values != unfiltered_data) {
+                delete[] gray_values;
+            }
+            
             // Save current unfiltered data as previous for next scanline
-            memcpy(prev_unfiltered_data, unfiltered_data, width);
+            memcpy(prev_unfiltered_data, unfiltered_data, bytes_per_scanline_in_stream);
             delete[] unfiltered_data;
         } else if (color_type == 2) {
             // RGB to RGBA conversion
@@ -311,7 +421,7 @@ PNGImage png_load(const char* filename) {
             }
             
             // Save current unfiltered data as previous for next scanline
-            memcpy(prev_unfiltered_data, unfiltered_data, width * 3);
+            memcpy(prev_unfiltered_data, unfiltered_data, bytes_per_scanline_in_stream);
             delete[] unfiltered_data;
         } else if (color_type == 4) {
             // Grayscale + Alpha to RGBA conversion
@@ -326,7 +436,7 @@ PNGImage png_load(const char* filename) {
             }
             
             // Save current unfiltered data as previous for next scanline
-            memcpy(prev_unfiltered_data, unfiltered_data, width * 2);
+            memcpy(prev_unfiltered_data, unfiltered_data, bytes_per_scanline_in_stream);
             delete[] unfiltered_data;
         }
     }

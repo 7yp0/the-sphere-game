@@ -23,6 +23,49 @@ static void init_player() {
                 &g_state.playerAnimations);
 }
 
+static void update_animated_test_light(float delta_time) {
+    // Animate the first light to visit all 4 corners with continuous movement
+    static float light_time = 0.0f;
+    light_time += delta_time;
+    
+    if (g_state.scene.lights.size() > 0) {
+        // Total cycle time: move between 4 corners, 3 seconds per edge
+        float cycle_time = 12.0f;  // 12 seconds for full cycle (3s per edge)
+        float t = fmod(light_time, cycle_time) / cycle_time;  // 0 to 1 over full cycle
+        
+        // Define the four corners in order
+        Vec2 corners[4] = {
+            Vec2(0.0f, 0.0f),                                    // Top-left
+            Vec2(static_cast<float>(g_state.viewport_width), 0.0f),  // Top-right
+            Vec2(static_cast<float>(g_state.viewport_width), static_cast<float>(g_state.viewport_height)),  // Bottom-right
+            Vec2(0.0f, static_cast<float>(g_state.viewport_height))   // Bottom-left
+        };
+        
+        // Determine which edge we're on (0-3)
+        int edge_index = static_cast<int>(t * 4.0f);
+        if (edge_index >= 4) edge_index = 3;
+        
+        // Time along this edge (0 to 1)
+        float edge_t = fmod(t * 4.0f, 1.0f);
+        
+        // Get start and end corners for this edge
+        Vec2 start_corner = corners[edge_index];
+        Vec2 end_corner = corners[(edge_index + 1) % 4];
+        
+        // Linearly interpolate position from start to end corner
+        float x = start_corner.x + (end_corner.x - start_corner.x) * edge_t;
+        float y = start_corner.y + (end_corner.y - start_corner.y) * edge_t;
+        
+        // Z-axis sweeps from near (-0.8) to far (0.8) and back during the entire movement
+        float z = -0.8f + sin(edge_t * 3.14159f * 2.0f) * 0.8f;
+        
+        g_state.scene.lights[0].position = Vec3(x, y, z);
+        
+        printf("[LIGHT TEST] Edge %d->%d, Progress: %.2f - Position: (%.0f, %.0f, %.4f)\n", 
+               edge_index, (edge_index + 1) % 4, edge_t, x, y, z);
+    }
+}
+
 void init() {
     Scene::init_scene_test();
     init_player();
@@ -47,6 +90,8 @@ void update(float delta_time) {
     
     player_handle_input(g_state.player);
     player_update(g_state.player, g_state.viewport_width, g_state.viewport_height, delta_time);
+    
+    update_animated_test_light(delta_time);
 }
 
 void render() {

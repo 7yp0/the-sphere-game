@@ -52,13 +52,13 @@ void main() {
     // Calculate fragment Z-depth: sample from height map
     float fragmentZ = getDepthFromHeightMap(fragWorldPos);
     
-    // DEBUG: Visualize height map Z values (comment out for normal rendering)
-    // return vec4(vec3(fragmentZ * 0.5 + 0.5), texColor.a);  // Visualize Z as grayscale
+    // DEBUG: Visualize normal map values (comment out for lighting)
+    // FragColor = vec4(normal * 0.5 + 0.5, texColor.a);  // Visualize normal as RGB
     
     // Start with base color
     vec3 finalColor = texColor.rgb;
     
-    // Apply point lights
+    // Apply point lights with normal mapping
     vec3 lightingColor = vec3(0.0);
     
     for (int i = 0; i < numLights; i++) {
@@ -72,16 +72,22 @@ void main() {
         vec3 fragmentPos = vec3(fragWorldPos, fragmentZ);
         vec3 toLight = lightPos - fragmentPos;
         float distance = length(toLight);
+        vec3 lightDir = normalize(toLight);
         
         // Calculate attenuation based on distance and light radius
         float attenuation = max(0.0, 1.0 - (distance / lightRadii[i]));
         
-        // Simple directional lighting: closer = brighter
-        lightingColor += lightColors[i] * lightIntensities[i] * attenuation;
+        // Diffuse lighting: dot product of normal and light direction
+        // Clamp to 0 < dot < 1 so backfacing surfaces don't get inverted lighting
+        float diffuse = max(0.0, dot(normal, lightDir));
+        
+        // Combine light contribution with diffuse calculation
+        lightingColor += lightColors[i] * lightIntensities[i] * attenuation * diffuse;
     }
     
-    // Apply lighting
-    finalColor = mix(finalColor, finalColor + lightingColor, 0.6);
+    // Apply ambient lighting (always present) + dynamic lighting
+    vec3 ambientLight = vec3(0.4);  // Base ambient
+    finalColor = finalColor * (ambientLight + lightingColor);
     finalColor = clamp(finalColor, vec3(0.0), vec3(1.0));
     
     FragColor = vec4(finalColor, texColor.a);

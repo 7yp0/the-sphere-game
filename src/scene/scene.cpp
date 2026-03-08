@@ -73,7 +73,7 @@ void init_scene_test() {
     warm_light.position = Vec3(640.0f, 380.0f, 0.0f);  // Center screen
     warm_light.color = Vec3(1.0f, 0.6f, 0.2f);   // Orange-red
     warm_light.intensity = 1.2f;                  // Strong
-    warm_light.radius = 600.0f;
+    warm_light.radius = 1500.0f;
     scene.lights.push_back(warm_light);
     
     PointLight cool_light;
