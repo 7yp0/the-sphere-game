@@ -1,8 +1,13 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 #include "types.h"
 #include "animation.h"
+
+namespace Scene {
+    struct PointLight;  // Forward declaration
+}
 
 namespace Renderer {
 
@@ -32,6 +37,16 @@ void render_sprite_with_depth(TextureID tex, Vec2 pos, Vec2 base_size, Vec4 tex_
 void render_sprite_animated_with_depth(const SpriteAnimation* anim, Vec2 pos, Vec2 base_size,
                                        float sprite_y, float horizon_y, float scale_gradient = 0.003f, bool inverted = false,
                                        float z_depth = 0.0f, PivotPoint pivot = PivotPoint::TOP_LEFT);
+
+// Point light rendering - lights affect sprite illumination based on position and depth
+void render_sprite_lit(TextureID tex, Vec2 pos, Vec2 size, const std::vector<Scene::PointLight>& lights, 
+                       float z_depth = 0.0f, PivotPoint pivot = PivotPoint::TOP_LEFT);
+
+void render_sprite_lit(TextureID tex, Vec2 pos, Vec2 size, Vec4 tex_coord_range, const std::vector<Scene::PointLight>& lights,
+                       float z_depth = 0.0f, PivotPoint pivot = PivotPoint::TOP_LEFT);
+
+void render_sprite_animated_lit(const SpriteAnimation* anim, Vec2 pos, Vec2 size, const std::vector<Scene::PointLight>& lights,
+                                float z_depth = 0.0f, PivotPoint pivot = PivotPoint::TOP_LEFT);
 
 void shutdown();
 

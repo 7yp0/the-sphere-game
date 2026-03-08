@@ -5,6 +5,7 @@
 #include "debug/debug_log.h"
 #include "opengl_compat.h"
 #include "config.h"
+#include "../scene/scene.h"
 #include <cmath>
 
 namespace Renderer {
@@ -13,6 +14,7 @@ static GLuint quadVAO = 0;
 static GLuint quadVBO = 0;
 static GLuint shaderProgram = 0;
 static GLuint colorShaderProgram = 0;
+static GLuint litShaderProgram = 0;  // Shader program for point-lit rendering
 static uint32_t g_viewport_width = 0;
 static uint32_t g_viewport_height = 0;
 
@@ -63,6 +65,21 @@ void init_renderer(uint32_t width, uint32_t height)
     std::string colorVertSrc = load_shader_source("color.vert");
     std::string colorFragSrc = load_shader_source("color.frag");
     colorShaderProgram = compile_and_link_shader(colorVertSrc.c_str(), colorFragSrc.c_str());
+    
+    // Load point-lit shader for dynamic lighting
+    std::string litVertSrc = load_shader_source("basic_lit.vert");
+    std::string litFragSrc = load_shader_source("basic_lit.frag");
+    litShaderProgram = compile_and_link_shader(litVertSrc.c_str(), litFragSrc.c_str());
+    
+    if (litShaderProgram == 0) {
+        DEBUG_ERROR("Failed to compile basic_lit shader program!");
+    } else {
+        DEBUG_LOG("Successfully loaded basic_lit shader program (ID: %u)", litShaderProgram);
+    }
+    
+    glUseProgram(litShaderProgram);
+    glUniform1i(glGetUniformLocation(litShaderProgram, "texture0"), 0);
+    glUseProgram(0);
 }
 
 void clear_screen()
@@ -203,6 +220,9 @@ void shutdown()
     if (colorShaderProgram) {
         glDeleteProgram(colorShaderProgram);
     }
+    if (litShaderProgram) {
+        glDeleteProgram(litShaderProgram);
+    }
     if (quadVAO) {
         glDeleteVertexArrays(1, &quadVAO);
     }
@@ -265,6 +285,114 @@ void render_sprite_animated_with_depth(const SpriteAnimation* anim, Vec2 pos, Ve
     
     render_sprite_with_depth(anim->texture, pos, base_size, tex_coord_range,
                            sprite_y, horizon_y, scale_gradient, inverted, z_depth, pivot);
+}
+
+// Point Light Rendering Implementation
+
+void render_sprite_lit(TextureID tex, Vec2 pos, Vec2 size, const std::vector<Scene::PointLight>& lights,
+                       float z_depth, PivotPoint pivot)
+{
+    render_sprite_lit(tex, pos, size, Vec4(0.0f, 0.0f, 1.0f, 1.0f), lights, z_depth, pivot);
+}
+
+void render_sprite_lit(TextureID tex, Vec2 pos, Vec2 size, Vec4 tex_coord_range, const std::vector<Scene::PointLight>& lights,
+                       float z_depth, PivotPoint pivot)
+{
+    // Convert pixel coordinates to OpenGL coordinates
+    Vec2 opengl_pos = Coords::pixel_to_opengl(pos, g_viewport_width, g_viewport_height);
+    Vec2 opengl_size = Vec2(
+        (size.x / (float)g_viewport_width) * 2.0f,
+        (size.y / (float)g_viewport_height) * 2.0f
+    );
+    
+    // Calculate offset from pivot point to center
+    Vec2 pivot_offset = Coords::get_pivot_offset(pivot, size.x, size.y);
+    Vec2 pivot_offset_opengl = Vec2(
+        (pivot_offset.x / (float)g_viewport_width) * 2.0f,
+        -(pivot_offset.y / (float)g_viewport_height) * 2.0f  // Negate because Y is inverted
+    );
+    
+    // Shader expects center point
+    Vec2 opengl_center = Vec2(
+        opengl_pos.x + pivot_offset_opengl.x,
+        opengl_pos.y + pivot_offset_opengl.y
+    );
+    
+    glUseProgram(litShaderProgram);
+    
+    // Set sprite uniforms
+    GLint posLoc = glGetUniformLocation(litShaderProgram, "spritePos");
+    GLint sizeLoc = glGetUniformLocation(litShaderProgram, "spriteSize");
+    GLint zLoc = glGetUniformLocation(litShaderProgram, "spriteZ");
+    GLint texCoordLoc = glGetUniformLocation(litShaderProgram, "texCoordRange");
+    
+    glUniform2f(posLoc, opengl_center.x, opengl_center.y);
+    glUniform2f(sizeLoc, opengl_size.x, opengl_size.y);
+    glUniform1f(zLoc, z_depth);
+    glUniform4f(texCoordLoc, tex_coord_range.x, tex_coord_range.y, tex_coord_range.z, tex_coord_range.w);
+    
+    // Set light uniforms (max 8 lights)
+    uint32_t num_lights = lights.size() > 8 ? 8 : (uint32_t)lights.size();
+    glUniform1i(glGetUniformLocation(litShaderProgram, "numLights"), num_lights);
+    
+    // DEBUG: Print light info on first few calls
+    static int debug_lit_calls = 0;
+    if (debug_lit_calls++ < 2) {
+        DEBUG_LOG("[LIT] Rendering with %u lights, spriteZ=%.3f", num_lights, z_depth);
+    }
+    
+    std::vector<Vec2> light_positions;
+    std::vector<float> light_depths, light_intensities, light_radii;
+    std::vector<Vec3> light_colors;
+    
+    for (uint32_t i = 0; i < num_lights; i++) {
+        const Scene::PointLight& light = lights[i];
+        
+        // Convert light position to OpenGL coordinates
+        Vec2 light_opengl = Coords::pixel_to_opengl(light.position, g_viewport_width, g_viewport_height);
+        light_positions.push_back(light_opengl);
+        light_depths.push_back(light.depth);
+        light_colors.push_back(light.color);
+        light_intensities.push_back(light.intensity);
+        // Convert radius to OpenGL scale (in pixel space it's relative to viewport)
+        float radius_ndc = (light.radius / (float)g_viewport_width) * 2.0f;
+        light_radii.push_back(radius_ndc);
+    }
+    
+    // Set arrays
+    glUniform2fv(glGetUniformLocation(litShaderProgram, "lightPositions"), num_lights, (float*)light_positions.data());
+    glUniform1fv(glGetUniformLocation(litShaderProgram, "lightDepths"), num_lights, light_depths.data());
+    glUniform3fv(glGetUniformLocation(litShaderProgram, "lightColors"), num_lights, (float*)light_colors.data());
+    glUniform1fv(glGetUniformLocation(litShaderProgram, "lightIntensities"), num_lights, light_intensities.data());
+    glUniform1fv(glGetUniformLocation(litShaderProgram, "lightRadii"), num_lights, light_radii.data());
+    
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+}
+
+void render_sprite_animated_lit(const SpriteAnimation* anim, Vec2 pos, Vec2 size, const std::vector<Scene::PointLight>& lights,
+                                float z_depth, PivotPoint pivot)
+{
+    if (!anim || anim->frames.empty()) {
+        DEBUG_ERROR("render_sprite_animated_lit() - invalid animation (null or empty frames)");
+        return;
+    }
+    if (anim->current_frame >= anim->frames.size()) {
+        DEBUG_ERROR("render_sprite_animated_lit() - current_frame (%u) out of bounds (size: %zu)",
+                   anim->current_frame, anim->frames.size());
+        return;
+    }
+    
+    // Get UV coordinates for current frame
+    const SpriteFrame& frame = anim->frames[anim->current_frame];
+    Vec4 tex_coord_range(frame.u0, frame.v0, frame.u1, frame.v1);
+    
+    // Render using sprite map texture with UV mapping and lighting
+    render_sprite_lit(anim->texture, pos, size, tex_coord_range, lights, z_depth, pivot);
 }
 
 }

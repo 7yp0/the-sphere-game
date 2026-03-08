@@ -34,6 +34,14 @@ struct Hotspot {
     std::function<void()> callback;
 };
 
+struct PointLight {
+    Vec2 position;      // World position (screen space)
+    float depth;        // Z-depth (0=far from camera, 1=near). Lights only affect sprites beyond this depth
+    Vec3 color;        // RGB color (0-1 range)
+    float intensity;    // Brightness multiplier
+    float radius;       // Maximum distance from light where it has effect
+};
+
 struct SceneGeometry {
     std::vector<Collision::Polygon> walkable_areas;
     std::vector<Hotspot> hotspots;
@@ -48,6 +56,7 @@ struct Scene {
     std::vector<Prop> props;
     
     std::vector<HorizonLine> horizons;  // Legacy - will be removed when height map fully works
+    std::vector<PointLight> lights;     // Dynamic point lights for scene illumination
     SceneGeometry geometry;
 };
 

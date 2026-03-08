@@ -50,11 +50,12 @@ void update(float delta_time) {
 }
 
 void render() {
-    // Background fills entire scene
-    Renderer::render_sprite(g_state.scene.background, 
-                           Vec2(0.0f, 0.0f),
-                           Vec2((float)g_state.scene.width, (float)g_state.scene.height),
-                           Layers::get_z_depth(Layer::BACKGROUND));
+    // Background fills entire scene - apply lighting
+    Renderer::render_sprite_lit(g_state.scene.background, 
+                               Vec2(0.0f, 0.0f),
+                               Vec2((float)g_state.scene.width, (float)g_state.scene.height),
+                               g_state.scene.lights,
+                               Layers::get_z_depth(Layer::BACKGROUND));
     
     // Helper: Calculate visual base Y position (bottom of sprite for sorting)
     auto get_sort_y = [](Vec2 pos, Vec2 size, PivotPoint pivot) -> float {
@@ -130,11 +131,12 @@ void render() {
                     g_state.player.size.y * depth_scale
                 );
                 
-                Renderer::render_sprite_animated(player_anim, 
-                                                g_state.player.position, 
-                                                scaled_size,
-                                                z_depth,
-                                                g_state.player.pivot);
+                Renderer::render_sprite_animated_lit(player_anim, 
+                                                    g_state.player.position, 
+                                                    scaled_size,
+                                                    g_state.scene.lights,
+                                                    z_depth,
+                                                    g_state.player.pivot);
             }
         } else {
             // Prop
@@ -147,8 +149,9 @@ void render() {
                 prop.size.y * depth_scale
             );
             
-            Renderer::render_sprite(prop.texture, prop.position, scaled_size,
-                                   z_depth, prop.pivot);
+            Renderer::render_sprite_lit(prop.texture, prop.position, scaled_size,
+                                       g_state.scene.lights,
+                                       z_depth, prop.pivot);
         }
     }
     
