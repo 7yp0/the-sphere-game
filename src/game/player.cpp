@@ -12,14 +12,51 @@
 
 namespace Game {
 
+// Helper function: Determine walk direction from movement vector
+static WalkDirection determine_walk_direction(Vec2 direction) {
+    // Normalize to determine dominant direction
+    float abs_x = std::abs(direction.x);
+    float abs_y = std::abs(direction.y);
+    
+    // If vertical movement dominates
+    if (abs_y > abs_x) {
+        return (direction.y > 0) ? WalkDirection::Down : WalkDirection::Up;
+    }
+    // If horizontal movement dominates (or equal)
+    else {
+        return (direction.x > 0) ? WalkDirection::Right : WalkDirection::Left;
+    }
+}
+
 // Helper function: Set player animation state and reset animation if changed
-static void set_player_animation_state(Player& player, AnimationState new_state) {
-    if (new_state == player.animation_state) return;  // No change needed
+static void set_player_animation_state(Player& player, AnimationState new_state, WalkDirection new_direction = WalkDirection::Down) {
+    if (new_state == player.animation_state && new_direction == player.walk_direction) {
+        return;  // No change needed
+    }
     
     player.animation_state = new_state;
+    player.walk_direction = new_direction;
     if (!player.animations) return;
     
-    const char* anim_name = (new_state == AnimationState::Idle) ? "idle" : "walk";
+    const char* anim_name = nullptr;
+    if (new_state == AnimationState::Idle) {
+        // Choose idle animation based on direction
+        switch (new_direction) {
+            case WalkDirection::Down:  anim_name = "idle_down";  break;
+            case WalkDirection::Up:    anim_name = "idle_up";    break;
+            case WalkDirection::Right: anim_name = "idle_right"; break;
+            case WalkDirection::Left:  anim_name = "idle_left";  break;
+        }
+    } else {
+        // Walking - choose walk animation based on direction
+        switch (new_direction) {
+            case WalkDirection::Down:  anim_name = "walk_down";  break;
+            case WalkDirection::Up:    anim_name = "walk_up";    break;
+            case WalkDirection::Right: anim_name = "walk_right"; break;
+            case WalkDirection::Left:  anim_name = "walk_left";  break;
+        }
+    }
+    
     Renderer::SpriteAnimation* anim = player.animations->get(anim_name);
     if (anim) {
         Renderer::animation_reset(anim);
@@ -100,34 +137,117 @@ static void handle_movement_click(Player& player, Vec2 mouse_pos) {
 
 void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_height, 
                  Core::AnimationBank* animations) {
-    // Load player spritesheet
-    Renderer::TextureID player_sprite_map = Renderer::load_texture("player/player_spritesheet.png");
+    // Load Lenore spritesheet (288x920)
+    // Frame dimensions: 36x46 pixels
+    // Row 0 (y=0): Idle sprites (Down, Right, Up, Left) - 4 sprites
+    // Row 1 (y=46): Walk Down (8 frames)
+    // Row 2 (y=92): Walk Up (8 frames)
+    // Row 3 (y=138): Walk Right (8 frames)
+    // Row 4 (y=184): Walk Left (8 frames)
+    Renderer::TextureID lenore_sprite = Renderer::load_texture("player/Lenore-Sheet.png");
     
-    // Calculate UV coordinates for all 4 frames in a 4-column, 1-row grid
-    auto uv_frames = Renderer::create_uv_grid(4, 1);
+    // Helper to create UV frame with small offset to prevent texture bleeding
+    auto create_uv = [](float x, float y, float w, float h, float sheet_w, float sheet_h) -> Renderer::SpriteFrame {
+        return { 
+            x / sheet_w, 
+            y / sheet_h, 
+            (x + w) / sheet_w, 
+            (y + h) / sheet_h
+        };
+    };
     
-    // Idle animation - frame 0 only
-    Renderer::SpriteAnimation idle_anim;
-    idle_anim.texture = player_sprite_map;
-    idle_anim.frames = { uv_frames[0] };
-    idle_anim.frame_duration = 1.0f;
-    idle_anim.elapsed_time = 0.0f;
-    idle_anim.current_frame = 0;
-    animations->add("idle", idle_anim);
+    // Idle animations - one frame each for each direction
+    // Idle Down (frame 0 of row 0)
+    Renderer::SpriteAnimation idle_down_anim;
+    idle_down_anim.texture = lenore_sprite;
+    idle_down_anim.frames.push_back(create_uv(0.0f, 0.0f, 36.0f, 46.0f, 288.0f, 920.0f));
+    idle_down_anim.frame_duration = 1.0f;
+    idle_down_anim.elapsed_time = 0.0f;
+    idle_down_anim.current_frame = 0;
     
-    // Walk animation - frames 1, 2, 3
-    Renderer::SpriteAnimation walk_anim;
-    walk_anim.texture = player_sprite_map;
-    walk_anim.frames = { uv_frames[1], uv_frames[2], uv_frames[3] };
-    walk_anim.frame_duration = 0.2f;
-    walk_anim.elapsed_time = 0.0f;
-    walk_anim.current_frame = 0;
-    animations->add("walk", walk_anim);
+    // Idle Right (frame 1 of row 0)
+    Renderer::SpriteAnimation idle_right_anim;
+    idle_right_anim.texture = lenore_sprite;
+    idle_right_anim.frames.push_back(create_uv(36.0f, 0.0f, 36.0f, 46.0f, 288.0f, 920.0f));
+    idle_right_anim.frame_duration = 1.0f;
+    idle_right_anim.elapsed_time = 0.0f;
+    idle_right_anim.current_frame = 0;
+    
+    // Idle Up (frame 2 of row 0)
+    Renderer::SpriteAnimation idle_up_anim;
+    idle_up_anim.texture = lenore_sprite;
+    idle_up_anim.frames.push_back(create_uv(72.0f, 0.0f, 36.0f, 46.0f, 288.0f, 920.0f));
+    idle_up_anim.frame_duration = 1.0f;
+    idle_up_anim.elapsed_time = 0.0f;
+    idle_up_anim.current_frame = 0;
+    
+    // Idle Left (frame 3 of row 0)
+    Renderer::SpriteAnimation idle_left_anim;
+    idle_left_anim.texture = lenore_sprite;
+    idle_left_anim.frames.push_back(create_uv(108.0f, 0.0f, 36.0f, 46.0f, 288.0f, 920.0f));
+    idle_left_anim.frame_duration = 1.0f;
+    idle_left_anim.elapsed_time = 0.0f;
+    idle_left_anim.current_frame = 0;
+    
+    // Walk Down: Row 1 (y=46) - frames 0-7
+    Renderer::SpriteAnimation walk_down_anim;
+    walk_down_anim.texture = lenore_sprite;
+    for (int i = 0; i < 8; i++) {
+        walk_down_anim.frames.push_back(create_uv(i * 36.0f, 46.0f, 36.0f, 46.0f, 288.0f, 920.0f));
+    }
+    walk_down_anim.frame_duration = 0.12f;
+    walk_down_anim.elapsed_time = 0.0f;
+    walk_down_anim.current_frame = 0;
+    
+    // Walk Up: Row 2 (y=92) - frames 0-7
+    Renderer::SpriteAnimation walk_up_anim;
+    walk_up_anim.texture = lenore_sprite;
+    for (int i = 0; i < 8; i++) {
+        walk_up_anim.frames.push_back(create_uv(i * 36.0f, 92.0f, 36.0f, 46.0f, 288.0f, 920.0f));
+    }
+    walk_up_anim.frame_duration = 0.12f;
+    walk_up_anim.elapsed_time = 0.0f;
+    walk_up_anim.current_frame = 0;
+    
+    // Walk Right: Row 3 (y=138) - frames 0-7
+    Renderer::SpriteAnimation walk_right_anim;
+    walk_right_anim.texture = lenore_sprite;
+    for (int i = 0; i < 8; i++) {
+        walk_right_anim.frames.push_back(create_uv(i * 36.0f, 138.0f, 36.0f, 46.0f, 288.0f, 920.0f));
+    }
+    walk_right_anim.frame_duration = 0.12f;
+    walk_right_anim.elapsed_time = 0.0f;
+    walk_right_anim.current_frame = 0;
+    
+    // Walk Left: Row 4 (y=184) - frames 0-7
+    Renderer::SpriteAnimation walk_left_anim;
+    walk_left_anim.texture = lenore_sprite;
+    for (int i = 0; i < 8; i++) {
+        walk_left_anim.frames.push_back(create_uv(i * 36.0f, 184.0f, 36.0f, 46.0f, 288.0f, 920.0f));
+    }
+    walk_left_anim.frame_duration = 0.12f;
+    walk_left_anim.elapsed_time = 0.0f;
+    walk_left_anim.current_frame = 0;
+    
+    // Add all animations to the bank
+    animations->add("idle_down", idle_down_anim);
+    animations->add("idle_right", idle_right_anim);
+    animations->add("idle_up", idle_up_anim);
+    animations->add("idle_left", idle_left_anim);
+    animations->add("walk_down", walk_down_anim);
+    animations->add("walk_up", walk_up_anim);
+    animations->add("walk_right", walk_right_anim);
+    animations->add("walk_left", walk_left_anim);
+    
+    // Also add generic "idle" that uses current direction
+    animations->add("idle", idle_down_anim);
     
     // Initialize player entity
     player.position = Vec2(viewport_width * 0.5f, viewport_height * 0.5f);
     player.target_position = Vec2(viewport_width * 0.5f, viewport_height * 0.5f);
+    player.size = Vec2(36.0f, 46.0f);  // Lenore frame size
     player.animation_state = AnimationState::Idle;
+    player.walk_direction = WalkDirection::Down;
     player.animations = animations;
 }
 
@@ -192,10 +312,29 @@ void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_he
     float distance_threshold_sq = player.distance_threshold * player.distance_threshold;
     bool is_moving = distance_sq > distance_threshold_sq;  // Compare squared to avoid sqrt
     
+    // Determine animation state and direction
     AnimationState new_state = is_moving ? AnimationState::Walking : AnimationState::Idle;
-    set_player_animation_state(player, new_state);
+    WalkDirection new_direction = is_moving ? determine_walk_direction(direction) : player.walk_direction;
+    set_player_animation_state(player, new_state, new_direction);
     
-    const char* anim_name = (player.animation_state == AnimationState::Idle) ? "idle" : "walk";
+    // Get current animation based on state and direction
+    const char* anim_name = nullptr;
+    if (player.animation_state == AnimationState::Idle) {
+        switch (player.walk_direction) {
+            case WalkDirection::Down:  anim_name = "idle_down";  break;
+            case WalkDirection::Up:    anim_name = "idle_up";    break;
+            case WalkDirection::Right: anim_name = "idle_right"; break;
+            case WalkDirection::Left:  anim_name = "idle_left";  break;
+        }
+    } else {
+        switch (player.walk_direction) {
+            case WalkDirection::Down:  anim_name = "walk_down";  break;
+            case WalkDirection::Up:    anim_name = "walk_up";    break;
+            case WalkDirection::Right: anim_name = "walk_right"; break;
+            case WalkDirection::Left:  anim_name = "walk_left";  break;
+        }
+    }
+    
     Renderer::SpriteAnimation* current_anim = 
         (player.animations) ? player.animations->get(anim_name) : nullptr;
     if (current_anim) {
@@ -259,6 +398,25 @@ void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_he
             player.hotspot_state = HotspotInteractionState::InRange;
         }
     }
+}
+
+const char* player_get_animation_name(const Player& player) {
+    if (player.animation_state == AnimationState::Idle) {
+        switch (player.walk_direction) {
+            case WalkDirection::Down:  return "idle_down";
+            case WalkDirection::Up:    return "idle_up";
+            case WalkDirection::Right: return "idle_right";
+            case WalkDirection::Left:  return "idle_left";
+        }
+    } else {  // Walking
+        switch (player.walk_direction) {
+            case WalkDirection::Down:  return "walk_down";
+            case WalkDirection::Up:    return "walk_up";
+            case WalkDirection::Right: return "walk_right";
+            case WalkDirection::Left:  return "walk_left";
+        }
+    }
+    return "idle_down";  // Fallback
 }
 
 }

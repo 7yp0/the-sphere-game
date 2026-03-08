@@ -12,6 +12,14 @@ enum class AnimationState {
     Walking
 };
 
+// Direction for walking animation (used with Guybrush spritesheet)
+enum class WalkDirection {
+    Down,
+    Right,
+    Up,
+    Left
+};
+
 // Hotspot interaction state machine
 enum class HotspotInteractionState {
     None,           // Not interacting with any hotspot
@@ -23,8 +31,9 @@ struct Player {
     // State
     Vec2 position;                              // Pixel coordinates in scene space (0 to scene.width/height)
     Vec2 target_position;                       // Pixel coordinates in scene space
-    Vec2 size = Vec2(30.0f, 30.0f);             // Sprite dimensions in pixels
+    Vec2 size = Vec2(64.0f, 100.0f);            // Sprite dimensions in pixels (Guybrush frame size)
     AnimationState animation_state = AnimationState::Idle;
+    WalkDirection walk_direction = WalkDirection::Down;  // Current facing direction
     Core::AnimationBank* animations;            // Generic animation bank for any entity
     PivotPoint pivot = PivotPoint::BOTTOM_CENTER;
     int active_hotspot_index = -1;              // -1 = none, otherwise index into scene.geometry.hotspots
@@ -45,5 +54,8 @@ void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_heig
 void player_handle_input(Player& player);
 
 void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_height, float delta_time);
+
+// Get the animation name for the current player state and direction
+const char* player_get_animation_name(const Player& player);
 
 }

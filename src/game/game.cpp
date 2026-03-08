@@ -120,7 +120,7 @@ void render() {
         
         if (entity.is_player) {
             // Player - render with depth-based scaling for 2.5D effect
-            const char* anim_name = (g_state.player.animation_state == AnimationState::Idle) ? "idle" : "walk";
+            const char* anim_name = player_get_animation_name(g_state.player);
             Renderer::SpriteAnimation* player_anim = g_state.playerAnimations.get(anim_name);
             if (player_anim) {
                 Scene::HorizonLine* horizon = Scene::find_closest_horizon(g_state.scene, g_state.player.position.y);
