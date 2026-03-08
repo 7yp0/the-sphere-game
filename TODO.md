@@ -196,6 +196,76 @@
 
 ---
 
+## Phase 4.5: Polygon Editor (Debug Geometry Tool)
+
+### 4.5.1 Debug Polygon Visualization & Editing
+
+- [ ] **D-Key Toggle Debug Mode**
+  - [ ] Show all walkable_areas polygons (green with alpha 0.3)
+  - [ ] Show all hotspots polygons (yellow with alpha 0.3)
+  - [ ] Show polygon vertices (small circles at each point, clickable)
+  - [ ] Show polygon edges (thin lines)
+  - [ ] Highlight selected polygon (brighter color or outline)
+  - [ ] Highlight selected/hovered vertex (larger circle, different color)
+  - [ ] Existing functionality: mouse position, player position, etc.
+
+- [ ] **Polygon Creation (In Debug Mode)**
+  - [ ] Press 'W' to start creating new walkable_area
+  - [ ] Press 'H' to start creating new hotspot
+  - [ ] Click to add vertices to current polygon (LMB)
+  - [ ] Polygon auto-closes when clicking first vertex again (visual feedback: preview connection line)
+  - [ ] OR press 'F' to manually finish/close polygon
+  - [ ] Visual feedback: show "next vertex" preview line from last vertex to mouse while creating
+
+- [ ] **Polygon Editing (Drag & Select)**
+  - [ ] Click polygon to select it (highlight with brighter color)
+  - [ ] Click polygon vertex to select it (highlight larger, different color)
+  - [ ] Drag selected vertex to move it (real-time update)
+  - [ ] Drag polygon (anywhere on edge) to move entire polygon (all vertices move together)
+  - [ ] While selected: press 'DEL' to delete polygon
+  - [ ] ESC to deselect current polygon
+
+- [ ] **Polygon Management UI (Debug)**
+  - [ ] Display selected mode: "CREATING WALKABLE_AREA" or "CREATING HOTSPOT"
+  - [ ] Display selected polygon name and vertex count if editing
+  - [ ] List all polygons with names (e.g., "main_area [5 pts]", "torch_hotspot [4 pts]")
+
+### 4.5.2 Scene Geometry JSON Format
+
+- [ ] **Per-Scene Geometry File**
+  - [ ] Location: `assets/scenes/<scene_name>/geometry.json`
+  - [ ] Example: `assets/scenes/test/geometry.json`
+  - [ ] Format matches Phase 4 spec (walkable_areas[], hotspots[])
+  - [ ] Load on scene startup
+  - [ ] Scene::load_geometry(const char* scene_name)
+
+- [ ] **Automatic Geometry Saving**
+  - [ ] Every change (add vertex, move vertex, close polygon, delete polygon) auto-saves to file
+  - [ ] No manual save command needed (Ctrl+S not required)
+  - [ ] Write pretty-printed JSON to `assets/scenes/<scene_name>/geometry.json`
+  - [ ] Optional: debounce save (wait 500ms after last change before writing to disk)
+  - [ ] Silent save (no UI notification needed)
+
+- [ ] **Load Geometry from JSON**
+  - [ ] Parse walkable_areas[] with points, name
+  - [ ] Parse hotspots[] with points, name, interaction_distance
+  - [ ] Populate Scene::geometry on load
+  - [ ] Validate polygon data (3+ points per polygon, valid coordinates)
+
+### 4.5.3 Keyboard Shortcuts (Debug Reference)
+
+- `D` - Toggle debug polygon display & editing
+- `W` - Create new walkable_area polygon
+- `H` - Create new hotspot polygon
+- `LMB (click)` - Add vertex (while creating) OR select polygon/vertex (while in debug mode)
+- `LMB (drag)` - Move selected vertex OR move entire polygon
+- `F` - Finish/close current polygon (auto-close also works when clicking first vertex)
+- `DEL` - Delete selected polygon
+- `ESC` - Deselect current polygon
+- *Auto-Save* - Every change saves to geometry.json automatically
+
+---
+
 ## Phase 5: 2.5D Lighting
 
 ### 5.1 Foundation: Light & Shadow Data
@@ -223,11 +293,37 @@
   - [ ] Shadow length = (sprite_y - floor_y) * projection_factor (adjustable)
   - [ ] Result: shadow quad position and scale
 
-- [ ] **Per-Light Shadow Rendering**
-  - [ ] For each light: render shadow sprites at calculated position
-  - [ ] Shadow color: dark + tinted (e.g., darkened ground color + light color tone)
-  - [ ] Shadow alpha: based on light intensity and distance
-  - [ ] Soft shadow edges: render shadow at slightly larger scale with alpha falloff
+- [ ] **GPU Shader-Based Shadow Rendering (Exact Textures)**
+  - [ ] Render shadow sprites using exact texture (not simple ovals/quads)
+  - [ ] Use dedicated shadow shader (shadow.vert / shadow.frag) to:
+    - Sample texture from original sprite
+    - Apply shadow projection (position and size transformation)
+    - Darken/tint the texture (multiply by shadow color, reduce brightness)
+  - [ ] Per-light shadow rendering:
+    - For each light: render all entities (player + props) as shadows at calculated position
+    - Shadow color: darkened with optional light tint (e.g., warm light = warm shadow tone)
+    - Shadow alpha: based on light intensity and distance (fade with distance)
+    - Layer: below MIDGROUND (Layer::SHADOW = 5)
+  - [ ] Soft shadow edges: render shadow with alpha falloff for smooth appearance
+
+- [ ] **Advanced: Background Surface Maps (Future Enhancement)**
+  - [ ] **Problem**: Current shadows only project onto flat ground plane
+  - [ ] **Goal**: Shadows should cast onto walls, obstacles, background geometry
+  - [ ] **Solution**: Background normal maps + depth/heightmaps
+  - [ ] BG normal map: determines surface facing direction
+  - [ ] BG heightmap OR geometry: determines if shadow can project there
+  - [ ] Shadow shader receives: BG normal map, depth info per pixel
+  - [ ] Projected shadow follows surface normals (walls, slopes, etc.)
+  - [ ] Example use case:
+    - [ ] Player stands in front of wall
+    - [ ] Light from side casts shadow ON wall (not just on ground)
+    - [ ] Shadow follows wall contours (using normal map)
+  - [ ] Implementation: Multi-pass shadow rendering
+    - [ ] Pass 1: Render shadow projected onto ground plane (current)
+    - [ ] Pass 2: Render shadow projected onto BG geometry (future)
+    - [ ] Use fragment shader to detect if surface normal faces light
+  - [ ] Storage: `scenes/<scene>/backgrounds/bg_field.normal` file
+  - [ ] Optional: `scenes/<scene>/backgrounds/bg_field.heightmap` for depth
 
 - [ ] **Shadow Blending**
   - [ ] Multiple shadows blend multiplicatively (darken)
