@@ -16,19 +16,38 @@
 
 namespace Scene {
 
+// =============================================================================
+// 2.5D + 3D HYBRID RENDERING SYSTEM
+// =============================================================================
+// This engine uses TWO coordinate systems that work together:
+//
+// 1. 2.5D SYSTEM (Background, Props, Player)
+//    - Objects have X,Y screen position only
+//    - Z-DEPTH is AUTOMATICALLY derived from HEIGHT MAP (Y position → sample → Z)
+//    - Props/Player move on 2D plane, height map determines their depth
+//    - Depth scaling: objects further back (higher Z) render smaller
+//
+// 2. 3D LIGHTING SYSTEM (PointLights)
+//    - All coordinates in OpenGL space (-1 to +1)
+//    - X = horizontal (left/right)
+//    - Y = height (bottom/top) → affects shadow length
+//    - Z = depth (near/far into screen)
+//
+// INTERPLAY FOR LIGHTING:
+//    - Shader samples height map → gets elevation for each background pixel
+//    - Shader samples normal map → gets surface normal for each background pixel
+//    - Light 3D position compared against pixel position + elevation + surface normal
+//    - Result: accurate lighting and shadows based on height map depth and normals
+// =============================================================================
+
+// Prop: 2.5D object - Z-depth derived from HEIGHT MAP at X,Y position
 struct Prop {
-    Vec3 position;
+    Vec3 position;      // X,Y = screen position; Z = depth (auto-calculated from height map)
     Vec2 size;
     Renderer::TextureID texture;
     Renderer::TextureID normal_map;  // Normal map for lighting (optional)
     std::string name;
     PivotPoint pivot = PivotPoint::TOP_LEFT;
-};
-
-struct HorizonLine {
-    float y_position;
-    float scale_gradient = 0.003f;     // Depth scaling per pixel (default 30% per 100px)
-    bool depth_scale_inverted = false; // true = isometric/inverted perspective
 };
 
 struct Hotspot {
@@ -39,11 +58,23 @@ struct Hotspot {
     std::function<void()> callback;
 };
 
+// PointLight: 3D positioning in OpenGL coordinate space
 struct PointLight {
-    Vec3 position;      // World position (screen space + z-depth)
+    // COORDINATE SYSTEM:
+    //   X = horizontal (-1=left, +1=right) on screen
+    //   Y = vertical (-1=bottom, +1=top) on screen
+    //   Z = depth into screen (-1=near camera, +1=far/background)
+    //
+    // Height map provides Z-depth for each pixel:
+    //   Black (0) = far (Z=+1), White (1) = near (Z=-1)
+    //
+    // Shadow behavior:
+    //   - Light Y position determines shadow length (higher = shorter shadows)
+    //   - Shadow direction = away from light XY position
+    Vec3 position;      // OpenGL coords (-1 to +1)
     Vec3 color;         // RGB color (0-1 range)
     float intensity;    // Brightness multiplier
-    float radius;       // Maximum distance from light where it has effect
+    float radius;       // Radius in OpenGL units (0-4 range typical)
 };
 
 struct SceneGeometry {
@@ -60,7 +91,6 @@ struct Scene {
     Renderer::HeightMapData height_map;  // Height map data for depth-based sampling
     std::vector<Prop> props;
     
-    std::vector<HorizonLine> horizons;  // Legacy - will be removed when height map fully works
     std::vector<PointLight> lights;     // Dynamic point lights for scene illumination
     SceneGeometry geometry;
 };
@@ -69,12 +99,12 @@ struct SceneManager {
     Scene current_scene;
 };
 
-// Forward declare find_closest_horizon for get_depth_scaling
-HorizonLine* find_closest_horizon(Scene& scene, float sprite_y);
-
-// Calculate Z-depth based on height map sampling
-// Convention: Z = -1 (near camera = large), Z = 1 (far from camera = small)
-// White pixels (255) = near, Black pixels (0) = far
+// Calculate Z-DEPTH (not height!) based on height map sampling
+// Coordinate convention:
+//   Z = -1.0: NEAR camera (objects appear larger, in front)
+//   Z = +1.0: FAR from camera (objects appear smaller, behind)
+// Height map encoding:
+//   White pixels (255) = near (Z=-1), Black pixels (0) = far (Z=+1)
 inline float get_z_from_height_map(const Scene& scene, float world_x, float world_y) {
     if (scene.height_map.is_valid()) {
         // Normalize world position to texture coordinates [0, 1]
@@ -96,8 +126,9 @@ inline float get_z_from_height_map(const Scene& scene, float world_x, float worl
         // Normalize to [0, 1]
         float normalized_height = height_value / 255.0f;
         
-        // Map to Z range: white (255) = near (-0.8), black (0) = far (0.8)
-        float z = 0.8f - (normalized_height * 1.6f);
+        // Map to Z range: white (255) = near (-1.0), black (0) = far (+1.0)
+        // Full range from -1 to +1
+        float z = 1.0f - (normalized_height * 2.0f);
         
         return z;
     } else {
@@ -122,40 +153,6 @@ inline float get_depth_scaling(const Scene& scene, float world_x, float world_y)
         float t = world_y / scene.height;
         return 0.6f + (t * 0.8f);
     }
-}
-
-inline HorizonLine* find_closest_horizon(Scene& scene, float sprite_y) {
-    if (scene.horizons.empty()) return nullptr;
-    if (scene.horizons.size() == 1) return &scene.horizons[0];
-    
-    // Sort horizons by y_position (for zone detection)
-    std::vector<HorizonLine*> sorted;
-    for (auto& h : scene.horizons) {
-        sorted.push_back(&h);
-    }
-    std::sort(sorted.begin(), sorted.end(), 
-        [](HorizonLine* a, HorizonLine* b) { return a->y_position < b->y_position; });
-    
-    // Check if sprite is between two horizons (zone = no scaling)
-    for (size_t i = 0; i < sorted.size() - 1; i++) {
-        if (sprite_y >= sorted[i]->y_position && sprite_y <= sorted[i + 1]->y_position) {
-            return nullptr; // Sprite is in transition zone - no scaling
-        }
-    }
-    
-    // Sprite is outside zones - return the closest horizon
-    HorizonLine* closest = sorted[0];
-    float min_dist = std::abs(sprite_y - sorted[0]->y_position);
-    
-    for (auto* horizon : sorted) {
-        float dist = std::abs(sprite_y - horizon->y_position);
-        if (dist < min_dist) {
-            min_dist = dist;
-            closest = horizon;
-        }
-    }
-    
-    return closest;
 }
 
 void init_scene_test();

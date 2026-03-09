@@ -21,18 +21,6 @@ void init_scene_test() {
         scene.height_map.texture_id, scene.height_map.width, scene.height_map.height,
         scene.height_map.is_valid() ? "YES" : "NO");
     
-    HorizonLine scale_down_horizon;
-    scale_down_horizon.y_position = 460.0f;
-    scale_down_horizon.scale_gradient = 0.005f;
-    scale_down_horizon.depth_scale_inverted = false;
-    scene.horizons.push_back(scale_down_horizon);
-
-    HorizonLine scale_up_horizon;
-    scale_up_horizon.y_position = 480.0f;
-    scale_up_horizon.scale_gradient = 0.005f; 
-    scale_up_horizon.depth_scale_inverted = false;
-    scene.horizons.push_back(scale_up_horizon);
-    
     Prop bg_box;
     bg_box.position = Vec3(300.0f, 520.0f, 0.0f);  // z=0 is default depth
     bg_box.size = Vec2(100.0f, 100.0f);
@@ -75,20 +63,6 @@ void init_scene_test() {
     warm_light.intensity = 1.2f;                  // Strong
     warm_light.radius = 1500.0f;
     scene.lights.push_back(warm_light);
-    
-    PointLight cool_light;
-    cool_light.position = Vec3(380.0f, 520.0f, 0.0f);  // Near left
-    cool_light.color = Vec3(0.2f, 0.8f, 1.0f);   // Cyan-blue
-    cool_light.intensity = 1.0f;
-    cool_light.radius = 500.0f;
-    scene.lights.push_back(cool_light);
-    
-    PointLight green_light;
-    green_light.position = Vec3(1050.0f, 60.0f, 0.0f);  // Right side
-    green_light.color = Vec3(0.3f, 1.0f, 0.4f);   // Green
-    green_light.intensity = 0.8f;
-    green_light.radius = 450.0f;
-    scene.lights.push_back(green_light);
     
     g_state.scene = scene;
     

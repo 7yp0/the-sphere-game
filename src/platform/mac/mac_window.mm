@@ -100,9 +100,6 @@ void set_key_pressed(int key_code, bool pressed) {
 
 bool init_window(const WindowConfig& config)
 {
-    g_window_width = config.width;
-    g_window_height = config.height;
-    
     @autoreleasepool {
         NSApplication* app = [NSApplication sharedApplication];
         
@@ -135,7 +132,7 @@ bool init_window(const WindowConfig& config)
         
         // Create OpenGL view with the pixel format
         OpenGLView* glView = [[OpenGLView alloc] initWithFrame:rect pixelFormat:pixelFormat];
-        [glView setWantsBestResolutionOpenGLSurface:YES];
+        [glView setWantsBestResolutionOpenGLSurface:NO];  // Disable Retina scaling - use logical pixels
         
         // Create keyboard handling view (TOP LEVEL)
         g_keyboardView = [[KeyboardView alloc] initWithFrame:rect];
@@ -162,6 +159,15 @@ bool init_window(const WindowConfig& config)
 
         // Set keyboard view as content view
         [g_window setContentView:g_keyboardView];
+        
+        // Get actual content size (analogous to Windows GetClientRect)
+        NSRect contentBounds = [[g_window contentView] bounds];
+        g_window_width = (uint32_t)contentBounds.size.width;
+        g_window_height = (uint32_t)contentBounds.size.height;
+        
+        printf("[MAC] Requested: %u x %u, Actual content: %u x %u\n",
+               config.width, config.height, g_window_width, g_window_height);
+        fflush(stdout);
         
         // CRITICAL: Make first responder IMMEDIATELY after setContentView
         [g_window makeFirstResponder:g_keyboardView];
