@@ -17,7 +17,7 @@ static GLuint colorShaderProgram = 0;
 static GLuint litShaderProgram = 0;  // Shader program for point-lit rendering
 static uint32_t g_viewport_width = 0;
 static uint32_t g_viewport_height = 0;
-static TextureID g_height_map_texture = 0;
+static TextureID g_depth_map_texture = 0;
 static uint32_t g_scene_width = 0;
 static uint32_t g_scene_height = 0;
 
@@ -83,13 +83,13 @@ void init_renderer(uint32_t width, uint32_t height)
     glUseProgram(litShaderProgram);
     glUniform1i(glGetUniformLocation(litShaderProgram, "texture0"), 0);
     glUniform1i(glGetUniformLocation(litShaderProgram, "normalMap"), 1);  // Texture unit 1 for normal maps
-    glUniform1i(glGetUniformLocation(litShaderProgram, "heightMap"), 2);  // Texture unit 2 for height maps
+    glUniform1i(glGetUniformLocation(litShaderProgram, "depthMap"), 2);  // Texture unit 2 for depth maps
     glUseProgram(0);
 }
 
-void set_height_map_data(TextureID heightMapTexture, uint32_t sceneWidth, uint32_t sceneHeight)
+void set_depth_map_data(TextureID depthMapTexture, uint32_t sceneWidth, uint32_t sceneHeight)
 {
-    g_height_map_texture = heightMapTexture;
+    g_depth_map_texture = depthMapTexture;
     g_scene_width = sceneWidth;
     g_scene_height = sceneHeight;
 }
@@ -391,7 +391,7 @@ void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range,
     glBindTexture(GL_TEXTURE_2D, normal_map);
     
     glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, g_height_map_texture);
+    glBindTexture(GL_TEXTURE_2D, g_depth_map_texture);
     
     glBindVertexArray(quadVAO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);

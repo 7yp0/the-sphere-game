@@ -15,11 +15,11 @@ void init_scene_test() {
     scene.height = 720;
     scene.background = Renderer::load_texture("scenes/test/backgrounds/bg_room.png");
     scene.background_normal_map = Renderer::load_texture("scenes/test/backgrounds/bg_room_normal_map.png");
-    scene.height_map = Renderer::load_height_map("scenes/test/backgrounds/bg_room_height_map.png");
+    scene.depth_map = Renderer::load_depth_map("scenes/test/backgrounds/bg_room_depth_map.png");
     
-    printf("[DEBUG] Height map loaded - TextureID: %u, Size: %ux%u, Valid: %s\n", 
-        scene.height_map.texture_id, scene.height_map.width, scene.height_map.height,
-        scene.height_map.is_valid() ? "YES" : "NO");
+    printf("[DEBUG] Depth map loaded - TextureID: %u, Size: %ux%u, Valid: %s\n", 
+        scene.depth_map.texture_id, scene.depth_map.width, scene.depth_map.height,
+        scene.depth_map.is_valid() ? "YES" : "NO");
     
     Prop bg_box;
     bg_box.position = Vec3(300.0f, 520.0f, 0.0f);  // z=0 is default depth
@@ -70,9 +70,9 @@ void init_scene_test() {
     
     g_state.scene = scene;
     
-    // Setup height map data in renderer for shader sampling
-    if (g_state.scene.height_map.is_valid()) {
-        Renderer::set_height_map_data(g_state.scene.height_map.texture_id, g_state.scene.width, g_state.scene.height);
+    // Setup depth map data in renderer for shader sampling
+    if (g_state.scene.depth_map.is_valid()) {
+        Renderer::set_depth_map_data(g_state.scene.depth_map.texture_id, g_state.scene.width, g_state.scene.height);
     }
 }
 

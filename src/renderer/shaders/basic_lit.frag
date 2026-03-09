@@ -30,7 +30,7 @@ in float fragDepth;     // Sprite's Z-depth for layering
 
 uniform sampler2D texture0;     // Diffuse texture
 uniform sampler2D normalMap;    // Normal map (tangent space)
-uniform sampler2D heightMap;    // Height map for Z-depth sampling
+uniform sampler2D depthMap;     // Depth map for Z-depth sampling
 uniform float aspectRatio;      // width / height (e.g., 512/360 = 1.42)
 
 // Point light uniforms
@@ -44,11 +44,11 @@ uniform float lightRadii[MAX_LIGHTS];      // OpenGL units (0 to 4 typical)
 out vec4 FragColor;
 
 // -----------------------------------------------------------------------------
-// Sample Z-depth from height map
+// Sample Z-depth from depth map
 // Input: OpenGL position (-1 to +1)
 // Output: Z-depth (-1 = near, +1 = far)
 // -----------------------------------------------------------------------------
-float sampleZDepthFromHeightMap(vec2 openglPos) {
+float sampleZDepthFromDepthMap(vec2 openglPos) {
     // Convert OpenGL coords to UV coords for texture sampling
     // OpenGL X: -1 (left) to +1 (right)  → UV U: 0 to 1
     // OpenGL Y: -1 (bottom) to +1 (top)  → UV V: 1 to 0 (Y is flipped!)
@@ -57,13 +57,13 @@ float sampleZDepthFromHeightMap(vec2 openglPos) {
     uv_coord.y = (1.0 - openglPos.y) * 0.5;  // Flip Y: top of screen = V=0
     uv_coord = clamp(uv_coord, 0.0, 1.0);
     
-    // Sample height (grayscale)
-    float heightValue = texture(heightMap, uv_coord).r;
+    // Sample depth (grayscale)
+    float depthValue = texture(depthMap, uv_coord).r;
     
-    // Convert height to Z-depth:
+    // Convert to Z-depth:
     // White (1.0) = near camera = Z=-1
     // Black (0.0) = far from camera = Z=+1
-    float z = 1.0 - (heightValue * 2.0);
+    float z = 1.0 - (depthValue * 2.0);
     
     return z;
 }
@@ -136,8 +136,8 @@ void main() {
     // Calculate fragment's 3D position
     // -------------------------------------------------------------------------
     // X,Y from vertex shader (OpenGL screen coords)
-    // Z from height map sampling
-    float fragZ = sampleZDepthFromHeightMap(fragWorldPos);
+    // Z from depth map sampling
+    float fragZ = sampleZDepthFromDepthMap(fragWorldPos);
     vec3 fragPos3D = vec3(fragWorldPos.x, fragWorldPos.y, fragZ);
     
     // -------------------------------------------------------------------------

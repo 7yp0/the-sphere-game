@@ -6,8 +6,9 @@ namespace Renderer {
 
 using TextureID = uint32_t;
 
-// Height map data structure - stores pixel data for sampling
-struct HeightMapData {
+// Depth map data structure - stores pixel data for Z-depth sampling
+// White (255) = near camera (Z=-1), Black (0) = far (Z=+1)
+struct DepthMapData {
     TextureID texture_id;
     uint32_t width;
     uint32_t height;
@@ -23,8 +24,8 @@ struct HeightMapData {
 // Textures are cached - loading same file twice returns cached TextureID (no re-load)
 TextureID load_texture(const char* path);
 
-// Loads a height map texture, keeping pixel data for runtime sampling
-HeightMapData load_height_map(const char* path);
+// Loads a depth map texture, keeping pixel data for runtime Z-depth sampling
+DepthMapData load_depth_map(const char* path);
 
 // Creates a simple test texture (64x64 red square)
 // Used as fallback if PNG loading fails

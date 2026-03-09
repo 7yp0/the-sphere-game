@@ -78,14 +78,14 @@ void free_texture(TextureID tex) {
     glDeleteTextures(1, &tex);
 }
 
-HeightMapData load_height_map(const char* path) {
-    HeightMapData result;
+DepthMapData load_depth_map(const char* path) {
+    DepthMapData result;
     result.texture_id = 0;
     result.width = 0;
     result.height = 0;
     
     if (!path) {
-        DEBUG_ERROR("load_height_map called with nullptr path");
+        DEBUG_ERROR("load_depth_map called with nullptr path");
         return result;
     }
     
@@ -127,7 +127,7 @@ HeightMapData load_height_map(const char* path) {
     png_free(img);
     
     result.texture_id = tex;
-    DEBUG_LOG("Height map loaded: %s (%ux%u)", path, result.width, result.height);
+    DEBUG_LOG("Depth map loaded: %s (%ux%u)", path, result.width, result.height);
     return result;
 }
 

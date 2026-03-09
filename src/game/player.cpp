@@ -121,8 +121,8 @@ static void handle_hotspot_click(Player& player, Vec2 mouse_pos) {
                 closest_on_hotspot.y + to_player.y * hotspot.interaction_distance
             );
             
-            // Sample Z from height map based on world position
-            float target_z = Scene::get_z_from_height_map(g_state.scene, approach_point_2d.x, approach_point_2d.y);
+            // Sample Z from depth map based on world position
+            float target_z = Scene::get_z_from_depth_map(g_state.scene, approach_point_2d.x, approach_point_2d.y);
             player.target_position = Vec3(approach_point_2d.x, approach_point_2d.y, target_z);
             player.hotspot_state = HotspotInteractionState::Approaching;
             return;
@@ -132,8 +132,8 @@ static void handle_hotspot_click(Player& player, Vec2 mouse_pos) {
 
 // Helper function: Handle regular movement click
 static void handle_movement_click(Player& player, Vec2 mouse_pos) {
-    // Sample Z from height map based on world position of click
-    float target_z = Scene::get_z_from_height_map(g_state.scene, mouse_pos.x, mouse_pos.y);
+    // Sample Z from depth map based on world position of click
+    float target_z = Scene::get_z_from_depth_map(g_state.scene, mouse_pos.x, mouse_pos.y);
     player.target_position = Vec3(mouse_pos.x, mouse_pos.y, target_z);
     player.active_hotspot_index = -1;
     player.hotspot_state = HotspotInteractionState::None;
@@ -249,8 +249,8 @@ void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_heig
     // Initialize player entity
     player.position = Vec3(viewport_width * 0.5f, viewport_height * 0.5f, 0.0f);
     player.target_position = Vec3(viewport_width * 0.5f, viewport_height * 0.5f, 0.0f);
-    // Calculate player Z position from height map based on initial XY coordinates
-    player.position.z = Scene::get_z_from_height_map(g_state.scene, player.position.x, player.position.y);
+    // Calculate player Z position from depth map based on initial XY coordinates
+    player.position.z = Scene::get_z_from_depth_map(g_state.scene, player.position.x, player.position.y);
     player.target_position.z = player.position.z;
     // player.size comes from struct default (100x150)
     player.animation_state = AnimationState::Idle;
@@ -292,14 +292,14 @@ static void apply_collision_response(Player& player, Vec3 old_position, const st
     // Try X-axis only movement
     Vec2 x_only = Vec2(player.position.x, old_position.y);
     if (Collision::point_in_any_polygon(x_only, walkable_areas)) {
-        player.position = Vec3(x_only.x, x_only.y, Scene::get_z_from_height_map(scene, x_only.x, x_only.y));
+        player.position = Vec3(x_only.x, x_only.y, Scene::get_z_from_depth_map(scene, x_only.x, x_only.y));
         return;
     }
     
     // Try Y-axis only movement
     Vec2 y_only = Vec2(old_position.x, player.position.y);
     if (Collision::point_in_any_polygon(y_only, walkable_areas)) {
-        player.position = Vec3(y_only.x, y_only.y, Scene::get_z_from_height_map(scene, y_only.x, y_only.y));
+        player.position = Vec3(y_only.x, y_only.y, Scene::get_z_from_depth_map(scene, y_only.x, y_only.y));
         return;
     }
     
@@ -367,7 +367,7 @@ void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_he
             player.position.x += movement.x;
             player.position.y += movement.y;
             // Update Z continuously based on Y position during movement
-            player.position.z = Scene::get_z_from_height_map(g_state.scene, player.position.x, player.position.y);
+            player.position.z = Scene::get_z_from_depth_map(g_state.scene, player.position.x, player.position.y);
         }
         
         clamp_player_position(player, viewport_width, viewport_height);
