@@ -355,10 +355,13 @@ void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range,
     uint32_t num_lights = lights.size() > 8 ? 8 : (uint32_t)lights.size();
     glUniform1i(glGetUniformLocation(litShaderProgram, "numLights"), num_lights);
     
-    // Set scene size for height map sampling
-    glUniform2f(glGetUniformLocation(litShaderProgram, "sceneSize"), (float)g_scene_width, (float)g_scene_height);
+    // Set aspect ratio for correct circular light falloff
+    float aspectRatio = (float)g_viewport_width / (float)g_viewport_height;
+    glUniform1f(glGetUniformLocation(litShaderProgram, "aspectRatio"), aspectRatio);
     
     // Send lights as full 3D vectors
+    // NOTE: PointLight positions are ALREADY in OpenGL coordinates (-1 to +1)
+    // No conversion needed - pass through directly
     std::vector<Vec3> light_positions_3d;
     std::vector<float> light_intensities, light_radii;
     std::vector<Vec3> light_colors;
@@ -366,16 +369,12 @@ void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range,
     for (uint32_t i = 0; i < num_lights; i++) {
         const Scene::PointLight& light = lights[i];
         
-        // Convert light position to OpenGL coordinates (full 3D)
-        Vec2 light_xy_opengl = Coords::pixel_to_opengl(Vec2(light.position.x, light.position.y), g_viewport_width, g_viewport_height);
-        // Keep z-depth as-is (already in OpenGL space: -1 to 1)
-        Vec3 light_pos_opengl(light_xy_opengl.x, light_xy_opengl.y, light.position.z);
-        light_positions_3d.push_back(light_pos_opengl);
+        // Light position is already in OpenGL coordinates (-1 to +1)
+        light_positions_3d.push_back(light.position);
         light_colors.push_back(light.color);
         light_intensities.push_back(light.intensity);
-        // Convert radius to OpenGL scale (in pixel space it's relative to viewport)
-        float radius_ndc = (light.radius / (float)g_viewport_width) * 2.0f;
-        light_radii.push_back(radius_ndc);
+        // Radius is already in OpenGL units (0 to 4 typical range)
+        light_radii.push_back(light.radius);
     }
     
     // Set arrays (all 3D now)

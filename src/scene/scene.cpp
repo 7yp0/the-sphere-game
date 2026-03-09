@@ -57,11 +57,15 @@ void init_scene_test() {
     scene.geometry.hotspots.push_back(box_hotspot);
     
     // Setup point lights for dynamic scene illumination
+    // COORDINATES IN OPENGL SPACE (-1 to +1):
+    //   X = -1 (left) to +1 (right)
+    //   Y = -1 (bottom) to +1 (top) - height affects shadow length
+    //   Z = -1 (near camera) to +1 (far/background)
     PointLight warm_light;
-    warm_light.position = Vec3(640.0f, 380.0f, 0.0f);  // Center screen
-    warm_light.color = Vec3(1.0f, 0.6f, 0.2f);   // Orange-red
-    warm_light.intensity = 1.2f;                  // Strong
-    warm_light.radius = 1500.0f;
+    warm_light.position = Vec3(0.0f, 0.0f, -0.5f);  // Center screen, slightly in front
+    warm_light.color = Vec3(1.0f, 0.9f, 0.7f);   // Warm white
+    warm_light.intensity = 1.5f;                  // Strong
+    warm_light.radius = 2.0f;                     // OpenGL units (covers most of screen)
     scene.lights.push_back(warm_light);
     
     g_state.scene = scene;

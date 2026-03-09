@@ -25,6 +25,10 @@ static void init_player() {
 
 static void update_animated_test_light(float delta_time) {
     // Animate the first light horizontally (left to right) with fixed Y and Z
+    // ALL COORDINATES IN OPENGL SPACE (-1 to +1):
+    //   X = -1 (left) to +1 (right)
+    //   Y = -1 (bottom) to +1 (top) - height affects shadow length
+    //   Z = -1 (near camera) to +1 (far/background)
     static float light_time = 0.0f;
     light_time += delta_time;
     
@@ -32,14 +36,14 @@ static void update_animated_test_light(float delta_time) {
         float cycle_time = 6.0f;  // 6 seconds für einen Durchlauf
         float t = fmod(light_time, cycle_time) / cycle_time;  // 0 to 1
         
-        // X bewegt sich von links nach rechts
-        float x = t * static_cast<float>(g_state.viewport_width);
-        float y = 180.0f;  // Feste Y-Position (Mitte des Screens)
-        float z = 0.0f;    // Feste Z-Position (mittlere Tiefe)
+        // X bewegt sich von links (-1) nach rechts (+1) in OpenGL-Koordinaten
+        float x = -1.0f + t * 2.0f;  // -1 to +1
+        float y = 0.0f;   // Mitte (OpenGL Y: -1=unten, +1=oben)
+        float z = 0.0f;  // Leicht vor der Szene (näher zur Kamera)
         
         g_state.scene.lights[0].position = Vec3(x, y, z);
         
-        printf("[LIGHT TEST] Progress: %.2f - Position: (%.0f, %.0f, %.2f)\n", t, x, y, z);
+        printf("[LIGHT TEST] Progress: %.2f - OpenGL Position: (%.2f, %.2f, %.2f)\n", t, x, y, z);
     }
 }
 
@@ -118,8 +122,14 @@ void render() {
     // Debug: Rotes Rechteck an der Lichtposition
     if (g_state.scene.lights.size() > 0) {
         Vec3 light_pos = g_state.scene.lights[0].position;
+        // Konvertiere OpenGL-Koordinaten (-1 bis +1) zu Pixel-Koordinaten
+        // OpenGL X: -1=links, +1=rechts → Pixel: 0 bis viewport_width
+        // OpenGL Y: -1=unten, +1=oben → Pixel: viewport_height bis 0 (invertiert!)
+        float pixel_x = (light_pos.x + 1.0f) * 0.5f * g_state.viewport_width;
+        float pixel_y = (1.0f - light_pos.y) * 0.5f * g_state.viewport_height;
+        
         // Zeichne rotes Rect (10x10 Pixel) zentriert auf der Lichtposition
-        Renderer::render_rect(Vec3(light_pos.x - 5.0f, light_pos.y - 5.0f, Layers::get_z_depth(Layer::UI)),
+        Renderer::render_rect(Vec3(pixel_x - 5.0f, pixel_y - 5.0f, Layers::get_z_depth(Layer::UI)),
                              Vec2(10.0f, 10.0f),
                              Vec4(1.0f, 0.0f, 0.0f, 1.0f));  // Rot
     }

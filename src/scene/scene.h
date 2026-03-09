@@ -60,9 +60,9 @@ struct Hotspot {
 
 // PointLight: 3D positioning in OpenGL coordinate space
 struct PointLight {
-    // COORDINATE SYSTEM:
+    // COORDINATE SYSTEM (ALL IN OPENGL SPACE -1 to +1):
     //   X = horizontal (-1=left, +1=right) on screen
-    //   Y = vertical (-1=bottom, +1=top) on screen
+    //   Y = vertical (-1=bottom, +1=top) on screen - affects shadow length
     //   Z = depth into screen (-1=near camera, +1=far/background)
     //
     // Height map provides Z-depth for each pixel:
