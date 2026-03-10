@@ -47,13 +47,30 @@ add_custom_command(TARGET the_sphere_game POST_BUILD
     COMMENT "Copying assets to build directory"
 )
 
-# Copy shaders to build directory
+# Collect all shader files
+file(GLOB SHADER_FILES 
+    ${CMAKE_SOURCE_DIR}/src/renderer/shaders/*.vert
+    ${CMAKE_SOURCE_DIR}/src/renderer/shaders/*.frag
+)
+
+# Copy shaders on every build (POST_BUILD ensures they're always fresh)
 add_custom_command(TARGET the_sphere_game POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/$<CONFIG>/shaders
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/src/renderer/shaders
-        $<CONFIG>/shaders
+        ${CMAKE_BINARY_DIR}/$<CONFIG>/shaders
     COMMENT "Copying shaders to build directory"
 )
+
+# Also copy to app bundle on macOS
+if(APPLE)
+    add_custom_command(TARGET the_sphere_game POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_SOURCE_DIR}/src/renderer/shaders
+            ${CMAKE_BINARY_DIR}/$<CONFIG>/The\ Sphere\ Game.app/Contents/Resources/shaders
+        COMMENT "Copying shaders to app bundle"
+    )
+endif()
 
 # Find ZLIB (used for PNG decompression)
 find_package(ZLIB REQUIRED)
