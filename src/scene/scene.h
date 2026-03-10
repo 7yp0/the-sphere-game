@@ -17,27 +17,120 @@
 namespace Scene {
 
 // =============================================================================
-// 2.5D + 3D HYBRID RENDERING SYSTEM WITH RAY-MARCHED SHADOWS
+// 2.5D RENDERING ARCHITECTURE
 // =============================================================================
-// This engine uses TWO coordinate systems that work together:
 //
-// 1. 2.5D SYSTEM (Background, Props, Player)
-//    - Objects have X,Y screen position only
-//    - Z-DEPTH is AUTOMATICALLY derived from DEPTH MAP (Y position → sample → Z)
-//    - Props/Player move on 2D plane, depth map determines their depth
-//    - Depth scaling: objects further back (higher Z) render smaller
+// RENDERING OVERVIEW
+// ------------------
+// This engine renders a 2.5D scene composed of:
+//   - A pre-rendered 2D background image
+//   - Dynamic scene objects (props, player) rendered as textured quads
+//   - Dynamic point lights that affect both background and objects
 //
-// 2. 3D LIGHTING SYSTEM (PointLights)
-//    - All coordinates in OpenGL space (-1 to +1)
+// The background receives lighting from dynamic light sources but does NOT
+// cast shadows. Shadows are cast exclusively by scene objects.
+//
+// COORDINATE SYSTEMS
+// ------------------
+// Two coordinate systems work together:
+//
+// 1. 2.5D Object System (Background, Props, Player)
+//    - Objects have X,Y screen position
+//    - Z-depth is derived from the depth map at the object's pivot position
+//    - Depth scaling: objects further from camera (higher Z) render smaller
+//
+// 2. 3D Light System (PointLights)
+//    - Coordinates in OpenGL space (-1 to +1)
 //    - X = horizontal screen position (left/right)
 //    - Y = vertical screen position (bottom/top)
-//    - Z = depth (near/far into screen) → affects shadow direction
+//    - Z = depth into screen (-1=near camera, +1=far/background)
 //
-// INTERPLAY FOR LIGHTING:
-//    - Shader samples depth map → gets Z-depth for each background pixel
-//    - Shader samples normal map → gets surface normal for each background pixel
-//    - Light 3D position compared against pixel position + Z-depth + surface normal
-//    - Result: accurate lighting and shadows based on depth map depth and normals
+// =============================================================================
+// BACKGROUND LIGHTING (DEPTH MAP + NORMAL MAP)
+// =============================================================================
+//
+// The background image is accompanied by two auxiliary textures:
+//
+// DEPTH MAP
+//   - Encodes the approximate Z-depth of each background pixel
+//   - White (255) = near camera (Z=-1), Black (0) = far (Z=+1)
+//   - Used to reconstruct the 3D position of each background pixel in view space
+//   - This reconstructed position is used for:
+//     a) Computing the direction vector toward each light source
+//     b) Computing light attenuation based on distance
+//   - The depth map is NOT used as shadow-casting geometry
+//
+// NORMAL MAP
+//   - Encodes the surface normal direction at each background pixel
+//   - Used for diffuse lighting calculations (N dot L)
+//   - Allows the flat background to respond to dynamic lights as if it had
+//     actual surface geometry (bumps, angles, depth variation)
+//
+// LIGHTING CALCULATION (per background pixel):
+//   1. Sample depth map → reconstruct approximate 3D position
+//   2. Sample normal map → get surface normal
+//   3. Compute light direction vector from pixel position to light
+//   4. Apply diffuse lighting: intensity * max(0, dot(normal, light_dir))
+//   5. Apply distance attenuation based on light radius
+//
+// =============================================================================
+// SHADOW CASTING MODEL
+// =============================================================================
+//
+// IMPORTANT: The background does NOT cast shadows. Only scene objects do.
+//
+// Shadow computation does NOT use ray marching through the depth map.
+// Instead, shadows are computed via geometric ray-object intersection tests.
+//
+// SHADOW RAY ALGORITHM (per shaded pixel):
+//   1. Reconstruct background pixel position from screen coords + depth map
+//   2. Cast a ray from the shaded point toward the light source
+//   3. Test this ray ONLY against shadow-casting scene objects
+//   4. If any object blocks the ray, the pixel is in shadow
+//
+// Shadow-casting objects are rendered as quads (two triangles) in 3D space.
+// The intersection test is a standard ray-quad intersection.
+//
+// =============================================================================
+// OBJECT INTERSECTION AND ALPHA TESTING
+// =============================================================================
+//
+// Scene objects are sprite-based quads with potentially transparent regions.
+// To cast accurate shadows that respect transparency:
+//
+// RAY-QUAD INTERSECTION:
+//   1. Test if the shadow ray intersects the object's quad geometry
+//   2. If hit, compute UV coordinates at the intersection point
+//   3. Sample the object's texture at those UV coordinates
+//
+// ALPHA TEST:
+//   4. If sampled alpha > threshold: ray is blocked, pixel is shadowed
+//   5. If sampled alpha <= threshold: ray continues to next object
+//
+// This allows sprites with irregular silhouettes (e.g., trees, characters)
+// to cast shadows that match their visible shape rather than their bounding
+// quad.
+//
+// =============================================================================
+// LIMITATIONS AND TRADE-OFFS
+// =============================================================================
+//
+// ADVANTAGES:
+//   - Performance: No expensive ray marching through volumetric data
+//   - Simplicity: Shadow casters are simple quad geometry
+//   - Accuracy: Alpha testing produces pixel-accurate shadow silhouettes
+//   - Flexibility: Background art can have complex painted depth/normals
+//
+// LIMITATIONS:
+//   - Background geometry cannot cast shadows onto itself or objects
+//   - Self-shadowing within the background is baked into the art
+//   - Shadow casters are limited to quad geometry (no complex meshes)
+//   - Soft shadows require additional techniques (not covered here)
+//
+// This architecture is well-suited for 2.5D adventure games where the
+// background is pre-rendered artwork and dynamic objects need to cast
+// shadows onto that artwork.
+//
 // =============================================================================
 
 // Prop: 2.5D object - Z-depth derived from DEPTH MAP at X,Y position
@@ -65,14 +158,13 @@ struct PointLight {
     //   Y = vertical screen position (-1=bottom, +1=top)
     //   Z = depth into screen (-1=near camera, +1=far/background)
     //
-    // NOTE: This matches the 2.5D system - X,Y are screen coords, Z is depth!
-    //   Light at Y=0.5, Z=0.0 → center-top of screen, at scene level
-    //   Light at Y=-0.5, Z=0.5 → lower screen, behind objects
+    // Example placements:
+    //   Light at Y=0.5, Z=0.0 → upper screen, at scene mid-depth
+    //   Light at Y=-0.5, Z=0.5 → lower screen, further into background
     //
-    // SHADOW DIRECTION (automatic from ray marching):
-    //   - Caster between camera and light: shadow cast TOWARD camera
-    //   - Caster behind light: shadow cast AWAY from camera
-    //   - Shadow length/intensity based on occluder thickness and distance
+    // Shadow behavior:
+    //   Shadows are cast by scene objects (quads) via ray intersection tests.
+    //   Shadow direction depends on relative positions of light and caster.
     Vec3 position;      // OpenGL coords (-1 to +1), X,Y = screen pos, Z = depth
     Vec3 color;         // RGB color (0-1 range)
     float intensity;    // Brightness multiplier

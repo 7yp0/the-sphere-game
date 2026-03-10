@@ -1,7 +1,7 @@
 #version 330 core
 
 // =============================================================================
-// 2.5D + 3D HYBRID LIGHTING SHADER
+// 2.5D + 3D HYBRID LIGHTING SHADER WITH SCREEN-SPACE SHADOWS
 // =============================================================================
 // Based on the hybrid rendering system:
 //
@@ -22,6 +22,16 @@
 //   - R = X direction (0.5 = neutral, 0=left, 1=right)
 //   - G = Y direction (0.5 = neutral, 0=down, 1=up)
 //   - B = Z direction (pointing out of surface, typically ~1.0 for flat)
+//
+// SCREEN-SPACE SHADOW RAYS:
+//   - Cast ray from fragment toward light in screen-space (XY)
+//   - Sample occluder texture along the ray
+//   - Z-check: occluder must be CLOSER TO LIGHT than fragment
+//   - Z-threshold prevents self-shadowing (objects on surfaces)
+//
+// UV COORDINATE SYSTEMS (WICHTIG!):
+//   - Depth Map (aus Datei): Y-FLIP → uv.y = (1.0 - openglPos.y) * 0.5
+//   - Occluder FBO (runtime): NO FLIP → uv.y = (openglPos.y + 1.0) * 0.5
 // =============================================================================
 
 in vec2 uv;
