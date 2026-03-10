@@ -29,9 +29,9 @@ namespace Scene {
 //
 // 2. 3D LIGHTING SYSTEM (PointLights)
 //    - All coordinates in OpenGL space (-1 to +1)
-//    - X = horizontal (left/right)
-//    - Y = height (bottom/top) → affects shadow length
-//    - Z = depth (near/far into screen)
+//    - X = horizontal screen position (left/right)
+//    - Y = vertical screen position (bottom/top)
+//    - Z = depth (near/far into screen) → affects shadow length
 //
 // INTERPLAY FOR LIGHTING:
 //    - Shader samples height map → gets Z-depth for each background pixel
@@ -40,7 +40,7 @@ namespace Scene {
 //    - Result: accurate lighting and shadows based on height map depth and normals
 //
 // =============================================================================
-// SHADOW SYSTEM (Hybrid: Screen-Space + Projected Texture)
+// SHADOW SYSTEM (Projected Texture)
 // =============================================================================
 //
 // RESOLUTION: 320x180 = 57,600 Pixel (klein genug für teure Verfahren!)
@@ -86,77 +86,11 @@ namespace Scene {
 //
 //    SOURCE          TARGET          METHOD                  NOTES
 //    ──────────────────────────────────────────────────────────────────────────
-//    Background   →  Background      Screen-Space Sampling   Wand→Boden
 //    Player/Prop  →  Floor           Projected Silhouette    Sprite→Boden
 //    Player/Prop  →  Wall            Projected + UV Stretch  Sprite→Wand
 //
 // =============================================================================
-// SYSTEM 1: BACKGROUND SELF-SHADOW (Screen-Space Sampling)
-// =============================================================================
-//
-// Bei 320x180 können wir uns echtes Per-Pixel Sampling leisten!
-//
-// ALGORITHMUS:
-//    Für jeden Pixel auf dem BODEN (normal.g < 0.7):
-//    1. March in Screen-Space von Pixel → Light-Position
-//    2. Bei jedem Step: Sample Depth Map
-//    3. Wenn Z_sample < Z_interpoliert → Occluder gefunden → SCHATTEN
-//
-// WARUM DAS FUNKTIONIERT:
-//    - Wir marchen entlang der Bildschirm-XY-Achse
-//    - Die Depth Map gibt uns die Z-Tiefe für Background-Geometrie
-//    - Wenn eine Wand "im Weg" steht (näher an Kamera), blockt sie das Licht
-//
-// BEISPIEL: Wand wirft Schatten auf Boden
-//
-//    Screen-Space View:
-//    ┌─────────────────────────────┐
-//    │   ☀️ Light                   │
-//    │    \                        │
-//    │     \  Ray                  │
-//    │      \                      │
-//    │  WALL ▓ ← Z=-0.5 (nah)      │
-//    │       ▒                     │
-//    │       ░ ← Shadow            │
-//    │  FLOOR  ← Z=+0.5 (weit)     │
-//    └─────────────────────────────┘
-//
-//    March-Logik:
-//    - Start: Floor-Pixel, Z=+0.5
-//    - Step 1: Sample bei (-10px, -5px), Depth Map gibt Z=-0.5
-//    - Check: -0.5 < interpolierte_Z → JA, Occluder!
-//    - Ergebnis: Dieses Floor-Pixel ist im Schatten
-//
-// PSEUDO-CODE:
-//    ```glsl
-//    float screenSpaceShadow(vec2 pixelUV, vec3 lightPosScreen) {
-//        float pixelZ = texture(depthMap, pixelUV).r;
-//        vec2 rayDir = normalize(lightPosScreen.xy - pixelUV);
-//        float rayLen = length(lightPosScreen.xy - pixelUV);
-//        
-//        const int STEPS = 16;  // Bei 320x180 bezahlbar!
-//        for (int i = 1; i < STEPS; i++) {
-//            float t = float(i) / float(STEPS);
-//            vec2 sampleUV = pixelUV + rayDir * rayLen * t;
-//            
-//            float sampleZ = texture(depthMap, sampleUV).r;
-//            float expectedZ = mix(pixelZ, lightPosScreen.z, t);
-//            
-//            // Occluder gefunden? (Sample ist NÄHER als erwartet)
-//            if (sampleZ < expectedZ - 0.05) {
-//                return 0.5;  // Im Schatten (50% dunkel)
-//            }
-//        }
-//        return 1.0;  // Kein Schatten
-//    }
-//    ```
-//
-// PERFORMANCE BEI 320x180:
-//    16 Samples × 57,600 Pixel = 921,600 Samples/Frame
-//    Bei 60 FPS = 55M Samples/Sekunde → trivial für GPU!
-//
-// =============================================================================
-// SYSTEM 2: SPRITE SHADOWS (Projected Silhouette Texture)
+// SYSTEM: SPRITE SHADOWS (Projected Silhouette Texture)
 // =============================================================================
 //
 // Für Player/Props brauchen wir Silhouette-Texturen, weil:
@@ -278,7 +212,7 @@ namespace Scene {
 //
 // Bei 320x180 können wir uns auch Soft Shadows leisten:
 //
-// OPTION A: PCF (Percentage Closer Filtering)
+// OPTION: PCF (Percentage Closer Filtering)
 //    - Sample Silhouette-Textur mehrfach mit Offset
 //    - Average = weicher Rand
 //    ```glsl
@@ -290,17 +224,12 @@ namespace Scene {
 //    shadow /= 4.0;
 //    ```
 //
-// OPTION B: Multi-Sample Screen-Space
-//    - Für Background-Shadows: Sample entlang mehrerer leicht versetzter Rays
-//    - Ergebnis: weiche Kanten bei Wand-Schatten
-//
 // =============================================================================
 // PERFORMANCE BUDGET (320x180 @ 60 FPS)
 // =============================================================================
 //
 //    Operation                          Samples/Frame     Cost
 //    ──────────────────────────────────────────────────────────────────
-//    Screen-Space Shadow (16 steps)     921,600           Low
 //    Silhouette Render (1 draw/caster)  ~1,000 tris       Trivial
 //    Shadow UV + Sample (per pixel)     57,600            Low
 //    PCF Soft Shadows (4 samples)       230,400           Low
@@ -330,23 +259,20 @@ struct Hotspot {
 // PointLight: 3D positioning in OpenGL coordinate space
 struct PointLight {
     // COORDINATE SYSTEM (ALL IN OPENGL SPACE -1 to +1):
-    //   X = horizontal (-1=left, +1=right) on screen
-    //   Y = height above scene (-1=below, +1=above) - NOT screen Y!
+    //   X = horizontal screen position (-1=left, +1=right)
+    //   Y = vertical screen position (-1=bottom, +1=top)
     //   Z = depth into screen (-1=near camera, +1=far/background)
     //
-    // IMPORTANT: Light Y is HEIGHT, not screen position!
-    //   Y = 0.5  → light is above the scene (like ceiling light)
-    //   Y = 0.0  → light is at scene level (like torch on floor)
-    //   Y = -0.5 → light is below scene (underground glow)
+    // NOTE: This matches the 2.5D system - X,Y are screen coords, Z is depth!
+    //   Light at Y=0.5, Z=0.0 → center-top of screen, at scene level
+    //   Light at Y=-0.5, Z=0.5 → lower screen, behind objects
     //
     // SHADOW PROJECTION:
-    //   - Shadow direction: from light through caster onto scene
-    //   - Shadow length: inversely proportional to light Y height
-    //     → Y=1.0 (high): short shadows (sun at noon)
-    //     → Y=0.1 (low): long shadows (sunset)
+    //   - Shadow direction: from light (X,Y) through caster onto scene
+    //   - Shadow length: controlled by light Z relative to caster Z
     //   - Wall shadows: UV stretched vertically based on wall normal
     //   - Projection formula: shadowUV = project(pixelPos, lightPos, casterBounds)
-    Vec3 position;      // OpenGL coords (-1 to +1), Y = HEIGHT above scene
+    Vec3 position;      // OpenGL coords (-1 to +1), X,Y = screen pos, Z = depth
     Vec3 color;         // RGB color (0-1 range)
     float intensity;    // Brightness multiplier
     float radius;       // Radius in OpenGL units (0-4 range typical)

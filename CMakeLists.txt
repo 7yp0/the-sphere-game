@@ -39,11 +39,10 @@ endif()
 add_executable(the_sphere_game ${ENGINE_SOURCES})
 
 # Copy assets to build directory alongside the executable
-# For multi-config generators (Visual Studio), this goes to build/Debug or build/Release
 add_custom_command(TARGET the_sphere_game POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/assets
-        $<CONFIG>/assets
+        ${CMAKE_BINARY_DIR}/assets
     COMMENT "Copying assets to build directory"
 )
 
@@ -55,10 +54,10 @@ file(GLOB SHADER_FILES
 
 # Copy shaders on every build (POST_BUILD ensures they're always fresh)
 add_custom_command(TARGET the_sphere_game POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/$<CONFIG>/shaders
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/shaders
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/src/renderer/shaders
-        ${CMAKE_BINARY_DIR}/$<CONFIG>/shaders
+        ${CMAKE_BINARY_DIR}/shaders
     COMMENT "Copying shaders to build directory"
 )
 
@@ -67,7 +66,7 @@ if(APPLE)
     add_custom_command(TARGET the_sphere_game POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${CMAKE_SOURCE_DIR}/src/renderer/shaders
-            ${CMAKE_BINARY_DIR}/$<CONFIG>/The\ Sphere\ Game.app/Contents/Resources/shaders
+            ${CMAKE_BINARY_DIR}/The\ Sphere\ Game.app/Contents/Resources/shaders
         COMMENT "Copying shaders to app bundle"
     )
 endif()
