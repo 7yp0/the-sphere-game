@@ -17,230 +17,57 @@
 namespace Scene {
 
 // =============================================================================
-// 2.5D + 3D HYBRID RENDERING SYSTEM
+// 2.5D + 3D HYBRID RENDERING SYSTEM WITH RAY-MARCHED SHADOWS
 // =============================================================================
 // This engine uses TWO coordinate systems that work together:
 //
 // 1. 2.5D SYSTEM (Background, Props, Player)
 //    - Objects have X,Y screen position only
-//    - Z-DEPTH is AUTOMATICALLY derived from HEIGHT MAP (Y position → sample → Z)
-//    - Props/Player move on 2D plane, height map determines their depth
+//    - Z-DEPTH is AUTOMATICALLY derived from DEPTH MAP (Y position → sample → Z)
+//    - Props/Player move on 2D plane, depth map determines their depth
 //    - Depth scaling: objects further back (higher Z) render smaller
 //
 // 2. 3D LIGHTING SYSTEM (PointLights)
 //    - All coordinates in OpenGL space (-1 to +1)
 //    - X = horizontal screen position (left/right)
 //    - Y = vertical screen position (bottom/top)
-//    - Z = depth (near/far into screen) → affects shadow length
+//    - Z = depth (near/far into screen) → affects shadow direction
 //
 // INTERPLAY FOR LIGHTING:
-//    - Shader samples height map → gets Z-depth for each background pixel
+//    - Shader samples depth map → gets Z-depth for each background pixel
 //    - Shader samples normal map → gets surface normal for each background pixel
 //    - Light 3D position compared against pixel position + Z-depth + surface normal
-//    - Result: accurate lighting and shadows based on height map depth and normals
+//    - Result: accurate lighting and shadows based on depth map depth and normals
 //
-// =============================================================================
-// SHADOW SYSTEM (Projected Texture)
-// =============================================================================
+// RAY-MARCHED SHADOWS FOR OBJECTS:
+//    - Objects (props, player) cast shadows onto the 2.5D background
+//    - Lights exist in full 3D space, objects have Z from depth map
+//    - Shadow ray marches from background fragment toward light
+//    - At each step: check if an object occludes the ray
 //
-// RESOLUTION: 320x180 = 57,600 Pixel (klein genug für teure Verfahren!)
+//    SHADOW DIRECTION RULES:
+//    ┌─────────────────────────────────────────────────────────────────┐
+//    │ CAMERA ◄───── Z-Axis ─────► BACKGROUND                         │
+//    │   Z=-1                           Z=+1                          │
+//    │                                                                │
+//    │ Case 1: Caster BETWEEN camera and light (casterZ < lightZ)     │
+//    │   [CAMERA] ──► [CASTER] ──► [LIGHT] ──► [BACKGROUND]          │
+//    │   Shadow cast TOWARD camera (onto near surfaces)               │
+//    │                                                                │
+//    │ Case 2: Caster BEHIND light (casterZ > lightZ)                 │
+//    │   [CAMERA] ──► [LIGHT] ──► [CASTER] ──► [BACKGROUND]          │
+//    │   Shadow cast AWAY from camera (onto far surfaces)             │
+//    └─────────────────────────────────────────────────────────────────┘
 //
-// IMPORTANT: This is a 2.5D system, NOT true 3D!
-//    - Background = FLAT 2D image (no geometry!)
-//    - Depth Map = gives each pixel a "virtual" Z-depth
-//    - Normal Map = gives each pixel a "virtual" surface orientation
-//    - Only PointLights move in TRUE 3D space
-//    - Everything else is 2D with "virtual" depth from textures!
+//    IMPLEMENTATION:
+//    - For each lit background pixel, march ray toward light
+//    - Check object bounding boxes + depth for occlusion
+//    - Shadow intensity based on occluder distance and size
 //
-// =============================================================================
-// WHY HYBRID? (Das fundamentale Problem mit Raymarching in 2.5D)
-// =============================================================================
-//
-//    Was wir haben:
-//       Depth Map = 2D-Bild mit Z-Werten pro Pixel (aus Kamera-Sicht)
-//       Licht = echte 3D-Position (X, Y, Z)
-//
-//    Was fehlt für echtes Raymarching:
-//       - Die Depth Map zeigt nur "von der Kamera aus gesehen"
-//       - Sie enthält NICHT, was zwischen Licht und Pixel liegt
-//       - Player/Props sind NICHT in der Depth Map!
-//
-//    SEITENANSICHT (was Depth Map NICHT zeigt):
-//
-//           ☀️ Light (Y=0.5, Z=0.2)
-//            \
-//             \  ← Ray müsste ÜBER die Szene gehen
-//              \   Aber Depth Map = nur Kamera-Sicht!
-//               \
-//        ┌───┐   \
-//        │   │ Player    │ WALL
-//        └───┘           │
-//    ════════════════════╧═══ FLOOR
-//
-//    → Raymarching funktioniert NUR für Background-zu-Background Schatten!
-//    → Für Player/Prop Schatten brauchen wir Silhouette-Texturen!
-//
-// =============================================================================
-// SHADOW CASTING MATRIX:
-// =============================================================================
-//
-//    SOURCE          TARGET          METHOD                  NOTES
-//    ──────────────────────────────────────────────────────────────────────────
-//    Player/Prop  →  Floor           Projected Silhouette    Sprite→Boden
-//    Player/Prop  →  Wall            Projected + UV Stretch  Sprite→Wand
-//
-// =============================================================================
-// SYSTEM: SPRITE SHADOWS (Projected Silhouette Texture)
-// =============================================================================
-//
-// Für Player/Props brauchen wir Silhouette-Texturen, weil:
-//    - Sie sind NICHT in der Depth Map
-//    - Ihre Form ändert sich (Animation)
-//    - Sie müssen pixel-perfekt sein
-//
-// PASS 1: RENDER SILHOUETTE
-//    - Bind offscreen FBO (kann kleiner sein, z.B. 160x90)
-//    - Clear zu transparent
-//    - Render Player/Prop als solid alpha (keine Farbe, nur Form)
-//    - Ergebnis: Silhouette-Textur mit Alpha-Maske
-//
-//    ```
-//    Sprite:          Silhouette:
-//    ┌─────────┐      ┌─────────┐
-//    │  ╔═══╗  │      │  ▓▓▓▓▓  │
-//    │  ║   ║  │  →   │  ▓▓▓▓▓  │
-//    │  ║ 🧍║  │      │  ▓▓▓▓▓  │
-//    │  ╚═══╝  │      │  ▓▓▓▓▓  │
-//    └─────────┘      └─────────┘
-//    ```
-//
-// PASS 2: PROJECT & SAMPLE
-//    Für jeden Hintergrund-Pixel:
-//    1. Berechne Shadow-UV (projiziert von Light durch Caster)
-//    2. Falls auf Wand → UV strecken
-//    3. Sample Silhouette-Textur
-//    4. Wenn Alpha > 0 → im Schatten
-//
-// =============================================================================
-// WALL SHADOW PROJECTION (UV Stretch)
-// =============================================================================
-//
-// Wände sind durch die NORMAL MAP definiert:
-//    - Normal.G > 0.7 = vertikale Fläche (Wand facing camera)
-//    - Normal.G < 0.3 = horizontale Fläche (Boden)
-//
-// PROBLEM: Schatten muss auf der Wand "hochklettern"
-//
-//    Real-World:
-//        💡────────────┐
-//         \            │ WALL
-//          \   ┌───┐   │
-//           \  │   │   │
-//    ════════\═╧═══╧═══╧═══  FLOOR
-//             \___/ Shadow
-//
-//    Was wir sehen (Screen-Space):
-//    ┌─────────────────────────────┐
-//    │  WALL ▓▓▓▓▓▓▓               │
-//    │       ▓▓▓▓▓▓▓ ← Shadow      │
-//    │       ▓▓▓▓▓▓▓   auf Wand    │
-//    │───────╫╫╫╫╫╫╫───────────────│
-//    │       ╚══════╗              │
-//    │    🧍────────╝ Shadow       │
-//    │   FLOOR        auf Floor    │
-//    └─────────────────────────────┘
-//
-// LÖSUNG: UV-Stretch basierend auf Wall-Normal
-//
-//    ```glsl
-//    vec2 getShadowUV(vec2 pixelPos, vec3 casterPos, vec3 lightPos) {
-//        // Basis-Projektion
-//        vec2 lightDir = normalize(pixelPos - lightPos.xy);
-//        vec2 shadowUV = /* ... projection math ... */;
-//        
-//        // Wall-Check via Normal Map
-//        vec3 normal = texture(normalMap, pixelPos).rgb * 2.0 - 1.0;
-//        bool isWall = (normal.g > 0.7);
-//        
-//        if (isWall) {
-//            // Schatten "klettert hoch" auf der Wand
-//            // Je höher der Pixel auf der Wand, desto mehr Stretch
-//            float wallHeight = /* pixel Y relative to wall base */;
-//            float lightHeight = lightPos.y;  // Licht-Höhe über Szene
-//            
-//            // UV in Y-Richtung strecken
-//            float stretchFactor = 1.0 + wallHeight / max(lightHeight, 0.1);
-//            shadowUV.y *= stretchFactor;
-//        }
-//        
-//        return shadowUV;
-//    }
-//    ```
-//
-// =============================================================================
-// VISUAL: COMPLETE SHADOW PIPELINE
-// =============================================================================
-//
-//    ┌──────────────────────────────────────────────────────────────────┐
-//    │  FRAME RENDERING                                                  │
-//    ├──────────────────────────────────────────────────────────────────┤
-//    │                                                                   │
-//    │  PASS 1: SPRITE SILHOUETTES                                      │
-//    │  ┌─────────┐     ┌─────────┐                                     │
-//    │  │ Player  │ →   │ ▓▓▓▓▓▓▓ │  Offscreen FBO                      │
-//    │  │ Sprite  │     │ ▓▓▓▓▓▓▓ │  (Alpha only)                       │
-//    │  └─────────┘     └─────────┘                                     │
-//    │                                                                   │
-//    │  PASS 2: BACKGROUND + SHADOWS                                    │
-//    │  ┌─────────────────────────────────────────────────────┐        │
-//    │  │ For each pixel:                                      │        │
-//    │  │   1. Sample diffuse, normal, depth                   │        │
-//    │  │   2. Background self-shadow (screen-space march)     │        │
-//    │  │   3. Sprite shadow (sample silhouette texture)       │        │
-//    │  │   4. Apply lighting with shadow factor               │        │
-//    │  └─────────────────────────────────────────────────────┘        │
-//    │                                                                   │
-//    │  PASS 3: SPRITES (with lighting, no self-shadow)                 │
-//    │                                                                   │
-//    │  PASS 4: UI (no shadows)                                         │
-//    │                                                                   │
-//    └──────────────────────────────────────────────────────────────────┘
-//
-// =============================================================================
-// SOFT SHADOWS (Optional Enhancement)
-// =============================================================================
-//
-// Bei 320x180 können wir uns auch Soft Shadows leisten:
-//
-// OPTION: PCF (Percentage Closer Filtering)
-//    - Sample Silhouette-Textur mehrfach mit Offset
-//    - Average = weicher Rand
-//    ```glsl
-//    float shadow = 0.0;
-//    for (int i = 0; i < 4; i++) {
-//        vec2 offset = poissonDisk[i] * softness;
-//        shadow += texture(silhouette, shadowUV + offset).a;
-//    }
-//    shadow /= 4.0;
-//    ```
-//
-// =============================================================================
-// PERFORMANCE BUDGET (320x180 @ 60 FPS)
-// =============================================================================
-//
-//    Operation                          Samples/Frame     Cost
-//    ──────────────────────────────────────────────────────────────────
-//    Silhouette Render (1 draw/caster)  ~1,000 tris       Trivial
-//    Shadow UV + Sample (per pixel)     57,600            Low
-//    PCF Soft Shadows (4 samples)       230,400           Low
-//    ──────────────────────────────────────────────────────────────────
-//    TOTAL                              ~1.2M ops         Very feasible!
-//
-// =============================================================================
 
-// Prop: 2.5D object - Z-depth derived from HEIGHT MAP at X,Y position
+// Prop: 2.5D object - Z-depth derived from DEPTH MAP at X,Y position
 struct Prop {
-    Vec3 position;      // X,Y = screen position; Z = depth (auto-calculated from height map)
+    Vec3 position;      // X,Y = screen position; Z = depth (auto-calculated from depth map)
     Vec2 size;
     Renderer::TextureID texture;
     Renderer::TextureID normal_map;  // Normal map for lighting (optional)
@@ -267,11 +94,10 @@ struct PointLight {
     //   Light at Y=0.5, Z=0.0 → center-top of screen, at scene level
     //   Light at Y=-0.5, Z=0.5 → lower screen, behind objects
     //
-    // SHADOW PROJECTION:
-    //   - Shadow direction: from light (X,Y) through caster onto scene
-    //   - Shadow length: controlled by light Z relative to caster Z
-    //   - Wall shadows: UV stretched vertically based on wall normal
-    //   - Projection formula: shadowUV = project(pixelPos, lightPos, casterBounds)
+    // SHADOW DIRECTION (automatic from ray marching):
+    //   - Caster between camera and light: shadow cast TOWARD camera
+    //   - Caster behind light: shadow cast AWAY from camera
+    //   - Shadow length/intensity based on occluder thickness and distance
     Vec3 position;      // OpenGL coords (-1 to +1), X,Y = screen pos, Z = depth
     Vec3 color;         // RGB color (0-1 range)
     float intensity;    // Brightness multiplier

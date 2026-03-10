@@ -92,7 +92,7 @@ DepthMapData load_depth_map(const char* path) {
     // Load PNG
     PNGImage img = png_load(path);
     if (img.pixels == nullptr) {
-        DEBUG_ERROR("Failed to load height map: %s", path);
+        DEBUG_ERROR("Failed to load depth map: %s", path);
         return result;
     }
     

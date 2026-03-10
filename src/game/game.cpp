@@ -87,7 +87,7 @@ void render() {
     for (size_t i = 0; i < g_state.scene.props.size(); ++i) {
         const Scene::Prop& prop = g_state.scene.props[i];
         
-        // Calculate depth scaling for 2.5D effect (based on height map at position)
+        // Calculate depth scaling for 2.5D effect (based on depth map at position)
         float depth_scale = Scene::get_depth_scaling(g_state.scene, prop.position.x, prop.position.y);
         Vec2 scaled_size = Vec2(
             prop.size.x * depth_scale,
@@ -103,7 +103,7 @@ void render() {
     const char* anim_name = player_get_animation_name(g_state.player);
     Renderer::SpriteAnimation* player_anim = g_state.playerAnimations.get(anim_name);
     if (player_anim) {
-        // Calculate depth scaling for 2.5D effect (based on height map at position)
+        // Calculate depth scaling for 2.5D effect (based on depth map at position)
         float depth_scale = Scene::get_depth_scaling(g_state.scene, g_state.player.position.x, g_state.player.position.y);
         Vec2 scaled_size = Vec2(
             g_state.player.size.x * depth_scale,

@@ -7,14 +7,14 @@
 //
 // FRAGMENT POSITION:
 //   - fragWorldPos.xy = OpenGL screen position (-1 to +1)
-//   - Z-depth is sampled from HEIGHT MAP at this position
+//   - Z-depth is sampled from DEPTH MAP at this position
 //
 // LIGHT POSITION (all in OpenGL space -1 to +1):
 //   - X = horizontal (-1=left, +1=right)
 //   - Y = vertical (-1=bottom, +1=top) - height above scene
 //   - Z = depth (-1=near camera, +1=far/background)
 //
-// HEIGHT MAP ENCODING:
+// DEPTH MAP ENCODING:
 //   - White (1.0) = NEAR camera (Z=-1)
 //   - Black (0.0) = FAR from camera (Z=+1)
 //
