@@ -38,32 +38,7 @@ namespace Scene {
 //    - Shader samples normal map → gets surface normal for each background pixel
 //    - Light 3D position compared against pixel position + Z-depth + surface normal
 //    - Result: accurate lighting and shadows based on depth map depth and normals
-//
-// RAY-MARCHED SHADOWS FOR OBJECTS:
-//    - Objects (props, player) cast shadows onto the 2.5D background
-//    - Lights exist in full 3D space, objects have Z from depth map
-//    - Shadow ray marches from background fragment toward light
-//    - At each step: check if an object occludes the ray
-//
-//    SHADOW DIRECTION RULES:
-//    ┌─────────────────────────────────────────────────────────────────┐
-//    │ CAMERA ◄───── Z-Axis ─────► BACKGROUND                         │
-//    │   Z=-1                           Z=+1                          │
-//    │                                                                │
-//    │ Case 1: Caster BETWEEN camera and light (casterZ < lightZ)     │
-//    │   [CAMERA] ──► [CASTER] ──► [LIGHT] ──► [BACKGROUND]          │
-//    │   Shadow cast TOWARD camera (onto near surfaces)               │
-//    │                                                                │
-//    │ Case 2: Caster BEHIND light (casterZ > lightZ)                 │
-//    │   [CAMERA] ──► [LIGHT] ──► [CASTER] ──► [BACKGROUND]          │
-//    │   Shadow cast AWAY from camera (onto far surfaces)             │
-//    └─────────────────────────────────────────────────────────────────┘
-//
-//    IMPLEMENTATION:
-//    - For each lit background pixel, march ray toward light
-//    - Check object bounding boxes + depth for occlusion
-//    - Shadow intensity based on occluder distance and size
-//
+// =============================================================================
 
 // Prop: 2.5D object - Z-depth derived from DEPTH MAP at X,Y position
 struct Prop {

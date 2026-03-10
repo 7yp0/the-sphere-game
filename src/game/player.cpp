@@ -260,7 +260,12 @@ void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_heig
 
 void player_handle_input(Player& player) {
     if (Platform::mouse_clicked()) {
-        Vec2 mouse_pos = Platform::get_mouse_pos();
+        Vec2 mouse_viewport = Platform::get_mouse_pos();
+        // Scale mouse position from viewport (1280x720) to base resolution (320x180)
+        Vec2 mouse_pos = Vec2(
+            mouse_viewport.x * (float)Config::BASE_WIDTH / (float)Config::VIEWPORT_WIDTH,
+            mouse_viewport.y * (float)Config::BASE_HEIGHT / (float)Config::VIEWPORT_HEIGHT
+        );
         handle_hotspot_click(player, mouse_pos);
         
         // If no hotspot was clicked, handle regular movement

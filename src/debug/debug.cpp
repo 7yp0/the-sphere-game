@@ -2,6 +2,7 @@
 #include "renderer/text.h"
 #include "renderer/renderer.h"
 #include "types.h"
+#include "config.h"
 #include "game/game.h"
 #include "platform.h"
 #include "scene/scene.h"
@@ -39,14 +40,19 @@ void handle_debug_keys() {
 static void render_geometry_debug() {
     const Scene::Scene& scene = Game::g_state.scene;
     
+    // Scale factor from base (320x180) to viewport (1280x720)
+    float scale_x = (float)Config::VIEWPORT_WIDTH / (float)Config::BASE_WIDTH;
+    float scale_y = (float)Config::VIEWPORT_HEIGHT / (float)Config::BASE_HEIGHT;
+    
     // Draw walkable areas (green)
     Vec4 walkable_color = Vec4(0.0f, 1.0f, 0.0f, 0.7f);
     float ui_z = Layers::get_z_depth(Layer::UI);
     for (const auto& walkable : scene.geometry.walkable_areas) {
         size_t n = walkable.points.size();
         for (size_t i = 0; i < n; i++) {
-            Vec3 p1 = Vec3(walkable.points[i], ui_z);
-            Vec3 p2 = Vec3(walkable.points[(i + 1) % n], ui_z);
+            // Scale from base to viewport coordinates
+            Vec3 p1 = Vec3(walkable.points[i].x * scale_x, walkable.points[i].y * scale_y, ui_z);
+            Vec3 p2 = Vec3(walkable.points[(i + 1) % n].x * scale_x, walkable.points[(i + 1) % n].y * scale_y, ui_z);
             
             // Draw edge as a line
             Renderer::render_line(p1, p2, walkable_color, 2.0f);
@@ -61,8 +67,9 @@ static void render_geometry_debug() {
     for (const auto& hotspot : scene.geometry.hotspots) {
         size_t n = hotspot.bounds.points.size();
         for (size_t i = 0; i < n; i++) {
-            Vec3 p1 = Vec3(hotspot.bounds.points[i], ui_z);
-            Vec3 p2 = Vec3(hotspot.bounds.points[(i + 1) % n], ui_z);
+            // Scale from base to viewport coordinates
+            Vec3 p1 = Vec3(hotspot.bounds.points[i].x * scale_x, hotspot.bounds.points[i].y * scale_y, ui_z);
+            Vec3 p2 = Vec3(hotspot.bounds.points[(i + 1) % n].x * scale_x, hotspot.bounds.points[(i + 1) % n].y * scale_y, ui_z);
             
             Renderer::render_line(p1, p2, hotspot_color, 2.0f);
             Renderer::render_rect(p1, Vec2(6.0f, 6.0f), hotspot_color);

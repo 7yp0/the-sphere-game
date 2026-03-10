@@ -19,7 +19,7 @@ namespace Game {
 GameState g_state;
 
 static void init_player() {
-    player_init(g_state.player, g_state.viewport_width, g_state.viewport_height, 
+    player_init(g_state.player, g_state.base_width, g_state.base_height, 
                 &g_state.playerAnimations);
 }
 
@@ -50,11 +50,18 @@ static void update_animated_test_light(float delta_time) {
 void init() {
     Scene::init_scene_test();
     init_player();
+    
+    // Initialize framebuffer for offscreen rendering at base resolution
+    Renderer::init_framebuffer(Config::BASE_WIDTH, Config::BASE_HEIGHT);
 }
 
 void set_viewport(uint32_t width, uint32_t height) {
     g_state.viewport_width = width;
     g_state.viewport_height = height;
+    
+    // Store base dimensions for game logic (all coordinates in base resolution)
+    g_state.base_width = Config::BASE_WIDTH;
+    g_state.base_height = Config::BASE_HEIGHT;
     
     // Calculate 2.5D depth scaling factor
     // scale_factor = viewport_height / base_height
@@ -70,12 +77,18 @@ void update(float delta_time) {
 #endif
     
     player_handle_input(g_state.player);
-    player_update(g_state.player, g_state.viewport_width, g_state.viewport_height, delta_time);
+    player_update(g_state.player, g_state.base_width, g_state.base_height, delta_time);
     
     update_animated_test_light(delta_time);
 }
 
 void render() {
+    // =========================================================================
+    // OFFSCREEN RENDERING: Render scene at base resolution (320x180)
+    // =========================================================================
+    Renderer::begin_render_to_framebuffer();
+    Renderer::clear_screen();
+    
     // Background - use BACKGROUND layer for depth
     Renderer::render_sprite_lit(g_state.scene.background, 
                                Vec3(0.0f, 0.0f, Layers::get_z_depth(Layer::BACKGROUND)),
@@ -119,22 +132,30 @@ void render() {
                                             g_state.player.pivot);
     }
     
-    // Debug: Rotes Rechteck an der Lichtposition
+    // Debug: Rotes Rechteck an der Lichtposition (in base resolution coordinates)
     if (g_state.scene.lights.size() > 0) {
         Vec3 light_pos = g_state.scene.lights[0].position;
-        // Konvertiere OpenGL-Koordinaten (-1 bis +1) zu Pixel-Koordinaten
-        // OpenGL X: -1=links, +1=rechts → Pixel: 0 bis viewport_width
-        // OpenGL Y: -1=unten, +1=oben → Pixel: viewport_height bis 0 (invertiert!)
-        float pixel_x = (light_pos.x + 1.0f) * 0.5f * g_state.viewport_width;
-        float pixel_y = (1.0f - light_pos.y) * 0.5f * g_state.viewport_height;
+        // Konvertiere OpenGL-Koordinaten (-1 bis +1) zu Pixel-Koordinaten (base resolution)
+        // OpenGL X: -1=links, +1=rechts → Pixel: 0 bis base_width
+        // OpenGL Y: -1=unten, +1=oben → Pixel: base_height bis 0 (invertiert!)
+        float pixel_x = (light_pos.x + 1.0f) * 0.5f * g_state.base_width;
+        float pixel_y = (1.0f - light_pos.y) * 0.5f * g_state.base_height;
         
-        // Zeichne rotes Rect (10x10 Pixel) zentriert auf der Lichtposition
-        Renderer::render_rect(Vec3(pixel_x - 5.0f, pixel_y - 5.0f, Layers::get_z_depth(Layer::UI)),
-                             Vec2(10.0f, 10.0f),
+        // Zeichne rotes Rect (3x3 Pixel für base resolution) zentriert auf der Lichtposition
+        Renderer::render_rect(Vec3(pixel_x - 1.5f, pixel_y - 1.5f, Layers::get_z_depth(Layer::UI)),
+                             Vec2(3.0f, 3.0f),
                              Vec4(1.0f, 0.0f, 0.0f, 1.0f));  // Rot
     }
     
-    // Debug overlay
+    Renderer::end_render_to_framebuffer();
+    
+    // =========================================================================
+    // UPSCALE: Blit framebuffer to screen at viewport resolution (1280x720)
+    // =========================================================================
+    Renderer::clear_screen();
+    Renderer::render_framebuffer_to_screen();
+    
+    // Debug overlay (rendered at viewport resolution, after upscaling)
     Vec2 mouse_pixel = Platform::get_mouse_pos();
 #ifndef NDEBUG
     Debug::render_overlay(mouse_pixel);

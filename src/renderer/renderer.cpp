@@ -15,11 +15,20 @@ static GLuint quadVBO = 0;
 static GLuint shaderProgram = 0;
 static GLuint colorShaderProgram = 0;
 static GLuint litShaderProgram = 0;  // Shader program for point-lit rendering
+static GLuint upscaleShaderProgram = 0;  // Shader for upscaling FBO to viewport
 static uint32_t g_viewport_width = 0;
 static uint32_t g_viewport_height = 0;
 static TextureID g_depth_map_texture = 0;
 static uint32_t g_scene_width = 0;
 static uint32_t g_scene_height = 0;
+
+// Framebuffer Object (FBO) for offscreen rendering
+static GLuint g_fbo = 0;
+static GLuint g_fbo_texture = 0;
+static GLuint g_fbo_depth_rbo = 0;
+static uint32_t g_fbo_width = 0;
+static uint32_t g_fbo_height = 0;
+static bool g_rendering_to_fbo = false;  // Track if currently rendering to FBO
 
 void init_renderer(uint32_t width, uint32_t height)
 {
@@ -108,18 +117,22 @@ void render_sprite(TextureID tex, Vec3 pos, Vec2 size, PivotPoint pivot)
 
 void render_sprite(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range, PivotPoint pivot)
 {
+    // Get current render target dimensions (FBO or viewport)
+    uint32_t render_width = get_render_width();
+    uint32_t render_height = get_render_height();
+    
     // Convert pixel coordinates to OpenGL coordinates
-    Vec2 opengl_pos = Coords::pixel_to_opengl(Vec2(pos.x, pos.y), g_viewport_width, g_viewport_height);
+    Vec2 opengl_pos = Coords::pixel_to_opengl(Vec2(pos.x, pos.y), render_width, render_height);
     Vec2 opengl_size = Vec2(
-        (size.x / (float)g_viewport_width) * 2.0f,
-        (size.y / (float)g_viewport_height) * 2.0f
+        (size.x / (float)render_width) * 2.0f,
+        (size.y / (float)render_height) * 2.0f
     );
     
     // Calculate offset from pivot point to center
     Vec2 pivot_offset = Coords::get_pivot_offset(pivot, size.x, size.y);
     Vec2 pivot_offset_opengl = Vec2(
-        (pivot_offset.x / (float)g_viewport_width) * 2.0f,
-        -(pivot_offset.y / (float)g_viewport_height) * 2.0f  // Negate because Y is inverted
+        (pivot_offset.x / (float)render_width) * 2.0f,
+        -(pivot_offset.y / (float)render_height) * 2.0f  // Negate because Y is inverted
     );
     
     // Shader expects center point
@@ -170,18 +183,22 @@ void render_sprite_animated(const SpriteAnimation* anim, Vec3 pos, Vec2 size, Pi
 
 void render_rect(Vec3 pos, Vec2 size, Vec4 color, PivotPoint pivot)
 {
+    // Get current render target dimensions (FBO or viewport)
+    uint32_t render_width = get_render_width();
+    uint32_t render_height = get_render_height();
+    
     // Convert pixel coordinates to OpenGL coordinates
-    Vec2 opengl_pos = Coords::pixel_to_opengl(Vec2(pos.x, pos.y), g_viewport_width, g_viewport_height);
+    Vec2 opengl_pos = Coords::pixel_to_opengl(Vec2(pos.x, pos.y), render_width, render_height);
     Vec2 opengl_size = Vec2(
-        (size.x / (float)g_viewport_width) * 2.0f,
-        (size.y / (float)g_viewport_height) * 2.0f
+        (size.x / (float)render_width) * 2.0f,
+        (size.y / (float)render_height) * 2.0f
     );
     
     // Calculate offset from pivot point to center
     Vec2 pivot_offset = Coords::get_pivot_offset(pivot, size.x, size.y);
     Vec2 pivot_offset_opengl = Vec2(
-        (pivot_offset.x / (float)g_viewport_width) * 2.0f,
-        -(pivot_offset.y / (float)g_viewport_height) * 2.0f  // Negate because Y is inverted
+        (pivot_offset.x / (float)render_width) * 2.0f,
+        -(pivot_offset.y / (float)render_height) * 2.0f  // Negate because Y is inverted
     );
     
     // Shader expects center point
@@ -229,6 +246,8 @@ void render_line(Vec3 start, Vec3 end, Vec4 color, float thickness)
 
 void shutdown()
 {
+    shutdown_framebuffer();  // Clean up FBO resources
+    
     if (shaderProgram) {
         glDeleteProgram(shaderProgram);
     }
@@ -318,18 +337,22 @@ void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range,
         normal_map = tex;
     }
     
+    // Get current render target dimensions (FBO or viewport)
+    uint32_t render_width = get_render_width();
+    uint32_t render_height = get_render_height();
+    
     // Convert pixel coordinates to OpenGL coordinates
-    Vec2 opengl_pos = Coords::pixel_to_opengl(Vec2(pos.x, pos.y), g_viewport_width, g_viewport_height);
+    Vec2 opengl_pos = Coords::pixel_to_opengl(Vec2(pos.x, pos.y), render_width, render_height);
     Vec2 opengl_size = Vec2(
-        (size.x / (float)g_viewport_width) * 2.0f,
-        (size.y / (float)g_viewport_height) * 2.0f
+        (size.x / (float)render_width) * 2.0f,
+        (size.y / (float)render_height) * 2.0f
     );
     
     // Calculate offset from pivot point to center
     Vec2 pivot_offset = Coords::get_pivot_offset(pivot, size.x, size.y);
     Vec2 pivot_offset_opengl = Vec2(
-        (pivot_offset.x / (float)g_viewport_width) * 2.0f,
-        -(pivot_offset.y / (float)g_viewport_height) * 2.0f  // Negate because Y is inverted
+        (pivot_offset.x / (float)render_width) * 2.0f,
+        -(pivot_offset.y / (float)render_height) * 2.0f  // Negate because Y is inverted
     );
     
     // Shader expects center point
@@ -356,7 +379,7 @@ void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range,
     glUniform1i(glGetUniformLocation(litShaderProgram, "numLights"), num_lights);
     
     // Set aspect ratio for correct circular light falloff
-    float aspectRatio = (float)g_viewport_width / (float)g_viewport_height;
+    float aspectRatio = (float)render_width / (float)render_height;
     glUniform1f(glGetUniformLocation(litShaderProgram, "aspectRatio"), aspectRatio);
     
     // Send lights as full 3D vectors
@@ -417,6 +440,130 @@ void render_sprite_animated_lit(const SpriteAnimation* anim, Vec3 pos, Vec2 size
     
     // Render using sprite map texture with UV mapping and lighting
     render_sprite_lit(anim->texture, pos, size, tex_coord_range, lights, normal_map, pivot);
+}
+
+// =============================================================================
+// FRAMEBUFFER OBJECT (FBO) IMPLEMENTATION
+// =============================================================================
+// Renders scene at base resolution (320x180) then upscales to viewport (1280x720)
+// Benefits:
+//   - 3.2x fewer fragment shader invocations (better shadow performance)
+//   - Pixel-perfect retro look with GL_NEAREST upscaling
+//   - Consistent rendering regardless of viewport size
+
+void init_framebuffer(uint32_t base_width, uint32_t base_height)
+{
+    g_fbo_width = base_width;
+    g_fbo_height = base_height;
+    
+    // Create framebuffer
+    glGenFramebuffers(1, &g_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, g_fbo);
+    
+    // Create color texture attachment
+    glGenTextures(1, &g_fbo_texture);
+    glBindTexture(GL_TEXTURE_2D, g_fbo_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, base_width, base_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    
+    // GL_NEAREST for pixel-perfect upscaling (no blurring)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, g_fbo_texture, 0);
+    
+    // Create depth/stencil renderbuffer
+    glGenRenderbuffers(1, &g_fbo_depth_rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, g_fbo_depth_rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, base_width, base_height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, g_fbo_depth_rbo);
+    
+    // Check framebuffer completeness
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        DEBUG_ERROR("Framebuffer not complete! Status: 0x%X", status);
+    } else {
+        DEBUG_INFO("Framebuffer created: %ux%u (base resolution)", base_width, base_height);
+    }
+    
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    
+    // Load upscale shader
+    std::string upscaleVertSrc = load_shader_source("upscale.vert");
+    std::string upscaleFragSrc = load_shader_source("upscale.frag");
+    upscaleShaderProgram = compile_and_link_shader(upscaleVertSrc.c_str(), upscaleFragSrc.c_str());
+    
+    if (upscaleShaderProgram == 0) {
+        DEBUG_ERROR("Failed to compile upscale shader program!");
+    } else {
+        DEBUG_INFO("Successfully loaded upscale shader program (ID: %u)", upscaleShaderProgram);
+        glUseProgram(upscaleShaderProgram);
+        glUniform1i(glGetUniformLocation(upscaleShaderProgram, "screenTexture"), 0);
+        glUseProgram(0);
+    }
+}
+
+void begin_render_to_framebuffer()
+{
+    g_rendering_to_fbo = true;
+    glBindFramebuffer(GL_FRAMEBUFFER, g_fbo);
+    glViewport(0, 0, g_fbo_width, g_fbo_height);
+}
+
+void end_render_to_framebuffer()
+{
+    g_rendering_to_fbo = false;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, g_viewport_width, g_viewport_height);
+}
+
+void render_framebuffer_to_screen()
+{
+    // Disable depth test for fullscreen quad
+    glDisable(GL_DEPTH_TEST);
+    
+    glUseProgram(upscaleShaderProgram);
+    
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, g_fbo_texture);
+    
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+    
+    // Re-enable depth test
+    glEnable(GL_DEPTH_TEST);
+}
+
+void shutdown_framebuffer()
+{
+    if (g_fbo_texture) {
+        glDeleteTextures(1, &g_fbo_texture);
+        g_fbo_texture = 0;
+    }
+    if (g_fbo_depth_rbo) {
+        glDeleteRenderbuffers(1, &g_fbo_depth_rbo);
+        g_fbo_depth_rbo = 0;
+    }
+    if (g_fbo) {
+        glDeleteFramebuffers(1, &g_fbo);
+        g_fbo = 0;
+    }
+    if (upscaleShaderProgram) {
+        glDeleteProgram(upscaleShaderProgram);
+        upscaleShaderProgram = 0;
+    }
+}
+
+uint32_t get_render_width()
+{
+    return g_rendering_to_fbo ? g_fbo_width : g_viewport_width;
+}
+
+uint32_t get_render_height()
+{
+    return g_rendering_to_fbo ? g_fbo_height : g_viewport_height;
 }
 
 }

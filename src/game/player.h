@@ -31,7 +31,7 @@ struct Player {
     // State
     Vec3 position;                              // Pixel coordinates in scene space (xy) + z-depth (z)
     Vec3 target_position;                       // Pixel coordinates in scene space + z-depth
-    Vec2 size = Vec2(100.0f, 150.0f);            // Sprite dimensions in pixels (display size, scaled from original 36x46)
+    Vec2 size = Vec2(25.0f, 37.5f);             // Sprite dimensions in base resolution (scaled from original 36x46)
     AnimationState animation_state = AnimationState::Idle;
     WalkDirection walk_direction = WalkDirection::Down;  // Current facing direction
     Core::AnimationBank* animations;            // Generic animation bank for any entity
@@ -39,13 +39,13 @@ struct Player {
     int active_hotspot_index = -1;              // -1 = none, otherwise index into scene.geometry.hotspots
     HotspotInteractionState hotspot_state = HotspotInteractionState::None;
     
-    // Settings/Config
-    float speed = 300.0f;                          // Pixels per second
-    float distance_threshold = 1.0f;               // Min distance to target to consider "moving"
-    float boundary_margin = 10.0f;                 // Keep player away from scene edges
-    float hotspot_proximity_tolerance = 20.0f;     // Extra distance beyond interaction_distance
-    float direction_normalization_threshold = 0.1f; // Min distance to normalize direction vector
-    float stuck_movement_threshold = 0.1f;         // Pixels per frame to consider player stuck
+    // Settings/Config (all values in base resolution 320x180)
+    float speed = 75.0f;                           // Pixels per second (base res)
+    float distance_threshold = 0.25f;              // Min distance to target to consider "moving"
+    float boundary_margin = 2.5f;                  // Keep player away from scene edges
+    float hotspot_proximity_tolerance = 5.0f;      // Extra distance beyond interaction_distance
+    float direction_normalization_threshold = 0.025f; // Min distance to normalize direction vector
+    float stuck_movement_threshold = 0.025f;       // Pixels per frame to consider player stuck
 };
 
 void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_height, 

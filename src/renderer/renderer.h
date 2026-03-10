@@ -49,6 +49,18 @@ void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range,
 void render_sprite_animated_lit(const SpriteAnimation* anim, Vec3 pos, Vec2 size, const std::vector<Scene::PointLight>& lights,
                                 TextureID normal_map = 0, PivotPoint pivot = PivotPoint::TOP_LEFT);
 
+// Framebuffer Object (FBO) for offscreen rendering at base resolution
+// All scene rendering goes to FBO at 320x180, then upscaled to viewport
+void init_framebuffer(uint32_t base_width, uint32_t base_height);
+void begin_render_to_framebuffer();   // Bind FBO, set viewport to base resolution
+void end_render_to_framebuffer();     // Unbind FBO
+void render_framebuffer_to_screen();  // Blit FBO texture to screen with upscaling
+void shutdown_framebuffer();
+
+// Get current rendering dimensions (FBO base or viewport)
+uint32_t get_render_width();
+uint32_t get_render_height();
+
 void shutdown();
 
 }
