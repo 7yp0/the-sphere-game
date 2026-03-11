@@ -10,6 +10,7 @@
 #include "debug/debug.h"
 #include "types.h"
 #include "ecs/ecs.h"
+#include "ecs/entity_factory.h"
 #include <cmath>
 #include <algorithm>
 #include <vector>
@@ -356,6 +357,86 @@ static void test_ecs_phase4() {
     printf("========================================\n\n");
 }
 
+// Phase 7 ECS Test - validates entity factory functions
+static void test_ecs_phase7() {
+    printf("\n========================================\n");
+    printf("     ECS PHASE 7 TEST - ENTITY FACTORIES\n");
+    printf("========================================\n");
+    
+    // Test 1: create_static_prop
+    printf("\n[TEST 1] create_static_prop...\n");
+    ECS::EntityID static_prop = ECS::create_static_prop(
+        Vec2(100, 100), Vec2(32, 32), 1, 0, PivotPoint::CENTER);
+    bool has_transform = g_state.ecs_world.has_component<ECS::Transform2_5DComponent>(static_prop);
+    bool has_sprite = g_state.ecs_world.has_component<ECS::SpriteComponent>(static_prop);
+    bool has_shadow = g_state.ecs_world.has_component<ECS::ShadowCasterComponent>(static_prop);
+    printf("  Entity=%u: Transform2_5D=%s, Sprite=%s, ShadowCaster=%s (expected NO)\n",
+           static_prop, has_transform ? "YES" : "NO", has_sprite ? "YES" : "NO", has_shadow ? "YES" : "NO");
+    printf("  %s\n", (!has_shadow && has_transform && has_sprite) ? "PASS" : "FAIL");
+    g_state.ecs_world.destroy_entity(static_prop);
+    
+    // Test 2: create_shadow_casting_prop
+    printf("\n[TEST 2] create_shadow_casting_prop...\n");
+    ECS::EntityID shadow_prop = ECS::create_shadow_casting_prop(
+        Vec2(150, 100), Vec2(48, 48), 1, 0, PivotPoint::BOTTOM_CENTER, 0.4f, 0.6f);
+    has_shadow = g_state.ecs_world.has_component<ECS::ShadowCasterComponent>(shadow_prop);
+    auto* sc = g_state.ecs_world.get_component<ECS::ShadowCasterComponent>(shadow_prop);
+    printf("  Entity=%u: ShadowCaster=%s\n", shadow_prop, has_shadow ? "YES" : "NO");
+    if (sc) {
+        printf("  alpha_threshold=%.2f (expected 0.40), shadow_intensity=%.2f (expected 0.60)\n",
+               sc->alpha_threshold, sc->shadow_intensity);
+        printf("  %s\n", (sc->alpha_threshold == 0.4f && sc->shadow_intensity == 0.6f) ? "PASS" : "FAIL");
+    }
+    g_state.ecs_world.destroy_entity(shadow_prop);
+    
+    // Test 3: create_point_light
+    printf("\n[TEST 3] create_point_light...\n");
+    ECS::EntityID light = ECS::create_point_light(
+        Vec3(0.5f, 0.5f, -0.3f), Vec3(1.0f, 0.8f, 0.6f), 2.0f, 3.0f, true);
+    bool has_t3d = g_state.ecs_world.has_component<ECS::Transform3DComponent>(light);
+    bool has_lc = g_state.ecs_world.has_component<ECS::LightComponent>(light);
+    auto* lc = g_state.ecs_world.get_component<ECS::LightComponent>(light);
+    printf("  Entity=%u: Transform3D=%s, Light=%s\n", light, has_t3d ? "YES" : "NO", has_lc ? "YES" : "NO");
+    if (lc) {
+        printf("  intensity=%.1f (expected 2.0), radius=%.1f (expected 3.0), shadows=%s\n",
+               lc->intensity, lc->radius, lc->casts_shadows ? "YES" : "NO");
+        printf("  %s\n", (lc->intensity == 2.0f && lc->radius == 3.0f && lc->casts_shadows) ? "PASS" : "FAIL");
+    }
+    g_state.ecs_world.destroy_entity(light);
+    
+    // Test 4: create_point_light_at_pixel (coordinate conversion)
+    printf("\n[TEST 4] create_point_light_at_pixel...\n");
+    ECS::EntityID pixel_light = ECS::create_point_light_at_pixel(
+        Vec2(160, 90), 0.0f, Vec3(1,1,1), 1.0f, 1.0f, false, 320, 180);
+    auto* t3d = g_state.ecs_world.get_component<ECS::Transform3DComponent>(pixel_light);
+    if (t3d) {
+        printf("  Pixel(160,90) -> OpenGL(%.2f,%.2f,%.2f) (expected 0,0,0)\n",
+               t3d->position.x, t3d->position.y, t3d->position.z);
+        bool pos_ok = (std::abs(t3d->position.x) < 0.01f && std::abs(t3d->position.y) < 0.01f);
+        printf("  %s\n", pos_ok ? "PASS" : "FAIL");
+    }
+    g_state.ecs_world.destroy_entity(pixel_light);
+    
+    // Test 5: create_emissive_object
+    printf("\n[TEST 5] create_emissive_object...\n");
+    ECS::EntityID emissive = ECS::create_emissive_object(
+        Vec2(200, 100), Vec2(24, 24), 1, Vec3(2.0f, 1.5f, 0.5f), PivotPoint::CENTER);
+    bool has_emissive = g_state.ecs_world.has_component<ECS::EmissiveComponent>(emissive);
+    auto* ec = g_state.ecs_world.get_component<ECS::EmissiveComponent>(emissive);
+    printf("  Entity=%u: Emissive=%s\n", emissive, has_emissive ? "YES" : "NO");
+    if (ec) {
+        printf("  emissive_color=(%.1f,%.1f,%.1f) (expected 2.0,1.5,0.5)\n",
+               ec->emissive_color.x, ec->emissive_color.y, ec->emissive_color.z);
+        printf("  %s\n", (ec->emissive_color.x == 2.0f) ? "PASS" : "FAIL");
+    }
+    g_state.ecs_world.destroy_entity(emissive);
+    
+    printf("\n========================================\n");
+    printf("     ECS PHASE 7 TEST - COMPLETE\n");
+    printf("     Entity factories validated!\n");
+    printf("========================================\n\n");
+}
+
 // Helper: Get player transform (for update loop)
 static ECS::Transform2_5DComponent* get_player_transform() {
     if (g_state.player_entity == ECS::INVALID_ENTITY) return nullptr;
@@ -432,6 +513,7 @@ void init() {
     test_ecs_phase2();
     test_ecs_phase3();
     test_ecs_phase4();
+    test_ecs_phase7();  // Entity factory validation
     
     // Initialize scene (this also creates prop ECS entities)
     Scene::init_scene_test();

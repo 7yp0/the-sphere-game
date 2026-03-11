@@ -7,6 +7,7 @@
 #include "platform.h"
 #include "scene/scene.h"
 #include "collision/polygon_utils.h"
+#include "core/timing.h"
 #include <cstdio>
 #include <cstring>
 
@@ -82,12 +83,28 @@ void render_overlay(Vec2 mouse_pixel) {
         // Draw geometry first (behind text)
         render_geometry_debug();
         
-        char text_buffer[256];
-        snprintf(text_buffer, sizeof(text_buffer), "Mouse: (%.0f, %.0f)", mouse_pixel.x, mouse_pixel.y);
+        // Calculate FPS from delta time
+        float dt = Core::get_delta_time();
+        float fps = (dt > 0.0001f) ? (1.0f / dt) : 0.0f;
+        float ms = dt * 1000.0f;
+        
+        // Get entity counts
+        size_t prop_count = Game::g_state.scene.prop_entities.size();
+        size_t light_count = Game::g_state.scene.light_entities.size();
+        
+        // Build debug text
+        char text_buffer[512];
+        snprintf(text_buffer, sizeof(text_buffer), 
+                 "Mouse: (%.0f, %.0f)\n"
+                 "Frame: %.2f ms (%.0f FPS)\n"
+                 "Props: %zu  Lights: %zu",
+                 mouse_pixel.x, mouse_pixel.y,
+                 ms, fps,
+                 prop_count, light_count);
         
         // Black semi-transparent background - pixel coordinates, top-left
         Vec3 bg_pos = Vec3(0.0f, 0.0f, Layers::get_z_depth(Layer::UI));
-        Vec2 bg_size = Vec2(245.0f, 35.0f);
+        Vec2 bg_size = Vec2(260.0f, 65.0f);  // Taller for more lines
         Vec4 bg_color = Vec4(0.0f, 0.0f, 0.0f, 0.7f);
         Renderer::render_rect(bg_pos, bg_size, bg_color);
         

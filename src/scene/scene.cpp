@@ -28,6 +28,8 @@ void init_scene_test() {
     // Load textures for props
     Renderer::TextureID box_texture = Renderer::load_texture("scenes/test/props/bg_box.png");
     Renderer::TextureID box_normal = Renderer::load_texture("scenes/test/props/bg_box_normal_map.png");
+    Renderer::TextureID tree_texture = Renderer::load_texture("scenes/test/props/prop_tree.png");
+    Renderer::TextureID stone_texture = Renderer::load_texture("scenes/test/props/prop_stone.png");
     
     // Setup scene geometry (walkable areas and hotspots)
     Collision::Polygon main_walkable;
@@ -70,7 +72,7 @@ void init_scene_test() {
     printf("\n[ECS] Creating prop entities via factory functions...\n");
     g_state.scene.prop_entities.clear();
     
-    // Box prop - shadow casting
+    // Box prop - shadow casting (solid shape)
     ECS::EntityID box_entity = ECS::create_shadow_casting_prop(
         Vec2(75.0f, 130.0f),    // Position (pixel coords)
         Vec2(25.0f, 25.0f),     // Size
@@ -83,7 +85,35 @@ void init_scene_test() {
     ECS::update_entity_z_from_depth_map(box_entity, g_state.scene.depth_map, 
                                         g_state.scene.width, g_state.scene.height);
     g_state.scene.prop_entities.push_back(box_entity);
-    printf("[ECS] Created box prop: Entity=%u\n", box_entity);
+    printf("[ECS] Created box prop: Entity=%u (shadow caster)\n", box_entity);
+    
+    // Tree prop - shadow casting with ALPHA TESTING (irregular silhouette)
+    ECS::EntityID tree_entity = ECS::create_shadow_casting_prop(
+        Vec2(240.0f, 145.0f),   // Position (right side of room)
+        Vec2(32.0f, 48.0f),     // Size (tall tree)
+        tree_texture,
+        0,                       // No normal map
+        PivotPoint::BOTTOM_CENTER,
+        0.5f,                    // Higher alpha threshold for clean edges
+        0.6f                     // Shadow intensity
+    );
+    ECS::update_entity_z_from_depth_map(tree_entity, g_state.scene.depth_map, 
+                                        g_state.scene.width, g_state.scene.height);
+    g_state.scene.prop_entities.push_back(tree_entity);
+    printf("[ECS] Created tree prop: Entity=%u (alpha shadow caster)\n", tree_entity);
+    
+    // Stone prop - STATIC (no shadow casting) - for testing non-shadow props
+    ECS::EntityID stone_entity = ECS::create_static_prop(
+        Vec2(200.0f, 125.0f),   // Position (floor center-right)
+        Vec2(16.0f, 12.0f),     // Size (small stone)
+        stone_texture,
+        0,                       // No normal map
+        PivotPoint::BOTTOM_CENTER
+    );
+    ECS::update_entity_z_from_depth_map(stone_entity, g_state.scene.depth_map, 
+                                        g_state.scene.width, g_state.scene.height);
+    g_state.scene.prop_entities.push_back(stone_entity);
+    printf("[ECS] Created stone prop: Entity=%u (static, no shadows)\n", stone_entity);
     
     printf("[ECS] Created %zu prop entities\n\n", g_state.scene.prop_entities.size());
     
@@ -94,7 +124,7 @@ void init_scene_test() {
     printf("[ECS] Creating light entities via factory functions...\n");
     g_state.scene.light_entities.clear();
     
-    // Warm center light
+    // Warm center light (SHADOW CASTING - main light)
     ECS::EntityID warm_light = ECS::create_point_light(
         Vec3(0.0f, 0.0f, -0.5f),     // Center screen, slightly in front (OpenGL coords)
         Vec3(1.0f, 0.9f, 0.7f),      // Warm white color
@@ -103,7 +133,18 @@ void init_scene_test() {
         true                          // Casts shadows
     );
     g_state.scene.light_entities.push_back(warm_light);
-    printf("[ECS] Created warm light: Entity=%u\n", warm_light);
+    printf("[ECS] Created warm light: Entity=%u (shadow casting)\n", warm_light);
+    
+    // Blue fill light (NO SHADOWS - ambient fill)
+    ECS::EntityID fill_light = ECS::create_point_light(
+        Vec3(0.5f, -0.3f, 0.0f),     // Right side, lower (OpenGL coords)
+        Vec3(0.4f, 0.5f, 0.8f),      // Cool blue color
+        0.8f,                         // Lower intensity
+        1.5f,                         // Radius
+        false                         // NO shadow casting
+    );
+    g_state.scene.light_entities.push_back(fill_light);
+    printf("[ECS] Created fill light: Entity=%u (no shadows)\n", fill_light);
     
     printf("[ECS] Created %zu light entities\n\n", g_state.scene.light_entities.size());
 }
