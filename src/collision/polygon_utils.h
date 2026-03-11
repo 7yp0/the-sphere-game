@@ -51,4 +51,33 @@ bool polygon_inside_polygon(const Polygon& inner, const Polygon& outer);
 // Returns closest point on any polygon boundary
 Vec2 closest_point_on_any_polygon(Vec2 point, const std::vector<Polygon>& polygons);
 
+// Edge collision detection result
+struct EdgeInfo {
+    Vec2 start;           // Edge start point
+    Vec2 end;             // Edge end point
+    Vec2 normal;          // Outward-facing normal
+    bool valid = false;   // True if edge was found
+};
+
+// Find the closest edge on any polygon walkable boundary
+// For walkable areas, this returns the edge closest to the point
+// point: the position to test
+// polygons: array of walkable area polygons
+EdgeInfo find_closest_edge(Vec2 point, const std::vector<Polygon>& polygons);
+
+// Calculate which direction along an edge leads toward the target
+// Returns normalized direction vector along edge (from edge_start toward edge_end or reverse)
+// edge: the edge info
+// target: the target position the player wants to reach
+Vec2 get_edge_direction_toward_target(const EdgeInfo& edge, Vec2 target);
+
+// Find the next edge at a vertex that best continues toward the target
+// current_edge: the edge we just finished following
+// vertex: the endpoint we reached (either current_edge.start or current_edge.end)
+// target: the target position we're trying to reach
+// polygons: the walkable area polygons
+// Returns: the next edge to follow, or invalid EdgeInfo if none found
+EdgeInfo find_next_edge_at_vertex(const EdgeInfo& current_edge, Vec2 vertex, Vec2 target, 
+                                   const std::vector<Polygon>& polygons);
+
 }

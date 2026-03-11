@@ -50,13 +50,24 @@ struct Player {
     int active_hotspot_index = -1;
     HotspotInteractionState hotspot_state = HotspotInteractionState::None;
     
+    // Edge-following collision state
+    bool is_edge_following = false;                // Currently sliding along an edge
+    Vec2 edge_start = Vec2(0.0f, 0.0f);           // Start point of current edge
+    Vec2 edge_end = Vec2(0.0f, 0.0f);             // End point of current edge
+    Vec2 edge_direction = Vec2(0.0f, 0.0f);       // Normalized direction along edge (toward target)
+    
+    // Time-based stuck detection
+    float stuck_timer = 0.0f;                     // Accumulated time without meaningful movement
+    Vec2 last_significant_position = Vec2(0.0f, 0.0f);  // Position to compare for stuck detection
+    
     // Settings/Config (all values in base resolution 320x180)
     float speed = 75.0f;                           // Pixels per second (base res)
     float distance_threshold = 0.25f;              // Min distance to target to consider "moving"
     float boundary_margin = 2.5f;                  // Keep player away from scene edges
     float hotspot_proximity_tolerance = 5.0f;      // Extra distance beyond interaction_distance
     float direction_normalization_threshold = 0.025f; // Min distance to normalize direction vector
-    float stuck_movement_threshold = 0.001f;       // Pixels per frame to consider player stuck
+    float stuck_movement_threshold = 1.0f;         // Pixels to move to reset stuck timer
+    float stuck_timeout = 0.5f;                    // Seconds without movement to cancel target
 };
 
 // Create player ECS entity with Transform and Sprite components
