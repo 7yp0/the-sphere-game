@@ -52,6 +52,9 @@ struct Scene {
     // ECS entity IDs for props in this scene (created when scene is loaded)
     std::vector<ECS::EntityID> prop_entities;
     
+    // ECS entity IDs for lights in this scene
+    std::vector<ECS::EntityID> light_entities;
+    
     SceneGeometry geometry;
 };
 

@@ -42,6 +42,28 @@ static ECS::EntityID create_prop_entity(const Prop& prop) {
     return entity;
 }
 
+// Helper: Create ECS entity for a point light
+static ECS::EntityID create_light_entity(Vec3 position, Vec3 color, float intensity, float radius, bool casts_shadows = true) {
+    ECS::EntityID entity = g_state.ecs_world.create_entity();
+    
+    // Lights use Transform3D for free 3D positioning (OpenGL coords)
+    auto& transform = g_state.ecs_world.add_component<ECS::Transform3DComponent>(entity);
+    transform.position = position;
+    
+    // Add LightComponent
+    auto& light = g_state.ecs_world.add_component<ECS::LightComponent>(entity);
+    light.color = color;
+    light.intensity = intensity;
+    light.radius = radius;
+    light.casts_shadows = casts_shadows;
+    light.enabled = true;
+    
+    printf("[ECS] Created light: Entity=%u, pos=(%.2f,%.2f,%.2f), color=(%.1f,%.1f,%.1f), intensity=%.1f, radius=%.1f\n",
+           entity, position.x, position.y, position.z, color.x, color.y, color.z, intensity, radius);
+    
+    return entity;
+}
+
 void init_scene_test() {
     Scene scene;
     scene.name = "test";
@@ -105,6 +127,22 @@ void init_scene_test() {
         g_state.scene.prop_entities.push_back(entity);
     }
     printf("[ECS] Created %zu prop entities\n\n", g_state.scene.prop_entities.size());
+    
+    // Create ECS entities for lights
+    printf("[ECS] Creating light entities...\n");
+    g_state.scene.light_entities.clear();
+    
+    // Warm center light
+    ECS::EntityID warm_light = create_light_entity(
+        Vec3(0.0f, 0.0f, -0.5f),     // Center screen, slightly in front (OpenGL coords)
+        Vec3(1.0f, 0.9f, 0.7f),      // Warm white color
+        1.5f,                         // Intensity
+        2.0f,                         // Radius (OpenGL units)
+        true                          // Casts shadows
+    );
+    g_state.scene.light_entities.push_back(warm_light);
+    
+    printf("[ECS] Created %zu light entities\n\n", g_state.scene.light_entities.size());
 }
 
 }

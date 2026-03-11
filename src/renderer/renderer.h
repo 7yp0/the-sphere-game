@@ -35,6 +35,32 @@ void render_sprite_animated_with_depth(const SpriteAnimation* anim, Vec3 pos, Ve
                                        float sprite_y, float horizon_y, float scale_gradient = 0.003f, bool inverted = false,
                                        PivotPoint pivot = PivotPoint::TOP_LEFT);
 
+// Light data for ECS-based rendering
+// Position is in OpenGL coords (-1 to +1), matches ECS::Transform3DComponent
+struct LightData {
+    Vec3 position;      // OpenGL coords: X,Y = screen pos, Z = depth
+    Vec3 color;         // RGB (0-1)
+    float intensity;    // Brightness multiplier
+    float radius;       // Attenuation radius in OpenGL units
+};
+
+// Lit sprite rendering with ECS-based lights
+// objectZ: -999.0 = use depth map (background), otherwise use this Z value (props)
+void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, 
+                       const LightData* lights, uint32_t num_lights,
+                       TextureID normal_map = 0, PivotPoint pivot = PivotPoint::TOP_LEFT,
+                       float objectZ = -999.0f);
+
+void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range,
+                       const LightData* lights, uint32_t num_lights,
+                       TextureID normal_map = 0, PivotPoint pivot = PivotPoint::TOP_LEFT,
+                       float objectZ = -999.0f);
+
+void render_sprite_animated_lit(const SpriteAnimation* anim, Vec3 pos, Vec2 size,
+                                const LightData* lights, uint32_t num_lights,
+                                TextureID normal_map = 0, PivotPoint pivot = PivotPoint::TOP_LEFT,
+                                float objectZ = -999.0f);
+
 // Framebuffer Object (FBO) for offscreen rendering at base resolution
 // All scene rendering goes to FBO at 320x180, then upscaled to viewport
 void init_framebuffer(uint32_t base_width, uint32_t base_height);

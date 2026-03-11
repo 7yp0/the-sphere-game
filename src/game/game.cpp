@@ -374,6 +374,58 @@ static void update_player_sprite_animation() {
     }
 }
 
+// Static light position for testing (behind box prop)
+// Animate light through room corners
+// Visits 8 corners in 3D space for full room illumination coverage
+static void update_animated_light(float delta_time) {
+    if (g_state.scene.light_entities.empty()) return;
+    
+    static float light_time = 0.0f;
+    light_time += delta_time;
+    
+    ECS::EntityID light_entity = g_state.scene.light_entities[0];
+    auto* transform = g_state.ecs_world.get_component<ECS::Transform3DComponent>(light_entity);
+    if (!transform) return;
+    
+    // 8 corner waypoints with margin (0.6 from edges)
+    // OpenGL coords: X (-1=left, +1=right), Y (-1=bottom, +1=top), Z (-1=near, +1=far)
+    const float margin = 0.6f;
+    const Vec3 corners[8] = {
+        Vec3(-margin,  margin, -margin),  // 0: top-left-near
+        Vec3( margin,  margin, -margin),  // 1: top-right-near
+        Vec3( margin, -margin, -margin),  // 2: bottom-right-near
+        Vec3(-margin, -margin, -margin),  // 3: bottom-left-near
+        Vec3(-margin, -margin,  margin),  // 4: bottom-left-far
+        Vec3( margin, -margin,  margin),  // 5: bottom-right-far
+        Vec3( margin,  margin,  margin),  // 6: top-right-far
+        Vec3(-margin,  margin,  margin),  // 7: top-left-far
+    };
+    
+    // Time per corner segment
+    const float segment_time = 2.0f;  // 2 seconds per segment
+    const float total_cycle = segment_time * 8.0f;  // 16 seconds full cycle
+    
+    // Calculate which segment we're in and interpolation factor
+    float cycle_pos = fmod(light_time, total_cycle);
+    int segment = (int)(cycle_pos / segment_time);
+    float t = (cycle_pos - segment * segment_time) / segment_time;
+    
+    // Smooth interpolation (ease in/out)
+    t = t * t * (3.0f - 2.0f * t);  // Smoothstep
+    
+    // Get current and next corner
+    int next_segment = (segment + 1) % 8;
+    Vec3 from = corners[segment];
+    Vec3 to = corners[next_segment];
+    
+    // Lerp position
+    transform->position = Vec3(
+        from.x + (to.x - from.x) * t,
+        from.y + (to.y - from.y) * t,
+        from.z + (to.z - from.z) * t
+    );
+}
+
 void init() {
     // Run ECS tests at startup
     test_ecs_phase1();
@@ -422,28 +474,61 @@ void update(float delta_time) {
         // Update sprite animation based on player state
         update_player_sprite_animation();
     }
+    
+    // Animate light through room corners
+    update_animated_light(delta_time);
 }
 
 void render() {
+    // =========================================================================
+    // GATHER LIGHT DATA FROM ECS
+    // =========================================================================
+    std::vector<Renderer::LightData> lights;
+    for (ECS::EntityID light_entity : g_state.scene.light_entities) {
+        auto* transform = g_state.ecs_world.get_component<ECS::Transform3DComponent>(light_entity);
+        auto* light = g_state.ecs_world.get_component<ECS::LightComponent>(light_entity);
+        
+        if (!transform || !light || !light->enabled) continue;
+        
+        Renderer::LightData ld;
+        ld.position = transform->position;
+        ld.color = light->color;
+        ld.intensity = light->intensity;
+        ld.radius = light->radius;
+        lights.push_back(ld);
+    }
+    
+    const Renderer::LightData* light_data = lights.empty() ? nullptr : lights.data();
+    uint32_t num_lights = (uint32_t)lights.size();
+    
     // =========================================================================
     // OFFSCREEN RENDERING: Render scene at base resolution (320x180)
     // =========================================================================
     Renderer::begin_render_to_framebuffer();
     Renderer::clear_screen();
     
-    // Background - use BACKGROUND layer for depth
-    Renderer::render_sprite(g_state.scene.background, 
+    // Background - use BACKGROUND layer for depth (lit rendering)
+    Renderer::render_sprite_lit(g_state.scene.background, 
                            Vec3(0.0f, 0.0f, Layers::get_z_depth(Layer::BACKGROUND)),
-                           Vec2((float)g_state.scene.width, (float)g_state.scene.height));
+                           Vec2((float)g_state.scene.width, (float)g_state.scene.height),
+                           light_data, num_lights,
+                           g_state.scene.background_normal_map);
     
     // =========================================================================
     // Render props using ECS components (from current scene)
     // =========================================================================
+    static bool props_printed = false;
     for (ECS::EntityID prop_entity : g_state.scene.prop_entities) {
         auto* transform = g_state.ecs_world.get_component<ECS::Transform2_5DComponent>(prop_entity);
         auto* sprite = g_state.ecs_world.get_component<ECS::SpriteComponent>(prop_entity);
         
         if (!transform || !sprite || !sprite->visible) continue;
+        
+        // Debug: print prop z_depth once
+        if (!props_printed) {
+            printf("Prop z_depth: %.2f (pos: %.0f, %.0f)\n", 
+                   transform->z_depth, transform->position.x, transform->position.y);
+        }
         
         // Calculate depth scaling from ECS transform
         float depth_scale = ECS::TransformHelpers::compute_depth_scale(transform->z_depth);
@@ -455,9 +540,12 @@ void render() {
         // Create 3D position for rendering (pixel coords + z_depth)
         Vec3 render_pos(transform->position.x, transform->position.y, transform->z_depth);
         
-        // Render prop
-        Renderer::render_sprite(sprite->texture, render_pos, scaled_size, sprite->pivot);
+        // Render prop with lighting - pass z_depth as objectZ for correct "light behind object" check
+        Renderer::render_sprite_lit(sprite->texture, render_pos, scaled_size,
+                                   light_data, num_lights, sprite->normal_map, sprite->pivot,
+                                   transform->z_depth);
     }
+    props_printed = true;
     
     // =========================================================================
     // Render player using ECS components
@@ -477,14 +565,19 @@ void render() {
             // Create 3D position for rendering
             Vec3 render_pos(transform->position.x, transform->position.y, transform->z_depth);
             
-            // Render animated sprite if animation is set
+            // Render animated sprite if animation is set (with lighting) - pass z_depth as objectZ
             if (sprite->is_animated() && sprite->animation) {
-                Renderer::render_sprite_animated(sprite->animation, 
+                Renderer::render_sprite_animated_lit(sprite->animation, 
                                                 render_pos, 
                                                 scaled_size,
-                                                sprite->pivot);
+                                                light_data, num_lights,
+                                                sprite->normal_map,
+                                                sprite->pivot,
+                                                transform->z_depth);
             } else {
-                Renderer::render_sprite(sprite->texture, render_pos, scaled_size, sprite->pivot);
+                Renderer::render_sprite_lit(sprite->texture, render_pos, scaled_size,
+                                           light_data, num_lights, sprite->normal_map, sprite->pivot,
+                                           transform->z_depth);
             }
         }
     }
