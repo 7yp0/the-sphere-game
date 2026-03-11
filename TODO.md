@@ -202,7 +202,7 @@
 
 - [ ] **D-Key Toggle Debug Mode**
   - [ ] Show all walkable_areas polygons (green with alpha 0.3)
-  - [ ] Show all hotspots polygons (yellow with alpha 0.3)
+  - [ ] Show all hotspots polygons (red with alpha 0.3)
   - [ ] Show polygon vertices (small circles at each point, clickable)
   - [ ] Show polygon edges (thin lines)
   - [ ] Highlight selected polygon (brighter color or outline)
@@ -266,118 +266,101 @@
 
 ---
 
-## Phase 5: 2.5D Lighting
+## Phase 5: 2.5D Lighting (COMPLETE)
 
-### 5.1 Foundation: Light & Shadow Data
+### 5.1 Foundation: Light & Shadow Data ✅
 
-- [ ] **Light Struct & Management**
-  - [ ] `Game::Light` struct: position (x, y), radius, intensity, color (RGB)
-  - [ ] Light falloff curve: linear, quadratic, or smooth (configurable)
-  - [ ] `Game::LightManager` or array in Scene with active_lights
-  - [ ] Max lights per scene (e.g., 16 for performance)
-  - [ ] Light on/off toggle (torches, lamps)
+- [x] **ECS-Based Light System**
+  - [x] `PointLightComponent`: position (3D), radius, intensity, color (RGB), casts_shadows flag
+  - [x] Light falloff: quadratic with smooth attenuation in shader
+  - [x] Lights stored as ECS entities in scene
+  - [x] Max 8 lights per scene (MAX_LIGHTS in shader)
+  - [x] Light on/off via `casts_shadows` flag
 
-- [ ] **Scene Light Data**
-  - [ ] JSON format: `"lights": [{"name": "torch_1", "x": 250, "y": 100, "radius": 200, "intensity": 1.0, "color": [1.0, 0.8, 0.6]}]`
-  - [ ] Load/save lights from geometry JSON
-  - [ ] Editor support (place lights in debug mode)
+- [x] **Entity Factories for Lights**
+  - [x] `create_point_light()` - OpenGL coords
+  - [x] `create_point_light_at_pixel()` - pixel coords with auto-conversion
+  - [x] `create_lamp()` - composite: sprite + light together
+  - [x] `create_emissive_object()` - glowing objects
 
-### 5.2 Shadow System (Pixel-Perfect)
+### 5.2 Ray-Quad Shadow System ✅
 
-- [ ] **Shadow Projection (2.5D Geometry)**
-  - [ ] Calculate shadow position on floor based on:
-    - Sprite Y-position (visual base)
-    - Sprite center X-position
-    - Light position (x, y, height inferred from level context)
-    - Shadow direction = normalize(sprite_pos - light_pos)
-  - [ ] Shadow length = (sprite_y - floor_y) * projection_factor (adjustable)
-  - [ ] Result: shadow quad position and scale
+- [x] **Ray-Quad Intersection (NOT projection-based!)**
+  - [x] Cast ray from fragment towards light source
+  - [x] Test ray against all shadow caster quads (props)
+  - [x] If intersection: sample shadow caster texture at hit UV
+  - [x] Alpha test: if alpha > threshold → in shadow
+  - [x] Shadow intensity configurable per caster
 
-- [ ] **GPU Shader-Based Shadow Rendering (Exact Textures)**
-  - [ ] Render shadow sprites using exact texture (not simple ovals/quads)
-  - [ ] Use dedicated shadow shader (shadow.vert / shadow.frag) to:
-    - Sample texture from original sprite
-    - Apply shadow projection (position and size transformation)
-    - Darken/tint the texture (multiply by shadow color, reduce brightness)
-  - [ ] Per-light shadow rendering:
-    - For each light: render all entities (player + props) as shadows at calculated position
-    - Shadow color: darkened with optional light tint (e.g., warm light = warm shadow tone)
-    - Shadow alpha: based on light intensity and distance (fade with distance)
-    - Layer: below MIDGROUND (Layer::SHADOW = 5)
-  - [ ] Soft shadow edges: render shadow with alpha falloff for smooth appearance
+- [x] **Shadow Caster ECS Components**
+  - [x] `ShadowCasterComponent`: enabled, alpha_threshold, shadow_intensity
+  - [x] Entity factories: `create_shadow_casting_prop()` vs `create_static_prop()`
+  - [x] Self-shadow prevention via entity_index exclusion
+  - [x] Max 8 shadow casters (MAX_SHADOW_CASTERS in shader)
 
-- [ ] **Advanced: Background Surface Maps (Future Enhancement)**
-  - [ ] **Problem**: Current shadows only project onto flat ground plane
-  - [ ] **Goal**: Shadows should cast onto walls, obstacles, background geometry
-  - [ ] **Solution**: Background normal maps + depth/heightmaps
-  - [ ] BG normal map: determines surface facing direction
-  - [ ] BG heightmap OR geometry: determines if shadow can project there
-  - [ ] Shadow shader receives: BG normal map, depth info per pixel
-  - [ ] Projected shadow follows surface normals (walls, slopes, etc.)
-  - [ ] Example use case:
-    - [ ] Player stands in front of wall
-    - [ ] Light from side casts shadow ON wall (not just on ground)
-    - [ ] Shadow follows wall contours (using normal map)
-  - [ ] Implementation: Multi-pass shadow rendering
-    - [ ] Pass 1: Render shadow projected onto ground plane (current)
-    - [ ] Pass 2: Render shadow projected onto BG geometry (future)
-    - [ ] Use fragment shader to detect if surface normal faces light
-  - [ ] Storage: `scenes/<scene>/backgrounds/bg_field.normal` file
-  - [ ] Optional: `scenes/<scene>/backgrounds/bg_field.heightmap` for depth
+- [x] **Shadow Receiving**
+  - [x] Background receives shadows from all props ✅
+  - [x] Props receive shadows from other props ✅
+  - [x] Player receives shadows from props ✅
+  - [x] `render_sprite_lit_shadowed()` for static sprites
+  - [x] `render_sprite_animated_lit_shadowed()` for animated sprites
 
-- [ ] **Shadow Blending**
-  - [ ] Multiple shadows blend multiplicatively (darken)
-  - [ ] Shadow pass: render all shadows for all lights, then composite with scene
-  - [ ] Alternative: additive pass for shadow intensity or multiplicative for darkening
+### 5.3 Lighting Shader & Normal Maps ✅
 
-### 5.3 Lighting Shader & Normal Maps
+- [x] **Normal Map Support**
+  - [x] Normal map texture per sprite (SpriteComponent.normal_map)
+  - [x] Background normal map for surface detail
+  - [x] Fragment shader samples normal, applies to N·L calculation
+  - [x] Normal decoding: `n * 2.0 - 1.0` with Z-flip for coordinate system
 
-- [ ] **Normal Map Support**
-  - [ ] Load normal map texture alongside diffuse texture
-  - [ ] Update `AssetManager` to load `.normal` variants
-  - [ ] Fragment shader: sample normal, apply to light calculation
+- [x] **Depth Map for Background**
+  - [x] Depth map encodes Z-depth per pixel (white=near, black=far)
+  - [x] Shader reconstructs 3D position from depth map
+  - [x] Enables correct light distance calculation on 2.5D background
+  - [x] Props use their transform z_depth directly
 
-- [ ] **GPU-Based Calculations (Heavy Workloads)**
-  - [ ] All light calculations in fragment shader (GPU parallel)
-  - [ ] Shadow projection in vertex shader (transform to world space)
-  - [ ] Falloff curves (linear/quadratic/smooth) computed per-pixel in shader
-  - [ ] Distance attenuation: `1.0 / (1.0 + distance² * attenuation_factor)`
-  - [ ] CPU only handles: light setup, culling, passing uniforms
-  - [ ] Avoid CPU loops over lights per-vertex (pass all lights as uniform array)
+- [x] **GPU-Based Lighting (basic_lit.frag)**
+  - [x] All light calculations in fragment shader
+  - [x] Per-pixel diffuse lighting (N·L)
+  - [x] Quadratic falloff with smooth attenuation
+  - [x] Aspect ratio correction for circular light falloff
+  - [x] Light uniforms: position[], color[], intensity[], radius[]
 
-- [ ] **Per-Pixel Lighting (Phong/Simple)**
-  - [ ] Fragment shader receives:
-    - Diffuse color (sampled)
-    - Normal (sampled from normal map)
-    - Light position & color
-    - Surface position (world space)
-  - [ ] Calculate: light direction, diffuse factor (dot product)
-  - [ ] Specular highlights (optional): Phong model or simplified
-  - [ ] Result: lit color = diffuse_color * (ambient + light_contribution)
+- [x] **Background vs Object Lighting**
+  - [x] Objects: `NdotL <= 0` → no light (backface culling)
+  - [x] Background: `abs(NdotL)` → no self-shadowing from normals
+  - [x] Both receive cast shadows from props correctly
 
-- [ ] **Ambient Light Baseline**
-  - [ ] Global ambient color/intensity (configurable per scene)
-  - [ ] Ensures no completely black areas (readability)
-  - [ ] Transition support for time-of-day
+- [x] **Ambient Light**
+  - [x] Global ambient color/intensity (shader uniforms)
+  - [x] Configurable per scene
+  - [x] Ensures minimum visibility
 
-### 5.4 Multi-Light Rendering Pipeline
+### 5.4 Rendering Pipeline ✅
 
-- [ ] **Light Pass Architecture**
-  - [ ] Render base scene with ambient light
-  - [ ] For each active light:
-    - [ ] Render light contribution pass (quadratic falloff)
-    - [ ] Render shadow pass (multiplicative)
-  - [ ] Composite all passes (additive for lights, multiplicative for shadows)
+- [x] **Single-Pass Lit Rendering**
+  - [x] All lights processed in single fragment shader pass
+  - [x] Shadow casters uploaded as uniform arrays
+  - [x] Texture units: 0=diffuse, 1=normal, 2=depth, 3-6=shadow casters
+  - [x] Efficient: no multi-pass compositing needed
 
-- [ ] **Light Culling & Performance**
-  - [ ] Only lights within screen bounds or affecting on-screen entities
-  - [ ] Light radius-based frustum culling
-  - [ ] Fallback: limit max active lights per frame (e.g., 8)
+- [x] **Offscreen Rendering (FBO)**
+  - [x] Render at base resolution (320x180)
+  - [x] Upscale to viewport (1280x720)
+  - [x] Pixel-perfect filtering
 
-- [ ] **Shadow Optimization**
-  - [ ] Shadow sprites cached: position, scale, alpha per light
-  - [ ] Batch shadow rendering if possible
-  - [ ] Soft shadows: pre-rendered shadow texture with gradient edge
+### 5.5 Key Implementation Details
+
+**Shader Files:**
+
+- `basic_lit.frag` - main lighting + shadow shader
+- `basic_lit.vert` - vertex transformation
+
+**Critical Bug Fixes (documented):**
+
+1. Ray direction must be UNNORMALIZED for t∈(0,1) intersection
+2. Shadow UV needs Y-flip: `hitUV.y = 1.0 - hitUV.y`
+3. Use BASE resolution (320x180) for shadow caster coordinate conversion
 
 ---
 
@@ -395,13 +378,15 @@
 
 ---
 
-## Phase 7: Debug Tools
+## Phase 7: Debug Tools (PARTIAL)
 
-- [ ] **Debug Overlay**
-  - [ ] Show mouse world position
-  - [ ] Show player position
-  - [ ] Toggle with `D` key
-  - [ ] FPS counter
+- [x] **Debug Overlay**
+  - [x] Show mouse world position
+  - [x] Show player position
+  - [x] Toggle with `D` key
+  - [x] FPS counter
+  - [x] Frame time display
+  - [x] Entity counts (total, props, lights)
 
 - [ ] **Scene Editor Mode**
   - [ ] Prop placement in debug mode
@@ -416,18 +401,18 @@
 
 ---
 
-## Phase 8: Art & Content
+## Phase 8: Art & Content (PARTIAL)
 
-- [ ] **Create Test Assets**
-  - [ ] Player sprite (pixel art)
-  - [ ] Background texture
-  - [ ] Simple props
-  - [ ] Placeholder lights
+- [x] **Test Assets Created**
+  - [x] Player sprite (pixel art spritesheet)
+  - [x] Background texture with normal map + depth map
+  - [x] Props (box, tree, stone) with normal maps
+  - [x] Test lights (warm main + blue fill)
 
 - [ ] **Scene Data Files**
   - [ ] Start scene
-  - [ ] Prop placements
-  - [ ] Light placements
+  - [ ] Prop placements (JSON)
+  - [ ] Light placements (JSON)
 
 ---
 
@@ -538,7 +523,33 @@
 **Point-and-Click Depth Logic:**
 Player Y-position determines if they're in front of or behind occlusion objects (handled in Phase 4 with Y-Sorting)
 
-Last Updated: March 6, 2026
+---
 
-- Phase 1 Complete (Sprites, Animation, Layers) + Logging System + Player Architecture
-- Phase 4 Interaction System redesigned for Point-and-Click Adventure Game (Hotspot-based)
+## ECS Architecture (NEW)
+
+**Entity-Component-System implemented in `src/ecs/`:**
+
+- `World` - manages entities and component pools
+- `EntityID` - unique entity identifier (uint32_t)
+- **Components:**
+  - `Transform2_5DComponent` - position, scale, z_depth
+  - `SpriteComponent` - texture, size, animation, normal_map
+  - `PointLightComponent` - 3D position, color, radius, intensity, casts_shadows
+  - `ShadowCasterComponent` - enabled, alpha_threshold, shadow_intensity
+
+**Entity Factories (`src/ecs/entity_factory.h`):**
+
+- `create_static_prop()` - prop without shadow casting
+- `create_shadow_casting_prop()` - prop that casts shadows
+- `create_point_light()` / `create_point_light_at_pixel()` - lights
+- `create_lamp()` - composite: sprite + attached light
+- `create_emissive_object()` - glowing object
+
+---
+
+Last Updated: March 11, 2026
+
+- Phase 5 Complete: 2.5D Lighting with ray-quad shadows, normal maps, depth maps
+- ECS Architecture: Entity-Component-System for props, lights, shadow casters
+- Shadow system: Props/Player can cast AND receive shadows
+- Background lighting: Normal map support without self-shadowing

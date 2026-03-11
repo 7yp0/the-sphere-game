@@ -209,7 +209,7 @@ For each screen pixel:
 - Intersection computed in quad local coordinates
 - World position reconstructed as:
 
-```
+```bash
 P_hit = P_quad + offset_x * quad_right + offset_y * quad_up
 ```
 
