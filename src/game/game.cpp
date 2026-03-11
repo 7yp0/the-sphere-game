@@ -701,6 +701,36 @@ void render() {
     const Renderer::ShadowCasterData* shadow_data = shadow_casters.empty() ? nullptr : shadow_casters.data();
     uint32_t num_shadow_casters = (uint32_t)shadow_casters.size();
     
+    // =========================================================================
+    // GATHER PROJECTOR LIGHT DATA FROM ECS
+    // =========================================================================
+    std::vector<Renderer::ProjectorLightData> projector_lights;
+    for (ECS::EntityID proj_entity : g_state.scene.projector_light_entities) {
+        auto* transform = g_state.ecs_world.get_component<ECS::Transform2_5DComponent>(proj_entity);
+        auto* projector = g_state.ecs_world.get_component<ECS::ProjectorLightComponent>(proj_entity);
+        
+        if (!transform || !projector || !projector->enabled) continue;
+        
+        Renderer::ProjectorLightData pd;
+        pd.position = Vec3(transform->position.x, transform->position.y, transform->z_depth);
+        pd.direction = projector->direction;
+        pd.up = projector->up;
+        pd.color = projector->color;
+        pd.intensity = projector->intensity;
+        pd.fov = projector->fov;
+        pd.aspect_ratio = projector->aspect_ratio;
+        pd.range = projector->range;
+        pd.cookie = projector->cookie;
+        projector_lights.push_back(pd);
+    }
+    
+    // Set projector lights (global state used by all lit renders)
+    if (!projector_lights.empty()) {
+        Renderer::set_projector_lights(projector_lights.data(), (uint32_t)projector_lights.size());
+    } else {
+        Renderer::clear_projector_lights();
+    }
+    
     // Debug: Print shadow caster count once
     static bool shadow_debug_printed = false;
     if (!shadow_debug_printed && num_shadow_casters > 0) {

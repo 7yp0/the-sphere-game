@@ -44,6 +44,23 @@ struct LightData {
     float radius;       // Attenuation radius in OpenGL units
 };
 
+// Maximum number of projector lights
+constexpr uint32_t MAX_PROJECTOR_LIGHTS = 2;
+
+// Projector light data for cookie-based directional lighting
+// Used for window light, spotlights with patterns, etc.
+struct ProjectorLightData {
+    Vec3 position;      // Where the window/projector is (OpenGL coords)
+    Vec3 direction;     // Direction light travels (normalized)
+    Vec3 up;            // Up vector for cookie orientation
+    Vec3 color;         // RGB (0-1)
+    float intensity;    // Brightness multiplier
+    float fov;          // Field of view in degrees
+    float aspect_ratio; // Cookie width/height
+    float range;        // Maximum distance
+    TextureID cookie;   // Cookie texture
+};
+
 // Maximum number of shadow casters the shader can handle
 constexpr uint32_t MAX_SHADOW_CASTERS = 4;
 
@@ -103,6 +120,11 @@ void begin_render_to_framebuffer();   // Bind FBO, set viewport to base resoluti
 void end_render_to_framebuffer();     // Unbind FBO
 void render_framebuffer_to_screen();  // Blit FBO texture to screen with upscaling
 void shutdown_framebuffer();
+
+// Projector lights (global state, applied to all lit renders)
+// Set once per frame before rendering lit objects
+void set_projector_lights(const ProjectorLightData* lights, uint32_t count);
+void clear_projector_lights();  // Call at end of frame
 
 // Get current rendering dimensions (FBO base or viewport)
 uint32_t get_render_width();

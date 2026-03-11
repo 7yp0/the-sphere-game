@@ -8,6 +8,7 @@
 #include "scene/scene.h"
 #include "collision/polygon_utils.h"
 #include "core/timing.h"
+#include "ecs/ecs.h"
 #include <cstdio>
 #include <cstring>
 
@@ -36,6 +37,63 @@ void handle_debug_keys() {
     }
     prev_d = key_d;
 #endif
+}
+
+static void render_lights_debug() {
+    // Scale factor from base (320x180) to viewport (1280x720)
+    float scale_x = (float)Config::VIEWPORT_WIDTH / (float)Config::BASE_WIDTH;
+    float scale_y = (float)Config::VIEWPORT_HEIGHT / (float)Config::BASE_HEIGHT;
+    float ui_z = Layers::get_z_depth(Layer::UI);
+    
+    // Yellow color for point lights
+    Vec4 light_color = Vec4(1.0f, 1.0f, 0.0f, 0.8f);
+    
+    // Draw point lights (Transform3D - OpenGL coords)
+    for (ECS::EntityID light_entity : Game::g_state.scene.light_entities) {
+        auto* transform = Game::g_state.ecs_world.get_component<ECS::Transform3DComponent>(light_entity);
+        auto* light = Game::g_state.ecs_world.get_component<ECS::LightComponent>(light_entity);
+        
+        if (!transform || !light) continue;
+        
+        // Convert OpenGL coords (-1 to +1) to viewport pixels
+        // OpenGL: X=-1 is left, X=+1 is right, Y=-1 is bottom, Y=+1 is top
+        float pixel_x = (transform->position.x + 1.0f) * 0.5f * Config::VIEWPORT_WIDTH;
+        float pixel_y = (1.0f - transform->position.y) * 0.5f * Config::VIEWPORT_HEIGHT;
+        
+        // Draw cross at light position
+        Vec3 pos = Vec3(pixel_x, pixel_y, ui_z);
+        float size = 12.0f;
+        Renderer::render_rect(pos, Vec2(size, 4.0f), light_color);  // Horizontal
+        Renderer::render_rect(Vec3(pixel_x - size/2 + 2, pixel_y - size/2 + 2, ui_z), Vec2(4.0f, size), light_color);  // Vertical
+    }
+    
+    // Orange color for projector lights
+    Vec4 proj_color = Vec4(1.0f, 0.6f, 0.0f, 0.8f);
+    
+    // Draw projector lights (Transform2_5D - pixel coords)
+    for (ECS::EntityID proj_entity : Game::g_state.scene.projector_light_entities) {
+        auto* transform = Game::g_state.ecs_world.get_component<ECS::Transform2_5DComponent>(proj_entity);
+        auto* projector = Game::g_state.ecs_world.get_component<ECS::ProjectorLightComponent>(proj_entity);
+        
+        if (!transform || !projector) continue;
+        
+        // Scale from base to viewport coordinates
+        float pixel_x = transform->position.x * scale_x;
+        float pixel_y = transform->position.y * scale_y;
+        
+        // Draw square at projector position
+        Vec3 pos = Vec3(pixel_x, pixel_y, ui_z);
+        Renderer::render_rect(pos, Vec2(10.0f, 10.0f), proj_color);
+        
+        // Draw direction line (30 pixels long)
+        float line_len = 40.0f;
+        Vec3 dir_end = Vec3(
+            pixel_x + projector->direction.x * line_len,
+            pixel_y - projector->direction.y * line_len,  // Y is inverted in screen coords
+            ui_z
+        );
+        Renderer::render_line(pos, dir_end, proj_color, 2.0f);
+    }
 }
 
 static void render_geometry_debug() {
@@ -80,8 +138,9 @@ static void render_geometry_debug() {
 
 void render_overlay(Vec2 mouse_pixel) {
     if (overlay_enabled) {
-        // Draw geometry first (behind text)
+        // Draw debug visualizations (behind text)
         render_geometry_debug();
+        render_lights_debug();
         
         // Calculate FPS from delta time
         float dt = Core::get_delta_time();
@@ -91,20 +150,21 @@ void render_overlay(Vec2 mouse_pixel) {
         // Get entity counts
         size_t prop_count = Game::g_state.scene.prop_entities.size();
         size_t light_count = Game::g_state.scene.light_entities.size();
+        size_t proj_count = Game::g_state.scene.projector_light_entities.size();
         
         // Build debug text
         char text_buffer[512];
         snprintf(text_buffer, sizeof(text_buffer), 
                  "Mouse: (%.0f, %.0f)\n"
                  "Frame: %.2f ms (%.0f FPS)\n"
-                 "Props: %zu  Lights: %zu",
+                 "Props: %zu  Lights: %zu  Proj: %zu",
                  mouse_pixel.x, mouse_pixel.y,
                  ms, fps,
-                 prop_count, light_count);
+                 prop_count, light_count, proj_count);
         
         // Black semi-transparent background - pixel coordinates, top-left
         Vec3 bg_pos = Vec3(0.0f, 0.0f, Layers::get_z_depth(Layer::UI));
-        Vec2 bg_size = Vec2(260.0f, 65.0f);  // Taller for more lines
+        Vec2 bg_size = Vec2(300.0f, 65.0f);  // Taller for more lines
         Vec4 bg_color = Vec4(0.0f, 0.0f, 0.0f, 0.7f);
         Renderer::render_rect(bg_pos, bg_size, bg_color);
         

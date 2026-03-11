@@ -118,6 +118,44 @@ EntityID create_point_light_at_pixel(
     return create_point_light(position, color, intensity, radius, casts_shadows);
 }
 
+EntityID create_projector_light(
+    Vec2 pixel_position,
+    float z_depth,
+    Vec3 direction,
+    Vec3 up,
+    Vec3 color,
+    float intensity,
+    float fov_degrees,
+    float aspect_ratio,
+    float range,
+    Renderer::TextureID cookie
+) {
+    EntityID entity = g_state.ecs_world.create_entity();
+    
+    // Store pixel position in Transform2_5D (will be converted to OpenGL in render)
+    auto& transform = g_state.ecs_world.add_component<Transform2_5DComponent>(entity);
+    transform.position = pixel_position;
+    transform.z_depth = z_depth;
+    transform.scale = Vec2(1.0f, 1.0f);
+    
+    // Add ProjectorLightComponent
+    auto& projector = g_state.ecs_world.add_component<ProjectorLightComponent>(entity);
+    projector.direction = direction;
+    projector.up = up;
+    projector.color = color;
+    projector.intensity = intensity;
+    projector.fov = fov_degrees;
+    projector.aspect_ratio = aspect_ratio;
+    projector.range = range;
+    projector.cookie = cookie;
+    projector.enabled = true;
+    
+    printf("[ECS] Created projector light entity %u at pixel(%.0f, %.0f) z=%.2f\n",
+           entity, pixel_position.x, pixel_position.y, z_depth);
+    
+    return entity;
+}
+
 // ============================================================================
 // COMPOSITE FACTORIES
 // ============================================================================

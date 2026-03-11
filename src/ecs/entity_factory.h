@@ -72,6 +72,24 @@ EntityID create_point_light_at_pixel(
     uint32_t scene_height = 180
 );
 
+/**
+ * Create a projector light (window light with cookie texture)
+ * Projects light through a pattern texture onto the scene
+ * Position is in pixel coordinates, direction is normalized
+ */
+EntityID create_projector_light(
+    Vec2 pixel_position,
+    float z_depth,
+    Vec3 direction,             // Normalized direction light travels
+    Vec3 up,                    // Up vector for cookie orientation
+    Vec3 color,
+    float intensity,
+    float fov_degrees,          // Field of view in degrees
+    float aspect_ratio,         // Cookie width/height ratio
+    float range,                // Maximum distance (in Z units)
+    Renderer::TextureID cookie  // Cookie texture (grayscale pattern)
+);
+
 // ============================================================================
 // COMPOSITE FACTORIES
 // ============================================================================

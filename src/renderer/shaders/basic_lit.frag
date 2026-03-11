@@ -42,6 +42,20 @@ uniform sampler2D shadowCasterTex1;
 uniform sampler2D shadowCasterTex2;
 uniform sampler2D shadowCasterTex3;
 
+// Projector lights (window lights with cookie textures)
+#define MAX_PROJECTOR_LIGHTS 2
+uniform int numProjectorLights;
+uniform vec3 projectorPositions[MAX_PROJECTOR_LIGHTS];    // Where the window is
+uniform vec3 projectorDirections[MAX_PROJECTOR_LIGHTS];   // Direction light travels
+uniform vec3 projectorUps[MAX_PROJECTOR_LIGHTS];          // Up vector for orientation
+uniform vec3 projectorColors[MAX_PROJECTOR_LIGHTS];       // Light color
+uniform float projectorIntensities[MAX_PROJECTOR_LIGHTS]; // Brightness
+uniform float projectorFovs[MAX_PROJECTOR_LIGHTS];        // Field of view (radians)
+uniform float projectorAspects[MAX_PROJECTOR_LIGHTS];     // Width/Height ratio
+uniform float projectorRanges[MAX_PROJECTOR_LIGHTS];      // Max distance
+uniform sampler2D projectorCookie0;
+uniform sampler2D projectorCookie1;
+
 // Ambient light
 uniform vec3 ambientColor;  // Default ambient color
 uniform float ambientIntensity;  // Default ambient intensity
@@ -215,6 +229,96 @@ vec3 calculatePointLight(int lightIndex, vec3 fragPos3D, vec3 normal, bool isObj
     return lightColor * intensity * attenuation * NdotL;
 }
 
+// Sample projector cookie texture by index
+float sampleProjectorCookie(int index, vec2 uv) {
+    if (index == 0) return texture(projectorCookie0, uv).r;
+    if (index == 1) return texture(projectorCookie1, uv).r;
+    return 0.0;
+}
+
+// Calculate projector light contribution (window light with cookie pattern)
+// Uses perspective projection to correctly distort the cookie texture onto surfaces
+vec3 calculateProjectorLight(int projIndex, vec3 fragPos3D, vec3 normal, bool isObject, float surfaceZ) {
+    vec3 projPos = projectorPositions[projIndex];
+    vec3 projDir = projectorDirections[projIndex];
+    vec3 projUp = projectorUps[projIndex];
+    vec3 projColor = projectorColors[projIndex];
+    float intensity = projectorIntensities[projIndex];
+    float fov = projectorFovs[projIndex];  // Already in radians
+    float aspect = projectorAspects[projIndex];
+    float range = projectorRanges[projIndex];
+    
+    // Vector from projector to fragment
+    vec3 toFrag = fragPos3D - projPos;
+    
+    // Distance along projection axis
+    float distAlongAxis = dot(toFrag, projDir);
+    
+    // Fragment must be in front of the projector (in direction of light)
+    if (distAlongAxis <= 0.0) {
+        return vec3(0.0);
+    }
+    
+    // Skip if beyond range
+    if (distAlongAxis > range) {
+        return vec3(0.0);
+    }
+    
+    // Build projector coordinate system
+    vec3 projRight = normalize(cross(projDir, projUp));
+    vec3 projActualUp = cross(projRight, projDir);
+    
+    // Project fragment onto the projector plane (perpendicular to projDir)
+    // This gives us local U,V coordinates
+    float localU = dot(toFrag, projRight);
+    float localV = dot(toFrag, projActualUp);
+    
+    // Calculate the spread at this distance based on FOV
+    float halfTanFov = tan(fov * 0.5);
+    float spreadU = distAlongAxis * halfTanFov * aspect;
+    float spreadV = distAlongAxis * halfTanFov;
+    
+    // Normalize to UV range [0,1]
+    float u = (localU / spreadU) * 0.5 + 0.5;
+    float v = (localV / spreadV) * 0.5 + 0.5;
+    
+    // Check if within cookie bounds
+    if (u < 0.0 || u > 1.0 || v < 0.0 || v > 1.0) {
+        return vec3(0.0);
+    }
+    
+    // Sample cookie texture (flip V for correct orientation)
+    float cookieMask = sampleProjectorCookie(projIndex, vec2(u, 1.0 - v));
+    
+    // Skip if cookie blocks the light
+    if (cookieMask < 0.01) {
+        return vec3(0.0);
+    }
+    
+    // Direction from fragment to projector (for lighting calculation)
+    vec3 lightDir = normalize(projPos - fragPos3D);
+    
+    // Diffuse lighting (N·L)
+    float NdotL = dot(normal, lightDir);
+    
+    // For objects: skip if facing away
+    if (isObject && NdotL <= 0.0) {
+        return vec3(0.0);
+    }
+    
+    // For background: use absolute (no self-shadowing from normals)
+    if (!isObject) {
+        NdotL = abs(NdotL);
+    }
+    
+    // Distance-based attenuation
+    float attenuation = 1.0 - smoothstep(0.0, range, distAlongAxis);
+    attenuation = attenuation * attenuation;
+    
+    // Combine everything
+    return projColor * intensity * cookieMask * attenuation * max(NdotL, 0.2);
+}
+
 void main() {
     // Sample diffuse texture
     vec4 diffuse = texture(texture0, uv);
@@ -274,6 +378,19 @@ void main() {
         }
         
         totalLight += lightContribution;
+    }
+    
+    // Add projector lights (window lights with cookie patterns)
+    for (int i = 0; i < numProjectorLights && i < MAX_PROJECTOR_LIGHTS; i++) {
+        vec3 projContribution = calculateProjectorLight(i, fragPos3D, normal, isObject, surfaceZ);
+        
+        // Apply shadow if there's any light contribution
+        if (length(projContribution) > 0.001) {
+            float shadowFactor = calculateShadow(fragPos3D, projectorPositions[i], selfEntityIndex);
+            projContribution *= shadowFactor;
+        }
+        
+        totalLight += projContribution;
     }
     
     // Apply lighting to diffuse color

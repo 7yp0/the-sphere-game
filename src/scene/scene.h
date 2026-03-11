@@ -54,6 +54,9 @@ struct Scene {
     // ECS entity IDs for lights in this scene
     std::vector<ECS::EntityID> light_entities;
     
+    // ECS entity IDs for projector lights (window lights)
+    std::vector<ECS::EntityID> projector_light_entities;
+    
     SceneGeometry geometry;
 };
 

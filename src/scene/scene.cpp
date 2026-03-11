@@ -147,6 +147,31 @@ void init_scene_test() {
     printf("[ECS] Created fill light: Entity=%u (no shadows)\n", fill_light);
     
     printf("[ECS] Created %zu light entities\n\n", g_state.scene.light_entities.size());
+    
+    // =========================================================================
+    // Create projector lights (window lights)
+    // =========================================================================
+    g_state.scene.projector_light_entities.clear();
+    
+    // Load the window cookie texture
+    Renderer::TextureID window_cookie = Renderer::load_texture("lights/window_cookie.png");
+    
+    // Create window light on the left wall
+    // Position higher up, projecting diagonally right and down onto the floor
+    ECS::EntityID window_light = ECS::create_projector_light(
+        Vec2(20.0f, 35.0f),          // Left side, higher up (pixels)
+        0.0f,                        // Z depth (near camera, like a window on the wall)
+        Vec3(1.0f, -0.8f, 0.0f),    // Direction: pointing right (+X) and into room (+Z)
+        Vec3(0.0f, 1.0f, -0.25f),      // Up: pointing up (+Y)
+        Vec3(1.0f, 0.95f, 0.85f),    // Warm sunlight color
+        2.5f,                         // Intensity
+        20.0f,                        // FOV (narrower for cleaner pattern)
+        1.0f,                         // Aspect ratio (square window)
+        3.0f,                         // Range (in Z units, covers room depth)
+        window_cookie
+    );
+    g_state.scene.projector_light_entities.push_back(window_light);
+    printf("[ECS] Created window light: Entity=%u\n", window_light);
 }
 
 }

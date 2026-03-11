@@ -16,6 +16,7 @@ enum class ComponentType : uint32_t {
     Light = 3,
     ShadowCaster = 4,
     Emissive = 5,
+    ProjectorLight = 6,
     
     // Add new component types here before COUNT
     COUNT
@@ -155,6 +156,7 @@ private:
     ComponentArray<LightComponent> light_components_;
     ComponentArray<ShadowCasterComponent> shadow_caster_components_;
     ComponentArray<EmissiveComponent> emissive_components_;
+    ComponentArray<ProjectorLightComponent> projector_light_components_;
 };
 
 // Template specializations for get_component_type
@@ -164,6 +166,7 @@ template<> constexpr ComponentType ComponentRegistry::get_component_type<SpriteC
 template<> constexpr ComponentType ComponentRegistry::get_component_type<LightComponent>() { return ComponentType::Light; }
 template<> constexpr ComponentType ComponentRegistry::get_component_type<ShadowCasterComponent>() { return ComponentType::ShadowCaster; }
 template<> constexpr ComponentType ComponentRegistry::get_component_type<EmissiveComponent>() { return ComponentType::Emissive; }
+template<> constexpr ComponentType ComponentRegistry::get_component_type<ProjectorLightComponent>() { return ComponentType::ProjectorLight; }
 
 // Template specializations for get_array
 template<> inline ComponentArray<Transform2_5DComponent>& ComponentRegistry::get_array<Transform2_5DComponent>() { return transform2_5d_components_; }
@@ -172,6 +175,7 @@ template<> inline ComponentArray<SpriteComponent>& ComponentRegistry::get_array<
 template<> inline ComponentArray<LightComponent>& ComponentRegistry::get_array<LightComponent>() { return light_components_; }
 template<> inline ComponentArray<ShadowCasterComponent>& ComponentRegistry::get_array<ShadowCasterComponent>() { return shadow_caster_components_; }
 template<> inline ComponentArray<EmissiveComponent>& ComponentRegistry::get_array<EmissiveComponent>() { return emissive_components_; }
+template<> inline ComponentArray<ProjectorLightComponent>& ComponentRegistry::get_array<ProjectorLightComponent>() { return projector_light_components_; }
 
 // Implementation of remove_all_components
 inline void ComponentRegistry::remove_all_components(EntityManager& em, EntityID id) {
@@ -181,6 +185,7 @@ inline void ComponentRegistry::remove_all_components(EntityManager& em, EntityID
     light_components_.remove(id);
     shadow_caster_components_.remove(id);
     emissive_components_.remove(id);
+    projector_light_components_.remove(id);
     // Clear all component bits
     em.get_entity(id).component_mask = 0;
 }

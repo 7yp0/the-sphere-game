@@ -29,6 +29,10 @@ static uint32_t g_fbo_width = 0;
 static uint32_t g_fbo_height = 0;
 static bool g_rendering_to_fbo = false;  // Track if currently rendering to FBO
 
+// Global projector lights (set once per frame, used by all lit renders)
+static ProjectorLightData g_projector_lights[MAX_PROJECTOR_LIGHTS];
+static uint32_t g_num_projector_lights = 0;
+
 void init_renderer(uint32_t width, uint32_t height)
 {
     g_viewport_width = width;
@@ -242,6 +246,85 @@ void render_line(Vec3 start, Vec3 end, Vec4 color, float thickness)
     }
 }
 
+// =============================================================================
+// PROJECTOR LIGHTS (Global state for window/cookie lights)
+// =============================================================================
+
+void set_projector_lights(const ProjectorLightData* lights, uint32_t count)
+{
+    g_num_projector_lights = count > MAX_PROJECTOR_LIGHTS ? MAX_PROJECTOR_LIGHTS : count;
+    for (uint32_t i = 0; i < g_num_projector_lights; i++) {
+        g_projector_lights[i] = lights[i];
+    }
+}
+
+void clear_projector_lights()
+{
+    g_num_projector_lights = 0;
+}
+
+// Upload projector light uniforms to the lit shader (called internally)
+static void upload_projector_light_uniforms()
+{
+    glUniform1i(glGetUniformLocation(litShaderProgram, "numProjectorLights"), g_num_projector_lights);
+    
+    if (g_num_projector_lights > 0) {
+        uint32_t render_width = get_render_width();
+        uint32_t render_height = get_render_height();
+        
+        std::vector<Vec3> positions;
+        std::vector<Vec3> directions;
+        std::vector<Vec3> ups;
+        std::vector<Vec3> colors;
+        std::vector<float> intensities;
+        std::vector<float> fovs;
+        std::vector<float> aspects;
+        std::vector<float> ranges;
+        
+        for (uint32_t i = 0; i < g_num_projector_lights; i++) {
+            // Convert position from pixel to OpenGL coords
+            Vec2 opengl_pos = Coords::pixel_to_opengl(
+                Vec2(g_projector_lights[i].position.x, g_projector_lights[i].position.y),
+                render_width, render_height);
+            positions.push_back(Vec3(opengl_pos.x, opengl_pos.y, g_projector_lights[i].position.z));
+            
+            // Direction and up are already normalized, pass through
+            directions.push_back(g_projector_lights[i].direction);
+            ups.push_back(g_projector_lights[i].up);
+            colors.push_back(g_projector_lights[i].color);
+            intensities.push_back(g_projector_lights[i].intensity);
+            
+            // Convert FOV from degrees to radians
+            float fovRadians = g_projector_lights[i].fov * 3.14159265f / 180.0f;
+            fovs.push_back(fovRadians);
+            aspects.push_back(g_projector_lights[i].aspect_ratio);
+            
+            // Convert range from pixels to OpenGL coords (rough approximation)
+            // Range is specified in depth units which map to [-1, 1] Z range
+            ranges.push_back(g_projector_lights[i].range);
+        }
+        
+        glUniform3fv(glGetUniformLocation(litShaderProgram, "projectorPositions"), g_num_projector_lights, (float*)positions.data());
+        glUniform3fv(glGetUniformLocation(litShaderProgram, "projectorDirections"), g_num_projector_lights, (float*)directions.data());
+        glUniform3fv(glGetUniformLocation(litShaderProgram, "projectorUps"), g_num_projector_lights, (float*)ups.data());
+        glUniform3fv(glGetUniformLocation(litShaderProgram, "projectorColors"), g_num_projector_lights, (float*)colors.data());
+        glUniform1fv(glGetUniformLocation(litShaderProgram, "projectorIntensities"), g_num_projector_lights, intensities.data());
+        glUniform1fv(glGetUniformLocation(litShaderProgram, "projectorFovs"), g_num_projector_lights, fovs.data());
+        glUniform1fv(glGetUniformLocation(litShaderProgram, "projectorAspects"), g_num_projector_lights, aspects.data());
+        glUniform1fv(glGetUniformLocation(litShaderProgram, "projectorRanges"), g_num_projector_lights, ranges.data());
+        
+        // Bind cookie textures to texture units 7-8 (after shadow casters 3-6)
+        for (uint32_t i = 0; i < g_num_projector_lights; i++) {
+            glActiveTexture(GL_TEXTURE7 + i);
+            glBindTexture(GL_TEXTURE_2D, g_projector_lights[i].cookie);
+        }
+        
+        // Set sampler uniforms for projector cookie textures
+        glUniform1i(glGetUniformLocation(litShaderProgram, "projectorCookie0"), 7);
+        glUniform1i(glGetUniformLocation(litShaderProgram, "projectorCookie1"), 8);
+    }
+}
+
 void shutdown()
 {
     shutdown_framebuffer();  // Clean up FBO resources
@@ -399,6 +482,9 @@ static void render_sprite_lit_internal(TextureID tex, Vec3 pos, Vec2 size, Vec4 
         glUniform1fv(glGetUniformLocation(litShaderProgram, "lightIntensities"), actual_lights, intensities.data());
         glUniform1fv(glGetUniformLocation(litShaderProgram, "lightRadii"), actual_lights, radii.data());
     }
+    
+    // Upload projector light uniforms (global state)
+    upload_projector_light_uniforms();
     
     // Bind textures
     glActiveTexture(GL_TEXTURE0);
@@ -608,6 +694,9 @@ static void render_sprite_lit_shadowed_internal(TextureID tex, Vec3 pos, Vec2 si
         // No shadow casters - set count to 0
         glUniform1i(glGetUniformLocation(litShaderProgram, "numShadowCasters"), 0);
     }
+    
+    // Upload projector light uniforms (global state)
+    upload_projector_light_uniforms();
     
     // Bind textures (units 0-2 for main sprite)
     glActiveTexture(GL_TEXTURE0);
