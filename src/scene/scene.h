@@ -35,26 +35,6 @@ struct Hotspot {
     std::function<void()> callback;
 };
 
-// PointLight: 3D positioning in OpenGL coordinate space
-struct PointLight {
-    // COORDINATE SYSTEM (ALL IN OPENGL SPACE -1 to +1):
-    //   X = horizontal screen position (-1=left, +1=right)
-    //   Y = vertical screen position (-1=bottom, +1=top)
-    //   Z = depth into screen (-1=near camera, +1=far/background)
-    //
-    // Example placements:
-    //   Light at Y=0.5, Z=0.0 → upper screen, at scene mid-depth
-    //   Light at Y=-0.5, Z=0.5 → lower screen, further into background
-    //
-    // Shadow behavior:
-    //   Shadows are cast by scene objects (quads) via ray intersection tests.
-    //   Shadow direction depends on relative positions of light and caster.
-    Vec3 position;      // OpenGL coords (-1 to +1), X,Y = screen pos, Z = depth
-    Vec3 color;         // RGB color (0-1 range)
-    float intensity;    // Brightness multiplier
-    float radius;       // Radius in OpenGL units (0-4 range typical)
-};
-
 struct SceneGeometry {
     std::vector<Collision::Polygon> walkable_areas;
     std::vector<Hotspot> hotspots;
@@ -72,7 +52,6 @@ struct Scene {
     // ECS entity IDs for props in this scene (created when scene is loaded)
     std::vector<ECS::EntityID> prop_entities;
     
-    std::vector<PointLight> lights;     // Dynamic point lights for scene illumination
     SceneGeometry geometry;
 };
 

@@ -7,22 +7,9 @@
 #include "../../renderer/renderer.h"
 #include "transform.h"  // Transform2_5DComponent, Transform3DComponent
 #include "sprite.h"     // SpriteComponent, EmissiveComponent
+#include "light.h"      // LightComponent
 
 namespace ECS {
-
-// LightComponent - Point light illumination
-// Expanded in Phase 4
-struct LightComponent {
-    Vec3 color;             // RGB (0-1)
-    float intensity;
-    float radius;
-    bool casts_shadows;     // Shadow-casting flag
-    bool enabled;
-    
-    LightComponent() 
-        : color(1, 1, 1), intensity(1), radius(1), 
-          casts_shadows(false), enabled(true) {}
-};
 
 // ShadowCasterComponent - Shadow casting behavior
 // Expanded in Phase 6

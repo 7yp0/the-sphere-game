@@ -289,6 +289,73 @@ static void test_ecs_phase3() {
     printf("========================================\n\n");
 }
 
+// Phase 4 ECS Test - validates LightComponent
+static void test_ecs_phase4() {
+    printf("\n========================================\n");
+    printf("     ECS PHASE 4 TEST - START\n");
+    printf("========================================\n");
+    
+    // Test 1: LightComponent defaults
+    printf("\n[TEST 1] LightComponent defaults...\n");
+    
+    ECS::LightComponent light;
+    printf("  color=(%.1f,%.1f,%.1f)\n", light.color.x, light.color.y, light.color.z);
+    printf("  intensity=%.2f, radius=%.2f\n", light.intensity, light.radius);
+    printf("  casts_shadows=%s, enabled=%s\n", 
+           light.casts_shadows ? "YES" : "NO", light.enabled ? "YES" : "NO");
+    
+    // Test 2: Create light entity with Transform3D + LightComponent
+    printf("\n[TEST 2] Light entity (Transform3D + LightComponent)...\n");
+    
+    ECS::EntityID point_light = g_state.ecs_world.create_entity();
+    
+    // Lights use Transform3D for free 3D positioning
+    auto& light_transform = g_state.ecs_world.add_component<ECS::Transform3DComponent>(point_light);
+    light_transform.position = Vec3(0.0f, 0.5f, 0.0f);  // Center-top, mid-depth (OpenGL coords)
+    
+    auto& light_comp = g_state.ecs_world.add_component<ECS::LightComponent>(point_light);
+    light_comp.color = Vec3(1.0f, 0.9f, 0.7f);  // Warm white
+    light_comp.intensity = 1.5f;
+    light_comp.radius = 2.0f;
+    light_comp.casts_shadows = true;
+    
+    printf("  Created light entity ID=%u\n", point_light);
+    printf("  Transform3D: pos=(%.1f,%.1f,%.1f)\n", 
+           light_transform.position.x, light_transform.position.y, light_transform.position.z);
+    printf("  Light: color=(%.1f,%.1f,%.1f), intensity=%.1f, radius=%.1f\n",
+           light_comp.color.x, light_comp.color.y, light_comp.color.z,
+           light_comp.intensity, light_comp.radius);
+    printf("  casts_shadows=%s, enabled=%s\n", 
+           light_comp.casts_shadows ? "YES" : "NO", light_comp.enabled ? "YES" : "NO");
+    
+    // Verify component queries
+    printf("\n[TEST 3] Component queries...\n");
+    printf("  Has Transform3D: %s\n", g_state.ecs_world.has_component<ECS::Transform3DComponent>(point_light) ? "YES" : "NO");
+    printf("  Has LightComponent: %s\n", g_state.ecs_world.has_component<ECS::LightComponent>(point_light) ? "YES" : "NO");
+    printf("  Has Transform2_5D (should be NO): %s\n", g_state.ecs_world.has_component<ECS::Transform2_5DComponent>(point_light) ? "YES" : "NO");
+    
+    // Test 4: Get entities with LightComponent
+    printf("\n[TEST 4] Query entities with LightComponent...\n");
+    auto light_entities = g_state.ecs_world.get_entities_with<ECS::LightComponent>();
+    printf("  Found %zu entities with LightComponent\n", light_entities.size());
+    for (auto eid : light_entities) {
+        auto* lc = g_state.ecs_world.get_component<ECS::LightComponent>(eid);
+        auto* tc = g_state.ecs_world.get_component<ECS::Transform3DComponent>(eid);
+        if (lc && tc) {
+            printf("    Entity %u: pos=(%.1f,%.1f,%.1f), color=(%.1f,%.1f,%.1f)\n",
+                   eid, tc->position.x, tc->position.y, tc->position.z,
+                   lc->color.x, lc->color.y, lc->color.z);
+        }
+    }
+    
+    g_state.ecs_world.destroy_entity(point_light);
+    
+    printf("\n========================================\n");
+    printf("     ECS PHASE 4 TEST - COMPLETE\n");
+    printf("     All tests passed!\n");
+    printf("========================================\n\n");
+}
+
 // Helper: Get player transform (for update loop)
 static ECS::Transform2_5DComponent* get_player_transform() {
     if (g_state.player_entity == ECS::INVALID_ENTITY) return nullptr;
@@ -307,33 +374,12 @@ static void update_player_sprite_animation() {
     }
 }
 
-static void update_animated_test_light(float delta_time) {
-    // Animate the first light horizontally (left to right) with fixed Y and Z
-    // ALL COORDINATES IN OPENGL SPACE (-1 to +1):
-    //   X = -1 (left) to +1 (right)
-    //   Y = -1 (bottom) to +1 (top) - height affects shadow length
-    //   Z = -1 (near camera) to +1 (far/background)
-    static float light_time = 0.0f;
-    light_time += delta_time;
-    
-    if (g_state.scene.lights.size() > 0) {
-        float cycle_time = 6.0f;  // 6 seconds für einen Durchlauf
-        float t = fmod(light_time, cycle_time) / cycle_time;  // 0 to 1
-        
-        // X bewegt sich von links (-1) nach rechts (+1) in OpenGL-Koordinaten
-        float x = -1.0f + t * 2.0f;  // -1 to +1
-        float y = 0.0f;   // Mitte (OpenGL Y: -1=unten, +1=oben)
-        float z = 0.0f;  // Leicht vor der Szene (näher zur Kamera)
-        
-        g_state.scene.lights[0].position = Vec3(x, y, z);
-    }
-}
-
 void init() {
     // Run ECS tests at startup
     test_ecs_phase1();
     test_ecs_phase2();
     test_ecs_phase3();
+    test_ecs_phase4();
     
     // Initialize scene (this also creates prop ECS entities)
     Scene::init_scene_test();
@@ -376,8 +422,6 @@ void update(float delta_time) {
         // Update sprite animation based on player state
         update_player_sprite_animation();
     }
-    
-    update_animated_test_light(delta_time);
 }
 
 void render() {
@@ -388,11 +432,9 @@ void render() {
     Renderer::clear_screen();
     
     // Background - use BACKGROUND layer for depth
-    Renderer::render_sprite_lit(g_state.scene.background, 
-                               Vec3(0.0f, 0.0f, Layers::get_z_depth(Layer::BACKGROUND)),
-                               Vec2((float)g_state.scene.width, (float)g_state.scene.height),
-                               g_state.scene.lights,
-                               g_state.scene.background_normal_map);
+    Renderer::render_sprite(g_state.scene.background, 
+                           Vec3(0.0f, 0.0f, Layers::get_z_depth(Layer::BACKGROUND)),
+                           Vec2((float)g_state.scene.width, (float)g_state.scene.height));
     
     // =========================================================================
     // Render props using ECS components (from current scene)
@@ -413,9 +455,8 @@ void render() {
         // Create 3D position for rendering (pixel coords + z_depth)
         Vec3 render_pos(transform->position.x, transform->position.y, transform->z_depth);
         
-        // Render with lighting
-        Renderer::render_sprite_lit(sprite->texture, render_pos, scaled_size,
-                                   g_state.scene.lights, sprite->normal_map, sprite->pivot);
+        // Render prop
+        Renderer::render_sprite(sprite->texture, render_pos, scaled_size, sprite->pivot);
     }
     
     // =========================================================================
@@ -438,30 +479,14 @@ void render() {
             
             // Render animated sprite if animation is set
             if (sprite->is_animated() && sprite->animation) {
-                Renderer::render_sprite_animated_lit(sprite->animation, 
-                                                    render_pos, 
-                                                    scaled_size,
-                                                    g_state.scene.lights,
-                                                    sprite->normal_map,
-                                                    sprite->pivot);
+                Renderer::render_sprite_animated(sprite->animation, 
+                                                render_pos, 
+                                                scaled_size,
+                                                sprite->pivot);
             } else {
-                Renderer::render_sprite_lit(sprite->texture, render_pos, scaled_size,
-                                           g_state.scene.lights, sprite->normal_map, sprite->pivot);
+                Renderer::render_sprite(sprite->texture, render_pos, scaled_size, sprite->pivot);
             }
         }
-    }
-    
-    // Debug: Rotes Rechteck an der Lichtposition (in base resolution coordinates)
-    if (g_state.scene.lights.size() > 0) {
-        Vec3 light_pos = g_state.scene.lights[0].position;
-        // Konvertiere OpenGL-Koordinaten (-1 bis +1) zu Pixel-Koordinaten (base resolution)
-        float pixel_x = (light_pos.x + 1.0f) * 0.5f * g_state.base_width;
-        float pixel_y = (1.0f - light_pos.y) * 0.5f * g_state.base_height;
-        
-        // Zeichne rotes Rect (3x3 Pixel für base resolution) zentriert auf der Lichtposition
-        Renderer::render_rect(Vec3(pixel_x - 1.5f, pixel_y - 1.5f, Layers::get_z_depth(Layer::UI)),
-                             Vec2(3.0f, 3.0f),
-                             Vec4(1.0f, 0.0f, 0.0f, 1.0f));  // Rot
     }
     
     Renderer::end_render_to_framebuffer();
