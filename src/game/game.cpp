@@ -476,8 +476,8 @@ static void update_animated_light(float delta_time) {
         Vec3( margin,  margin, -margin),  // 1: top-right-near
         Vec3( margin, -margin, -margin),  // 2: bottom-right-near
         Vec3(-margin, -margin, -margin),  // 3: bottom-left-near
-        Vec3(-margin, -margin + 0.5f,  margin),  // 4: bottom-left-far
-        Vec3( margin, -margin + 0.5f,  margin),  // 5: bottom-right-far
+        Vec3(-margin, -margin + 0.6f,  margin),  // 4: bottom-left-far
+        Vec3( margin, -margin + 0.6f,  margin),  // 5: bottom-right-far
         Vec3( margin,  margin,  margin),  // 6: top-right-far
         Vec3(-margin,  margin,  margin),  // 7: top-left-far
     };
@@ -733,13 +733,18 @@ void render() {
     
     // =========================================================================
     // Render props using ECS components (from current scene)
+    // Props can receive shadows from other props (but not from themselves)
     // =========================================================================
     static bool props_printed = false;
+    int32_t prop_render_index = 0;
     for (ECS::EntityID prop_entity : g_state.scene.prop_entities) {
         auto* transform = g_state.ecs_world.get_component<ECS::Transform2_5DComponent>(prop_entity);
         auto* sprite = g_state.ecs_world.get_component<ECS::SpriteComponent>(prop_entity);
         
-        if (!transform || !sprite || !sprite->visible) continue;
+        if (!transform || !sprite || !sprite->visible) {
+            prop_render_index++;
+            continue;
+        }
         
         // Debug: print prop z_depth once
         if (!props_printed) {
@@ -757,15 +762,19 @@ void render() {
         // Create 3D position for rendering (pixel coords + z_depth)
         Vec3 render_pos(transform->position.x, transform->position.y, transform->z_depth);
         
-        // Render prop with lighting - pass z_depth as objectZ for correct "light behind object" check
-        Renderer::render_sprite_lit(sprite->texture, render_pos, scaled_size,
-                                   light_data, num_lights, sprite->normal_map, sprite->pivot,
-                                   transform->z_depth);
+        // Render prop with lighting AND shadows - pass entity index to skip self-shadowing
+        Renderer::render_sprite_lit_shadowed(sprite->texture, render_pos, scaled_size,
+                                            light_data, num_lights,
+                                            shadow_data, num_shadow_casters,
+                                            sprite->normal_map, sprite->pivot,
+                                            transform->z_depth, prop_render_index);
+        prop_render_index++;
     }
     props_printed = true;
     
     // =========================================================================
     // Render player using ECS components
+    // Player receives shadows from props but doesn't shadow itself
     // =========================================================================
     if (g_state.player_entity != ECS::INVALID_ENTITY) {
         auto* transform = g_state.ecs_world.get_component<ECS::Transform2_5DComponent>(g_state.player_entity);
@@ -782,19 +791,26 @@ void render() {
             // Create 3D position for rendering
             Vec3 render_pos(transform->position.x, transform->position.y, transform->z_depth);
             
-            // Render animated sprite if animation is set (with lighting) - pass z_depth as objectZ
+            // Player's entity index for self-shadow skip (after all props)
+            int32_t player_entity_index = (int32_t)g_state.scene.prop_entities.size();
+            
+            // Render animated sprite if animation is set (with lighting and shadows)
             if (sprite->is_animated() && sprite->animation) {
-                Renderer::render_sprite_animated_lit(sprite->animation, 
+                Renderer::render_sprite_animated_lit_shadowed(sprite->animation, 
                                                 render_pos, 
                                                 scaled_size,
                                                 light_data, num_lights,
+                                                shadow_data, num_shadow_casters,
                                                 sprite->normal_map,
                                                 sprite->pivot,
-                                                transform->z_depth);
+                                                transform->z_depth,
+                                                player_entity_index);
             } else {
-                Renderer::render_sprite_lit(sprite->texture, render_pos, scaled_size,
-                                           light_data, num_lights, sprite->normal_map, sprite->pivot,
-                                           transform->z_depth);
+                Renderer::render_sprite_lit_shadowed(sprite->texture, render_pos, scaled_size,
+                                           light_data, num_lights, 
+                                           shadow_data, num_shadow_casters,
+                                           sprite->normal_map, sprite->pivot,
+                                           transform->z_depth, player_entity_index);
             }
         }
     }

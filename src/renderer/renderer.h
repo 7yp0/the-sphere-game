@@ -84,6 +84,12 @@ void render_sprite_lit_shadowed(TextureID tex, Vec3 pos, Vec2 size,
                                 TextureID normal_map = 0, PivotPoint pivot = PivotPoint::TOP_LEFT,
                                 float objectZ = -999.0f, int32_t self_entity_index = -1);
 
+void render_sprite_animated_lit_shadowed(const SpriteAnimation* anim, Vec3 pos, Vec2 size,
+                                         const LightData* lights, uint32_t num_lights,
+                                         const ShadowCasterData* shadow_casters, uint32_t num_shadow_casters,
+                                         TextureID normal_map = 0, PivotPoint pivot = PivotPoint::TOP_LEFT,
+                                         float objectZ = -999.0f, int32_t self_entity_index = -1);
+
 void render_sprite_lit_shadowed(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range,
                                 const LightData* lights, uint32_t num_lights,
                                 const ShadowCasterData* shadow_casters, uint32_t num_shadow_casters,

@@ -180,14 +180,16 @@ vec3 calculatePointLight(int lightIndex, vec3 fragPos3D, vec3 normal, bool isObj
     // Diffuse lighting (N·L)
     float NdotL = dot(normal, lightDir);
     
-    // For background: allow lighting from any direction (no backface culling)
-    // For objects: only light if facing the light
+    // For OBJECTS (props/player): surfaces facing away from light don't get lit
+    // This ensures physically correct lighting for 3D objects
     if (isObject && NdotL <= 0.0) {
         return vec3(0.0);  // Surface facing away from light
     }
     
-    // For background, we want the absolute value for N·L since the normal
-    // might point "into" the scene but we still want lighting
+    // For BACKGROUND: use absolute value of NdotL
+    // The background is a 2D image - we don't want the normal map to create
+    // self-shadowing (sections going completely dark). Cast shadows from props
+    // will still work because they go through calculateShadow().
     if (!isObject) {
         NdotL = abs(NdotL);
     }

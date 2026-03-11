@@ -448,6 +448,39 @@ void render_sprite_animated_lit(const SpriteAnimation* anim, Vec3 pos, Vec2 size
     render_sprite_lit_internal(anim->texture, pos, size, tex_coord_range, lights, num_lights, normal_map, pivot, objectZ);
 }
 
+// Forward declaration for shadowed internal function
+static void render_sprite_lit_shadowed_internal(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range,
+                                                const LightData* lights, uint32_t num_lights,
+                                                const ShadowCasterData* shadow_casters, uint32_t num_shadow_casters,
+                                                TextureID normal_map, PivotPoint pivot, 
+                                                float objectZ, int32_t self_entity_index);
+
+// Animated sprite with lighting AND shadow receiving
+void render_sprite_animated_lit_shadowed(const SpriteAnimation* anim, Vec3 pos, Vec2 size,
+                                         const LightData* lights, uint32_t num_lights,
+                                         const ShadowCasterData* shadow_casters, uint32_t num_shadow_casters,
+                                         TextureID normal_map, PivotPoint pivot, 
+                                         float objectZ, int32_t self_entity_index)
+{
+    if (!anim || anim->frames.empty()) {
+        DEBUG_ERROR("render_sprite_animated_lit_shadowed() - invalid animation (null or empty frames)");
+        return;
+    }
+    if (anim->current_frame >= anim->frames.size()) {
+        DEBUG_ERROR("render_sprite_animated_lit_shadowed() - current_frame (%u) out of bounds (size: %zu)",
+                   anim->current_frame, anim->frames.size());
+        return;
+    }
+    
+    const SpriteFrame& frame = anim->frames[anim->current_frame];
+    Vec4 tex_coord_range(frame.u0, frame.v0, frame.u1, frame.v1);
+    
+    render_sprite_lit_shadowed_internal(anim->texture, pos, size, tex_coord_range, 
+                                        lights, num_lights, 
+                                        shadow_casters, num_shadow_casters,
+                                        normal_map, pivot, objectZ, self_entity_index);
+}
+
 // =============================================================================
 // LIT SPRITE RENDERING WITH SHADOWS
 // =============================================================================
