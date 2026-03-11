@@ -7,6 +7,7 @@
 #include "renderer/spritesheet_utils.h"
 #include "collision/polygon_utils.h"
 #include "scene/scene.h"
+#include "debug/debug.h"
 #include "ecs/ecs.h"
 #include <cmath>
 #include <algorithm>
@@ -303,8 +304,27 @@ void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_heig
 }
 
 void player_handle_input(Player& player, ECS::Transform2_5DComponent& transform) {
+    // Track previous mouse state for release detection
+    static bool s_was_mouse_down = false;
+    bool is_mouse_down = Platform::mouse_down();
+    
+    // Handle right-click (delete vertex in editor)
+    if (Platform::mouse_right_clicked()) {
+        Vec2 mouse_viewport = Platform::get_mouse_pos();
+        if (Debug::handle_mouse_right_click(mouse_viewport)) {
+            // Right-click consumed by editor
+        }
+    }
+    
     if (Platform::mouse_clicked()) {
         Vec2 mouse_viewport = Platform::get_mouse_pos();
+        
+        // Check if debug overlay wants to consume the click
+        if (Debug::handle_mouse_click(mouse_viewport)) {
+            s_was_mouse_down = is_mouse_down;
+            return;  // Click was consumed by geometry editor
+        }
+        
         // Scale mouse position from viewport (1280x720) to base resolution (320x180)
         Vec2 mouse_pos = Vec2(
             mouse_viewport.x * (float)Config::BASE_WIDTH / (float)Config::VIEWPORT_WIDTH,
@@ -317,6 +337,12 @@ void player_handle_input(Player& player, ECS::Transform2_5DComponent& transform)
             handle_movement_click(player, mouse_pos);
         }
     }
+    
+    // Handle mouse release for geometry editor (detect transition from down to up)
+    if (s_was_mouse_down && !is_mouse_down) {
+        Debug::handle_mouse_release();
+    }
+    s_was_mouse_down = is_mouse_down;
 }
 
 static void clamp_position(Vec2& position, const Player& player, uint32_t viewport_width, uint32_t viewport_height) {
@@ -332,15 +358,15 @@ static void clamp_position(Vec2& position, const Player& player, uint32_t viewpo
 static void apply_collision_response(Vec2& position, float& z_depth, Vec3 old_position, const std::vector<Collision::Polygon>& walkable_areas, const Scene::Scene& scene) {
     if (walkable_areas.empty()) return;
     
-    // If player is inside walkable areas, no collision
-    if (Collision::point_in_any_polygon(position, walkable_areas)) {
+    // If player is inside walkable areas (and not in a hole), no collision
+    if (Collision::point_in_walkable_area(position, walkable_areas)) {
         return;
     }
     
     // Collision detected - try wall sliding
     // Try X-axis only movement
     Vec2 x_only = Vec2(position.x, old_position.y);
-    if (Collision::point_in_any_polygon(x_only, walkable_areas)) {
+    if (Collision::point_in_walkable_area(x_only, walkable_areas)) {
         position = x_only;
         z_depth = Scene::get_z_from_depth_map(scene, x_only.x, x_only.y);
         return;
@@ -348,7 +374,7 @@ static void apply_collision_response(Vec2& position, float& z_depth, Vec3 old_po
     
     // Try Y-axis only movement
     Vec2 y_only = Vec2(old_position.x, position.y);
-    if (Collision::point_in_any_polygon(y_only, walkable_areas)) {
+    if (Collision::point_in_walkable_area(y_only, walkable_areas)) {
         position = y_only;
         z_depth = Scene::get_z_from_depth_map(scene, y_only.x, y_only.y);
         return;

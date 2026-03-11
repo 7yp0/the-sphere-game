@@ -161,7 +161,7 @@ void init_scene_test() {
     ECS::EntityID window_light = ECS::create_projector_light(
         Vec2(20.0f, 35.0f),          // Left side, higher up (pixels)
         0.0f,                        // Z depth (near camera, like a window on the wall)
-        Vec3(1.0f, -0.8f, 0.0f),    // Direction: pointing right (+X) and into room (+Z)
+        Vec3(1.0f, -0.9f, 0.0f),    // Direction: pointing right (+X) and into room (+Z)
         Vec3(0.0f, 1.0f, -0.25f),      // Up: pointing up (+Y)
         Vec3(1.0f, 0.95f, 0.85f),    // Warm sunlight color
         2.5f,                         // Intensity

@@ -40,6 +40,13 @@ bool polygons_intersect(const Polygon& poly1, const Polygon& poly2);
 // Utility: Check if point is inside any polygon in the list
 bool point_in_any_polygon(Vec2 point, const std::vector<Polygon>& polygons);
 
+// Utility: Check if point is in walkable area (handles holes)
+// A polygon completely inside another acts as a hole/obstacle
+bool point_in_walkable_area(Vec2 point, const std::vector<Polygon>& polygons);
+
+// Check if polygon A is completely inside polygon B
+bool polygon_inside_polygon(const Polygon& inner, const Polygon& outer);
+
 // Utility: Find the closest point across all polygons
 // Returns closest point on any polygon boundary
 Vec2 closest_point_on_any_polygon(Vec2 point, const std::vector<Polygon>& polygons);

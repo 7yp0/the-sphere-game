@@ -179,6 +179,34 @@ bool point_in_any_polygon(Vec2 point, const std::vector<Polygon>& polygons) {
     return false;
 }
 
+bool polygon_inside_polygon(const Polygon& inner, const Polygon& outer) {
+    // Check if all vertices of inner polygon are inside outer polygon
+    for (const auto& vertex : inner.points) {
+        if (!point_in_polygon(vertex, outer)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool point_in_walkable_area(Vec2 point, const std::vector<Polygon>& polygons) {
+    if (polygons.empty()) return false;
+    
+    // Count how many polygons contain this point
+    // If point is in an odd number of polygons, it's walkable
+    // If point is in an even number > 0, it's in a "hole"
+    int containment_count = 0;
+    
+    for (const auto& poly : polygons) {
+        if (point_in_polygon(point, poly)) {
+            containment_count++;
+        }
+    }
+    
+    // Odd = walkable, Even = hole (or outside if 0)
+    return (containment_count % 2) == 1;
+}
+
 Vec2 closest_point_on_any_polygon(Vec2 point, const std::vector<Polygon>& polygons) {
     if (polygons.empty()) return point;
     

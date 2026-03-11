@@ -27,6 +27,8 @@ static HGLRC g_hglrc = nullptr;
 static bool g_shouldClose = false;
 static Vec2 g_mousePos = Vec2(0.0f, 0.0f);
 static bool g_mouseClicked = false;
+static bool g_mouseRightClicked = false;
+static bool g_mouseDown = false;
 static bool g_keys[256] = {};
 static uint32_t g_window_width = 0;
 static uint32_t g_window_height = 0;
@@ -52,6 +54,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
         case WM_LBUTTONDOWN:
             set_mouse_clicked(true);
+            set_mouse_down(true);
+            return 0;
+
+        case WM_LBUTTONUP:
+            set_mouse_down(false);
+            return 0;
+
+        case WM_RBUTTONDOWN:
+            set_mouse_right_clicked(true);
             return 0;
 
         case WM_MOUSEMOVE:
@@ -338,6 +349,28 @@ void set_mouse_pos(Vec2 pos)
 void set_mouse_clicked(bool clicked)
 {
     g_mouseClicked = clicked;
+}
+
+bool mouse_down()
+{
+    return g_mouseDown;
+}
+
+void set_mouse_down(bool down)
+{
+    g_mouseDown = down;
+}
+
+bool mouse_right_clicked()
+{
+    bool clicked = g_mouseRightClicked;
+    g_mouseRightClicked = false;
+    return clicked;
+}
+
+void set_mouse_right_clicked(bool clicked)
+{
+    g_mouseRightClicked = clicked;
 }
 
 }  // namespace Platform

@@ -1,4 +1,5 @@
 #include "debug.h"
+#include "geometry_editor.h"
 #include "renderer/text.h"
 #include "renderer/renderer.h"
 #include "types.h"
@@ -18,6 +19,11 @@ bool overlay_enabled = false;
 
 void toggle_overlay() {
   overlay_enabled = !overlay_enabled;
+  // Also toggle geometry editor
+  if (overlay_enabled) {
+      GeometryEditor::init();
+  }
+  GeometryEditor::toggle();
 }
 
 void handle_debug_keys() {
@@ -98,15 +104,23 @@ static void render_lights_debug() {
 
 static void render_geometry_debug() {
     const Scene::Scene& scene = Game::g_state.scene;
+    const auto& editor_state = GeometryEditor::get_state();
     
     // Scale factor from base (320x180) to viewport (1280x720)
     float scale_x = (float)Config::VIEWPORT_WIDTH / (float)Config::BASE_WIDTH;
     float scale_y = (float)Config::VIEWPORT_HEIGHT / (float)Config::BASE_HEIGHT;
     
-    // Draw walkable areas (green)
-    Vec4 walkable_color = Vec4(0.0f, 1.0f, 0.0f, 0.7f);
+    // Draw walkable areas (green, lighter when selected)
     float ui_z = Layers::get_z_depth(Layer::UI);
-    for (const auto& walkable : scene.geometry.walkable_areas) {
+    for (size_t wi = 0; wi < scene.geometry.walkable_areas.size(); wi++) {
+        const auto& walkable = scene.geometry.walkable_areas[wi];
+        
+        // Highlight selected polygon
+        bool is_selected = (editor_state.selection_type == GeometryEditor::SelectionType::WALKABLE_AREA && 
+                           editor_state.selected_polygon_index == (int)wi);
+        Vec4 color = is_selected ? Vec4(0.4f, 1.0f, 0.4f, 0.9f) : Vec4(0.0f, 1.0f, 0.0f, 0.7f);
+        float line_width = is_selected ? 3.0f : 2.0f;
+        
         size_t n = walkable.points.size();
         for (size_t i = 0; i < n; i++) {
             // Scale from base to viewport coordinates
@@ -114,33 +128,50 @@ static void render_geometry_debug() {
             Vec3 p2 = Vec3(walkable.points[(i + 1) % n].x * scale_x, walkable.points[(i + 1) % n].y * scale_y, ui_z);
             
             // Draw edge as a line
-            Renderer::render_line(p1, p2, walkable_color, 2.0f);
+            Renderer::render_line(p1, p2, color, line_width);
             
             // Draw vertex as a small circle
-            Renderer::render_rect(p1, Vec2(6.0f, 6.0f), walkable_color);
+            Renderer::render_rect(p1, Vec2(6.0f, 6.0f), color);
         }
     }
     
-    // Draw hotspots (red)
-    Vec4 hotspot_color = Vec4(1.0f, 0.0f, 0.0f, 0.7f);
-    for (const auto& hotspot : scene.geometry.hotspots) {
+    // Draw hotspots (red, lighter when selected)
+    for (size_t hi = 0; hi < scene.geometry.hotspots.size(); hi++) {
+        const auto& hotspot = scene.geometry.hotspots[hi];
+        
+        bool is_selected = (editor_state.selection_type == GeometryEditor::SelectionType::HOTSPOT && 
+                           editor_state.selected_polygon_index == (int)hi);
+        Vec4 color = is_selected ? Vec4(1.0f, 0.4f, 0.4f, 0.9f) : Vec4(1.0f, 0.0f, 0.0f, 0.7f);
+        float line_width = is_selected ? 3.0f : 2.0f;
+        
         size_t n = hotspot.bounds.points.size();
         for (size_t i = 0; i < n; i++) {
             // Scale from base to viewport coordinates
             Vec3 p1 = Vec3(hotspot.bounds.points[i].x * scale_x, hotspot.bounds.points[i].y * scale_y, ui_z);
             Vec3 p2 = Vec3(hotspot.bounds.points[(i + 1) % n].x * scale_x, hotspot.bounds.points[(i + 1) % n].y * scale_y, ui_z);
             
-            Renderer::render_line(p1, p2, hotspot_color, 2.0f);
-            Renderer::render_rect(p1, Vec2(6.0f, 6.0f), hotspot_color);
+            Renderer::render_line(p1, p2, color, line_width);
+            Renderer::render_rect(p1, Vec2(6.0f, 6.0f), color);
         }
     }
 }
 
 void render_overlay(Vec2 mouse_pixel) {
     if (overlay_enabled) {
+        // Convert mouse to base resolution for editor
+        float scale_x = (float)Config::BASE_WIDTH / (float)Config::VIEWPORT_WIDTH;
+        float scale_y = (float)Config::BASE_HEIGHT / (float)Config::VIEWPORT_HEIGHT;
+        Vec2 mouse_base = Vec2(mouse_pixel.x * scale_x, mouse_pixel.y * scale_y);
+        
+        // Update geometry editor
+        GeometryEditor::update(mouse_base);
+        
         // Draw debug visualizations (behind text)
         render_geometry_debug();
         render_lights_debug();
+        
+        // Render geometry editor overlay (preview lines, selected vertices)
+        GeometryEditor::render();
         
         // Calculate FPS from delta time
         float dt = Core::get_delta_time();
@@ -174,4 +205,39 @@ void render_overlay(Vec2 mouse_pixel) {
         Renderer::render_text(text_buffer, text_pos, 1.0f);
     }
 }
+
+bool handle_mouse_click(Vec2 mouse_pixel) {
+    if (!overlay_enabled || !GeometryEditor::is_active()) return false;
+    
+    // Convert to base resolution
+    float scale_x = (float)Config::BASE_WIDTH / (float)Config::VIEWPORT_WIDTH;
+    float scale_y = (float)Config::BASE_HEIGHT / (float)Config::VIEWPORT_HEIGHT;
+    Vec2 mouse_base = Vec2(mouse_pixel.x * scale_x, mouse_pixel.y * scale_y);
+    
+    GeometryEditor::on_mouse_click(mouse_base);
+    return true;  // Consume click when editor is active
+}
+
+bool handle_mouse_right_click(Vec2 mouse_pixel) {
+    if (!overlay_enabled || !GeometryEditor::is_active()) return false;
+    
+    // Convert to base resolution
+    float scale_x = (float)Config::BASE_WIDTH / (float)Config::VIEWPORT_WIDTH;
+    float scale_y = (float)Config::BASE_HEIGHT / (float)Config::VIEWPORT_HEIGHT;
+    Vec2 mouse_base = Vec2(mouse_pixel.x * scale_x, mouse_pixel.y * scale_y);
+    
+    GeometryEditor::on_mouse_right_click(mouse_base);
+    return true;  // Consume right-click when editor is active
+}
+
+void handle_mouse_release() {
+    if (overlay_enabled && GeometryEditor::is_active()) {
+        GeometryEditor::on_mouse_release();
+    }
+}
+
+void load_scene_geometry() {
+    GeometryEditor::load_geometry(Game::g_state.scene.name.c_str());
+}
+
 }

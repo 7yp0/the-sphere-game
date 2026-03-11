@@ -56,7 +56,7 @@ struct Player {
     float boundary_margin = 2.5f;                  // Keep player away from scene edges
     float hotspot_proximity_tolerance = 5.0f;      // Extra distance beyond interaction_distance
     float direction_normalization_threshold = 0.025f; // Min distance to normalize direction vector
-    float stuck_movement_threshold = 0.025f;       // Pixels per frame to consider player stuck
+    float stuck_movement_threshold = 0.001f;       // Pixels per frame to consider player stuck
 };
 
 // Create player ECS entity with Transform and Sprite components

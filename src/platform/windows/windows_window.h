@@ -21,10 +21,14 @@ Vec2 get_mouse_pos();
 uint32_t get_window_width();
 uint32_t get_window_height();
 bool mouse_clicked();
+bool mouse_right_clicked();
+bool mouse_down();
 bool key_pressed(int key_code);
 
 void set_mouse_pos(Vec2 pos);
 void set_mouse_clicked(bool clicked);
+void set_mouse_right_clicked(bool clicked);
+void set_mouse_down(bool down);
 void set_key_pressed(int key_code, bool pressed);
 
 }

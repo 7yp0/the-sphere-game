@@ -196,73 +196,80 @@
 
 ---
 
-## Phase 4.5: Polygon Editor (Debug Geometry Tool)
+## Phase 4.5: Polygon Editor (Debug Geometry Tool) ✅
 
 ### 4.5.1 Debug Polygon Visualization & Editing
 
-- [ ] **D-Key Toggle Debug Mode**
-  - [ ] Show all walkable_areas polygons (green with alpha 0.3)
-  - [ ] Show all hotspots polygons (red with alpha 0.3)
-  - [ ] Show polygon vertices (small circles at each point, clickable)
-  - [ ] Show polygon edges (thin lines)
-  - [ ] Highlight selected polygon (brighter color or outline)
-  - [ ] Highlight selected/hovered vertex (larger circle, different color)
-  - [ ] Existing functionality: mouse position, player position, etc.
+- [x] **D-Key Toggle Debug Mode**
+  - [x] Show all walkable_areas polygons (green with alpha 0.7)
+  - [x] Show all hotspots polygons (red with alpha 0.7)
+  - [x] Show polygon vertices (small rectangles at each point, clickable)
+  - [x] Show polygon edges (lines connecting vertices)
+  - [x] Highlight selected polygon (brighter color + thicker lines)
+  - [x] Highlight selected vertex (cyan rectangle, larger size)
 
-- [ ] **Polygon Creation (In Debug Mode)**
-  - [ ] Press 'W' to start creating new walkable_area
-  - [ ] Press 'H' to start creating new hotspot
-  - [ ] Click to add vertices to current polygon (LMB)
-  - [ ] Polygon auto-closes when clicking first vertex again (visual feedback: preview connection line)
-  - [ ] OR press 'F' to manually finish/close polygon
-  - [ ] Visual feedback: show "next vertex" preview line from last vertex to mouse while creating
+- [x] **Polygon Creation (In Debug Mode)**
+  - [x] Press 'W' to start creating new walkable_area
+  - [x] Press 'H' to start creating new hotspot
+  - [x] Click to add vertices to current polygon (LMB)
+  - [x] Polygon auto-closes when clicking first vertex again (visual: green highlight)
+  - [x] OR press 'F' to manually finish/close polygon
+  - [x] Visual feedback: yellow preview line from last vertex to mouse cursor
 
-- [ ] **Polygon Editing (Drag & Select)**
-  - [ ] Click polygon to select it (highlight with brighter color)
-  - [ ] Click polygon vertex to select it (highlight larger, different color)
-  - [ ] Drag selected vertex to move it (real-time update)
-  - [ ] Drag polygon (anywhere on edge) to move entire polygon (all vertices move together)
-  - [ ] While selected: press 'DEL' to delete polygon
-  - [ ] ESC to deselect current polygon
+- [x] **Polygon Editing (Drag & Select)**
+  - [x] Click vertex to select it + polygon (highlighted)
+  - [x] Drag selected vertex to move it (real-time update)
+  - [x] Click on edge to insert new vertex at click position (immediately draggable)
+  - [x] Right-click vertex to delete it (minimum 3 vertices maintained)
+  - [x] Press 'DEL' to delete entire selected polygon
+  - [x] ESC to deselect current polygon/cancel creation
+  - [x] W/H keys deselect current polygon when starting new creation
 
-- [ ] **Polygon Management UI (Debug)**
-  - [ ] Display selected mode: "CREATING WALKABLE_AREA" or "CREATING HOTSPOT"
-  - [ ] Display selected polygon name and vertex count if editing
-  - [ ] List all polygons with names (e.g., "main_area [5 pts]", "torch_hotspot [4 pts]")
+- [x] **Polygon Mode Display**
+  - [x] Shows current mode: "[SELECT]", "[CREATING WALKABLE]", or "[CREATING HOTSPOT]"
 
 ### 4.5.2 Scene Geometry JSON Format
 
-- [ ] **Per-Scene Geometry File**
-  - [ ] Location: `assets/scenes/<scene_name>/geometry.json`
-  - [ ] Example: `assets/scenes/test/geometry.json`
-  - [ ] Format matches Phase 4 spec (walkable_areas[], hotspots[])
-  - [ ] Load on scene startup
-  - [ ] Scene::load_geometry(const char* scene_name)
+- [x] **Per-Scene Geometry File**
+  - [x] Location: `assets/scenes/<scene_name>/geometry.json`
+  - [x] Example: `assets/scenes/test/geometry.json`
+  - [x] Load on scene startup via `Debug::load_scene_geometry()`
 
-- [ ] **Automatic Geometry Saving**
-  - [ ] Every change (add vertex, move vertex, close polygon, delete polygon) auto-saves to file
-  - [ ] No manual save command needed (Ctrl+S not required)
-  - [ ] Write pretty-printed JSON to `assets/scenes/<scene_name>/geometry.json`
-  - [ ] Optional: debounce save (wait 500ms after last change before writing to disk)
-  - [ ] Silent save (no UI notification needed)
+- [x] **Automatic Geometry Saving**
+  - [x] Every change auto-saves to geometry.json immediately
+  - [x] No manual save command needed
+  - [x] Pretty-printed JSON format
 
-- [ ] **Load Geometry from JSON**
-  - [ ] Parse walkable_areas[] with points, name
-  - [ ] Parse hotspots[] with points, name, interaction_distance
-  - [ ] Populate Scene::geometry on load
-  - [ ] Validate polygon data (3+ points per polygon, valid coordinates)
+- [x] **Load Geometry from JSON**
+  - [x] Parse walkable_areas[] with points array
+  - [x] Parse hotspots[] with points, name, interaction_distance, enabled
+  - [x] Populate Scene::geometry on load
 
-### 4.5.3 Keyboard Shortcuts (Debug Reference)
+### 4.5.3 Hole/Obstacle System
 
-- `D` - Toggle debug polygon display & editing
-- `W` - Create new walkable_area polygon
-- `H` - Create new hotspot polygon
-- `LMB (click)` - Add vertex (while creating) OR select polygon/vertex (while in debug mode)
-- `LMB (drag)` - Move selected vertex OR move entire polygon
-- `F` - Finish/close current polygon (auto-close also works when clicking first vertex)
-- `DEL` - Delete selected polygon
-- `ESC` - Deselect current polygon
-- *Auto-Save* - Every change saves to geometry.json automatically
+- [x] **Nested Walkable Areas as Obstacles**
+  - [x] Walkable area completely inside another = hole/obstacle
+  - [x] Uses odd/even rule: point in odd # of polygons = walkable
+  - [x] `point_in_walkable_area()` handles this automatically
+  - [x] Example: Large room polygon + smaller table polygon inside = player walks around table
+
+### 4.5.4 Keyboard & Mouse Reference
+
+| Input | Action |
+|-------|--------|
+| `D` | Toggle debug overlay & geometry editor |
+| `W` | Start creating new walkable_area polygon |
+| `H` | Start creating new hotspot polygon |
+| `F` | Finish/close current polygon |
+| `ESC` | Cancel creation / Deselect polygon |
+| `DEL` | Delete selected polygon |
+| Left-click vertex | Select vertex (enables dragging) |
+| Left-drag vertex | Move vertex position |
+| Left-click edge | Insert new vertex at click position |
+| Right-click vertex | Delete vertex (keeps min 3) |
+| Click first vertex | Close polygon (while creating) |
+
+*All changes auto-save to `assets/scenes/<scene>/geometry.json`*
 
 ---
 
