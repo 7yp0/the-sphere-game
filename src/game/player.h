@@ -52,6 +52,7 @@ struct Player {
     
     // Edge-following collision state
     bool is_edge_following = false;                // Currently sliding along an edge
+    bool is_on_hole_edge = false;                  // True if current edge belongs to a hole/obstacle
     Vec2 edge_start = Vec2(0.0f, 0.0f);           // Start point of current edge
     Vec2 edge_end = Vec2(0.0f, 0.0f);             // End point of current edge
     Vec2 edge_direction = Vec2(0.0f, 0.0f);       // Normalized direction along edge (toward target)

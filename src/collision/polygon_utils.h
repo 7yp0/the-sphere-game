@@ -57,6 +57,7 @@ struct EdgeInfo {
     Vec2 end;             // Edge end point
     Vec2 normal;          // Outward-facing normal
     bool valid = false;   // True if edge was found
+    bool is_hole = false; // True if edge belongs to an inner polygon (obstacle/hole)
 };
 
 // Find the closest edge on any polygon walkable boundary

@@ -443,24 +443,8 @@ static Vec2 slide_along_boundary(Vec2 old_pos, Vec2 desired_pos,
         float move_dist = std::sqrt(movement.x * movement.x + movement.y * movement.y);
         float proj = movement.x * player.edge_direction.x + movement.y * player.edge_direction.y;
         
-        // If projection is negative or too small, try reversing direction
-        if (proj <= 0.05f) {
-            Vec2 reversed = Vec2(-player.edge_direction.x, -player.edge_direction.y);
-            float reversed_proj = movement.x * reversed.x + movement.y * reversed.y;
-            
-            // If reversed direction is better, use it
-            if (reversed_proj > 0.05f) {
-                player.edge_direction = reversed;
-                proj = reversed_proj;
-            } else {
-                // Neither direction works - abandon this edge, find a new one
-                player.is_edge_following = false;
-                return old_pos;
-            }
-        }
-        
-        // Move along the edge at full speed
-        if (move_dist > 0.001f) {
+        // Only move if projection is positive (we're heading in the right direction along edge)
+        if (proj > 0.01f && move_dist > 0.001f) {
             // Move at full speed along the edge direction
             Vec2 slide_movement = Vec2(player.edge_direction.x * move_dist, 
                                        player.edge_direction.y * move_dist);
@@ -483,19 +467,66 @@ static Vec2 slide_along_boundary(Vec2 old_pos, Vec2 desired_pos,
                     return test_pos;
                 }
             }
-            // All steps failed - abandon edge, try to find new one
-            player.is_edge_following = false;
         }
+        
+        // proj is too low or movement failed - behavior depends on edge type
+        // For hole edges: keep moving toward vertex to get around the obstacle
+        // For outer boundary: stay put, stuck timer will handle timeout
+        
+        if (!player.is_on_hole_edge) {
+            // Outer boundary - just stay in place
+            return old_pos;
+        }
+        
+        // Hole edge - keep moving toward end of edge to get around obstacle
+        const float vertex_snap_dist = 3.0f;
+        Vec2 to_start = Vec2(player.edge_start.x - old_pos.x, player.edge_start.y - old_pos.y);
+        Vec2 to_end = Vec2(player.edge_end.x - old_pos.x, player.edge_end.y - old_pos.y);
+        float dist_start_sq = to_start.x * to_start.x + to_start.y * to_start.y;
+        float dist_end_sq = to_end.x * to_end.x + to_end.y * to_end.y;
+        
+        // If near vertex, snap to it
+        if (dist_start_sq < vertex_snap_dist * vertex_snap_dist) {
+            return player.edge_start;
+        }
+        if (dist_end_sq < vertex_snap_dist * vertex_snap_dist) {
+            return player.edge_end;
+        }
+        
+        // Not near vertex - continue moving along edge toward the endpoint we were heading to
+        // Use edge_direction which was set when we started following this edge
+        if (move_dist > 0.001f) {
+            Vec2 continue_movement = Vec2(player.edge_direction.x * move_dist,
+                                          player.edge_direction.y * move_dist);
+            Vec2 continue_pos = Vec2(old_pos.x + continue_movement.x, old_pos.y + continue_movement.y);
+            
+            if (Collision::point_in_walkable_area(continue_pos, walkable_areas) ||
+                is_point_near_edge(continue_pos, player.edge_start, player.edge_end, 1.5f)) {
+                return continue_pos;
+            }
+            
+            // Try smaller steps
+            for (float scale = 0.5f; scale > 0.1f; scale -= 0.2f) {
+                Vec2 test_pos = Vec2(old_pos.x + continue_movement.x * scale,
+                                     old_pos.y + continue_movement.y * scale);
+                if (Collision::point_in_walkable_area(test_pos, walkable_areas) ||
+                    is_point_near_edge(test_pos, player.edge_start, player.edge_end, 1.5f)) {
+                    return test_pos;
+                }
+            }
+        }
+        
         return old_pos;
     }
     
-    // Not edge-following yet - start edge following
+    // Not edge-following - find closest edge and start following
     Collision::EdgeInfo edge = Collision::find_closest_edge(desired_pos, walkable_areas);
     if (!edge.valid) {
         return old_pos;
     }
     
     player.is_edge_following = true;
+    player.is_on_hole_edge = edge.is_hole;
     player.edge_start = edge.start;
     player.edge_end = edge.end;
     
@@ -627,49 +658,70 @@ void player_update(Player& player, ECS::Transform2_5DComponent& transform,
         if (player.is_edge_following) {
             Vec2 reached_vertex = get_reached_edge_endpoint(new_pos, player);
             if (reached_vertex.x > -99990.0f) {
-                // At edge endpoint - find next edge
-                Collision::EdgeInfo current_edge;
-                current_edge.start = player.edge_start;
-                current_edge.end = player.edge_end;
-                current_edge.valid = true;
-                
-                Collision::EdgeInfo next_edge = Collision::find_next_edge_at_vertex(
-                    current_edge, reached_vertex, 
-                    Vec2(player.target_position.x, player.target_position.y),
-                    g_state.scene.geometry.walkable_areas);
-                
-                if (next_edge.valid) {
-                    // SNAP player to the vertex position before continuing
-                    new_pos = reached_vertex;
-                    
-                    // Switch to next edge
-                    player.edge_start = next_edge.start;
-                    player.edge_end = next_edge.end;
-                    player.edge_direction = Collision::get_edge_direction_toward_target(
-                        next_edge, Vec2(player.target_position.x, player.target_position.y));
-                    
-                    // Continue moving along the new edge from the vertex
-                    float total_move_dist = std::sqrt(move_dist_sq);
-                    float remaining = total_move_dist * 0.5f; // Use some movement budget
-                    
-                    if (remaining > 0.1f) {
-                        Vec2 edge_move = Vec2(
-                            player.edge_direction.x * remaining,
-                            player.edge_direction.y * remaining
-                        );
-                        Vec2 continued_pos = Vec2(new_pos.x + edge_move.x, new_pos.y + edge_move.y);
-                        
-                        bool in_walkable = Collision::point_in_walkable_area(continued_pos, g_state.scene.geometry.walkable_areas);
-                        bool near_edge = is_point_near_edge(continued_pos, player.edge_start, player.edge_end, 2.0f);
-                        
-                        // Allow movement if it's near the new edge
-                        if (in_walkable || near_edge) {
-                            new_pos = continued_pos;
-                        }
-                    }
-                } else {
-                    // No next edge found - stop edge following
+                // At edge endpoint - first check if direct path to target is now clear
+                Vec2 target_2d = Vec2(player.target_position.x, player.target_position.y);
+                if (is_direct_path_clear(reached_vertex, target_2d, g_state.scene.geometry.walkable_areas)) {
+                    // Direct path is clear - stop edge following and continue normally
                     player.is_edge_following = false;
+                    new_pos = reached_vertex;
+                } else {
+                    // Find next edge at this vertex
+                    Collision::EdgeInfo current_edge;
+                    current_edge.start = player.edge_start;
+                    current_edge.end = player.edge_end;
+                    current_edge.valid = true;
+                    
+                    Collision::EdgeInfo next_edge = Collision::find_next_edge_at_vertex(
+                        current_edge, reached_vertex, target_2d,
+                        g_state.scene.geometry.walkable_areas);
+                    
+                    if (next_edge.valid) {
+                        // SNAP player to the vertex position before continuing
+                        new_pos = reached_vertex;
+                        
+                        // Switch to next edge
+                        player.edge_start = next_edge.start;
+                        player.edge_end = next_edge.end;
+                        player.is_on_hole_edge = next_edge.is_hole;
+                        
+                        // Calculate direction based on which end connects to our vertex
+                        Vec2 to_target = Vec2(target_2d.x - reached_vertex.x, target_2d.y - reached_vertex.y);
+                        Vec2 edge_vec = Vec2(next_edge.end.x - next_edge.start.x, 
+                                             next_edge.end.y - next_edge.start.y);
+                        float edge_len = std::sqrt(edge_vec.x * edge_vec.x + edge_vec.y * edge_vec.y);
+                        if (edge_len > 0.001f) {
+                            Vec2 edge_dir = Vec2(edge_vec.x / edge_len, edge_vec.y / edge_len);
+                            // Choose direction that moves toward target
+                            float dot = edge_dir.x * to_target.x + edge_dir.y * to_target.y;
+                            if (dot >= 0) {
+                                player.edge_direction = edge_dir;
+                            } else {
+                                player.edge_direction = Vec2(-edge_dir.x, -edge_dir.y);
+                            }
+                        }
+                        
+                        // Continue moving along the new edge from the vertex
+                        float total_move_dist = std::sqrt(move_dist_sq);
+                        float remaining = total_move_dist * 0.5f;
+                        
+                        if (remaining > 0.1f) {
+                            Vec2 edge_move = Vec2(
+                                player.edge_direction.x * remaining,
+                                player.edge_direction.y * remaining
+                            );
+                            Vec2 continued_pos = Vec2(new_pos.x + edge_move.x, new_pos.y + edge_move.y);
+                            
+                            bool in_walkable = Collision::point_in_walkable_area(continued_pos, g_state.scene.geometry.walkable_areas);
+                            bool near_edge = is_point_near_edge(continued_pos, player.edge_start, player.edge_end, 2.0f);
+                            
+                            if (in_walkable || near_edge) {
+                                new_pos = continued_pos;
+                            }
+                        }
+                    } else {
+                        // No next edge found - stop edge following
+                        player.is_edge_following = false;
+                    }
                 }
             }
         }

@@ -228,12 +228,15 @@ Vec2 closest_point_on_any_polygon(Vec2 point, const std::vector<Polygon>& polygo
 EdgeInfo find_closest_edge(Vec2 point, const std::vector<Polygon>& polygons) {
     EdgeInfo result;
     result.valid = false;
+    result.is_hole = false;
     
     if (polygons.empty()) return result;
     
     float min_dist = 1e10f;
+    size_t best_poly_idx = 0;
     
-    for (const auto& poly : polygons) {
+    for (size_t poly_idx = 0; poly_idx < polygons.size(); poly_idx++) {
+        const auto& poly = polygons[poly_idx];
         if (!poly.is_valid()) continue;
         
         size_t n = poly.points.size();
@@ -247,6 +250,7 @@ EdgeInfo find_closest_edge(Vec2 point, const std::vector<Polygon>& polygons) {
                 result.start = p1;
                 result.end = p2;
                 result.valid = true;
+                best_poly_idx = poly_idx;
                 
                 // Calculate outward-facing normal (perpendicular to edge)
                 // For counter-clockwise polygon, outward normal is to the right of edge direction
@@ -260,6 +264,18 @@ EdgeInfo find_closest_edge(Vec2 point, const std::vector<Polygon>& polygons) {
                 } else {
                     result.normal = Vec2(0.0f, 0.0f);
                 }
+            }
+        }
+    }
+    
+    // Check if the best polygon is a hole (inside another polygon)
+    if (result.valid && polygons.size() > 1) {
+        const Polygon& best_poly = polygons[best_poly_idx];
+        for (size_t other_idx = 0; other_idx < polygons.size(); other_idx++) {
+            if (other_idx == best_poly_idx) continue;
+            if (polygon_inside_polygon(best_poly, polygons[other_idx])) {
+                result.is_hole = true;
+                break;
             }
         }
     }
@@ -297,11 +313,13 @@ EdgeInfo find_next_edge_at_vertex(const EdgeInfo& current_edge, Vec2 vertex, Vec
                                    const std::vector<Polygon>& polygons) {
     EdgeInfo result;
     result.valid = false;
+    result.is_hole = false;
     
     if (polygons.empty()) return result;
     
     const float vertex_epsilon = 2.0f;
     float best_score = -1e10f;
+    size_t best_poly_idx = 0;
     
     // Direction from vertex to target
     Vec2 to_target = Vec2(target.x - vertex.x, target.y - vertex.y);
@@ -311,7 +329,8 @@ EdgeInfo find_next_edge_at_vertex(const EdgeInfo& current_edge, Vec2 vertex, Vec
         to_target.y /= to_target_len;
     }
     
-    for (const auto& poly : polygons) {
+    for (size_t poly_idx = 0; poly_idx < polygons.size(); poly_idx++) {
+        const auto& poly = polygons[poly_idx];
         if (!poly.is_valid()) continue;
         
         size_t n = poly.points.size();
@@ -359,12 +378,25 @@ EdgeInfo find_next_edge_at_vertex(const EdgeInfo& current_edge, Vec2 vertex, Vec
                 result.start = p1;
                 result.end = p2;
                 result.valid = true;
+                best_poly_idx = poly_idx;
                 
                 // Calculate normal
                 Vec2 edge_vec = Vec2(p2.x - p1.x, p2.y - p1.y);
                 edge_vec.x /= edge_len;
                 edge_vec.y /= edge_len;
                 result.normal = Vec2(-edge_vec.y, edge_vec.x);
+            }
+        }
+    }
+    
+    // Check if the best polygon is a hole (inside another polygon)
+    if (result.valid && polygons.size() > 1) {
+        const Polygon& best_poly = polygons[best_poly_idx];
+        for (size_t other_idx = 0; other_idx < polygons.size(); other_idx++) {
+            if (other_idx == best_poly_idx) continue;
+            if (polygon_inside_polygon(best_poly, polygons[other_idx])) {
+                result.is_hole = true;
+                break;
             }
         }
     }
