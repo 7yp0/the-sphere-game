@@ -24,12 +24,20 @@ void render_text(const char* text, Vec2 pos, float scale) {
     if (!text) return;
     
     Vec3 current_pos = Vec3(pos, -1.0f);  // Use z=-1.0f for UI text depth
+    float start_x = pos.x;  // Remember start for newlines
     
     // Glyph size in pixels
     float glyph_width_px = GLYPH_WIDTH * scale;
     float glyph_height_px = GLYPH_HEIGHT * scale;
     
     for (const char* p = text; *p; p++) {
+        // Handle newline
+        if (*p == '\n') {
+            current_pos.x = start_x;
+            current_pos.y += glyph_height_px * 1.2f;  // Line spacing
+            continue;
+        }
+        
         const char* char_idx = strchr(FONT_CHARS, *p);
         if (!char_idx) char_idx = strchr(FONT_CHARS, '?');
         

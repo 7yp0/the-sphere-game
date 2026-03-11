@@ -20,7 +20,7 @@ uniform float objectZ;
 uniform int selfEntityIndex;
 
 // Lighting
-#define MAX_LIGHTS 8
+#define MAX_LIGHTS 12
 uniform int numLights;
 uniform vec3 lightPositions[MAX_LIGHTS];   // OpenGL coords (-1 to +1)
 uniform vec3 lightColors[MAX_LIGHTS];      // RGB (0-1)
@@ -28,7 +28,7 @@ uniform float lightIntensities[MAX_LIGHTS];
 uniform float lightRadii[MAX_LIGHTS];
 
 // Shadow casters
-#define MAX_SHADOW_CASTERS 4
+#define MAX_SHADOW_CASTERS 8
 uniform int numShadowCasters;
 uniform vec3 shadowCasterPositions[MAX_SHADOW_CASTERS];   // Center position (OpenGL coords)
 uniform vec2 shadowCasterSizes[MAX_SHADOW_CASTERS];       // Width, height (OpenGL units)
@@ -41,9 +41,13 @@ uniform sampler2D shadowCasterTex0;
 uniform sampler2D shadowCasterTex1;
 uniform sampler2D shadowCasterTex2;
 uniform sampler2D shadowCasterTex3;
+uniform sampler2D shadowCasterTex4;
+uniform sampler2D shadowCasterTex5;
+uniform sampler2D shadowCasterTex6;
+uniform sampler2D shadowCasterTex7;
 
 // Projector lights (window lights with cookie textures)
-#define MAX_PROJECTOR_LIGHTS 2
+#define MAX_PROJECTOR_LIGHTS 4
 uniform int numProjectorLights;
 uniform vec3 projectorPositions[MAX_PROJECTOR_LIGHTS];    // Where the window is
 uniform vec3 projectorDirections[MAX_PROJECTOR_LIGHTS];   // Direction light travels
@@ -55,6 +59,8 @@ uniform float projectorAspects[MAX_PROJECTOR_LIGHTS];     // Width/Height ratio
 uniform float projectorRanges[MAX_PROJECTOR_LIGHTS];      // Max distance
 uniform sampler2D projectorCookie0;
 uniform sampler2D projectorCookie1;
+uniform sampler2D projectorCookie2;
+uniform sampler2D projectorCookie3;
 
 // Ambient light
 uniform vec3 ambientColor;  // Default ambient color
@@ -68,6 +74,10 @@ vec4 sampleShadowCasterTexture(int index, vec2 uv) {
     if (index == 1) return texture(shadowCasterTex1, uv);
     if (index == 2) return texture(shadowCasterTex2, uv);
     if (index == 3) return texture(shadowCasterTex3, uv);
+    if (index == 4) return texture(shadowCasterTex4, uv);
+    if (index == 5) return texture(shadowCasterTex5, uv);
+    if (index == 6) return texture(shadowCasterTex6, uv);
+    if (index == 7) return texture(shadowCasterTex7, uv);
     return vec4(0.0);
 }
 
@@ -233,6 +243,8 @@ vec3 calculatePointLight(int lightIndex, vec3 fragPos3D, vec3 normal, bool isObj
 float sampleProjectorCookie(int index, vec2 uv) {
     if (index == 0) return texture(projectorCookie0, uv).r;
     if (index == 1) return texture(projectorCookie1, uv).r;
+    if (index == 2) return texture(projectorCookie2, uv).r;
+    if (index == 3) return texture(projectorCookie3, uv).r;
     return 0.0;
 }
 

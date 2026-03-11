@@ -313,15 +313,17 @@ static void upload_projector_light_uniforms()
         glUniform1fv(glGetUniformLocation(litShaderProgram, "projectorAspects"), g_num_projector_lights, aspects.data());
         glUniform1fv(glGetUniformLocation(litShaderProgram, "projectorRanges"), g_num_projector_lights, ranges.data());
         
-        // Bind cookie textures to texture units 7-8 (after shadow casters 3-6)
+        // Bind cookie textures to texture units 11-14 (after shadow casters 3-10)
         for (uint32_t i = 0; i < g_num_projector_lights; i++) {
-            glActiveTexture(GL_TEXTURE7 + i);
+            glActiveTexture(GL_TEXTURE11 + i);
             glBindTexture(GL_TEXTURE_2D, g_projector_lights[i].cookie);
         }
         
         // Set sampler uniforms for projector cookie textures
-        glUniform1i(glGetUniformLocation(litShaderProgram, "projectorCookie0"), 7);
-        glUniform1i(glGetUniformLocation(litShaderProgram, "projectorCookie1"), 8);
+        glUniform1i(glGetUniformLocation(litShaderProgram, "projectorCookie0"), 11);
+        glUniform1i(glGetUniformLocation(litShaderProgram, "projectorCookie1"), 12);
+        glUniform1i(glGetUniformLocation(litShaderProgram, "projectorCookie2"), 13);
+        glUniform1i(glGetUniformLocation(litShaderProgram, "projectorCookie3"), 14);
     }
 }
 
@@ -679,7 +681,7 @@ static void render_sprite_lit_shadowed_internal(TextureID tex, Vec3 pos, Vec2 si
         glUniform1fv(glGetUniformLocation(litShaderProgram, "shadowCasterIntensities"), actual_casters, casterIntensities.data());
         glUniform1iv(glGetUniformLocation(litShaderProgram, "shadowCasterEntityIndices"), actual_casters, casterEntityIndices.data());
         
-        // Bind shadow caster textures to texture units 3-6
+        // Bind shadow caster textures to texture units 3-10
         for (uint32_t i = 0; i < actual_casters; i++) {
             glActiveTexture(GL_TEXTURE3 + i);
             glBindTexture(GL_TEXTURE_2D, shadow_casters[i].texture);
@@ -690,6 +692,10 @@ static void render_sprite_lit_shadowed_internal(TextureID tex, Vec3 pos, Vec2 si
         glUniform1i(glGetUniformLocation(litShaderProgram, "shadowCasterTex1"), 4);
         glUniform1i(glGetUniformLocation(litShaderProgram, "shadowCasterTex2"), 5);
         glUniform1i(glGetUniformLocation(litShaderProgram, "shadowCasterTex3"), 6);
+        glUniform1i(glGetUniformLocation(litShaderProgram, "shadowCasterTex4"), 7);
+        glUniform1i(glGetUniformLocation(litShaderProgram, "shadowCasterTex5"), 8);
+        glUniform1i(glGetUniformLocation(litShaderProgram, "shadowCasterTex6"), 9);
+        glUniform1i(glGetUniformLocation(litShaderProgram, "shadowCasterTex7"), 10);
     } else {
         // No shadow casters - set count to 0
         glUniform1i(glGetUniformLocation(litShaderProgram, "numShadowCasters"), 0);

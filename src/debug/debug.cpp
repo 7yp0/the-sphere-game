@@ -145,26 +145,27 @@ void render_overlay(Vec2 mouse_pixel) {
         // Calculate FPS from delta time
         float dt = Core::get_delta_time();
         float fps = (dt > 0.0001f) ? (1.0f / dt) : 0.0f;
-        float ms = dt * 1000.0f;
         
         // Get entity counts
         size_t prop_count = Game::g_state.scene.prop_entities.size();
         size_t light_count = Game::g_state.scene.light_entities.size();
         size_t proj_count = Game::g_state.scene.projector_light_entities.size();
+        uint32_t sc_count = Game::g_state.shadow_caster_count;
         
         // Build debug text
         char text_buffer[512];
         snprintf(text_buffer, sizeof(text_buffer), 
-                 "Mouse: (%.0f, %.0f)\n"
-                 "Frame: %.2f ms (%.0f FPS)\n"
-                 "Props: %zu  Lights: %zu  Proj: %zu",
-                 mouse_pixel.x, mouse_pixel.y,
-                 ms, fps,
-                 prop_count, light_count, proj_count);
+                 "Mouse: (%.0f, %.0f)  FPS: %.0f\n"
+                 "Props: %zu  L: %zu/%u  P: %zu/%u  SC: %u/%u",
+                 mouse_pixel.x, mouse_pixel.y, fps,
+                 prop_count, 
+                 light_count, Renderer::MAX_LIGHTS,
+                 proj_count, Renderer::MAX_PROJECTOR_LIGHTS,
+                 sc_count, Renderer::MAX_SHADOW_CASTERS);
         
         // Black semi-transparent background - pixel coordinates, top-left
         Vec3 bg_pos = Vec3(0.0f, 0.0f, Layers::get_z_depth(Layer::UI));
-        Vec2 bg_size = Vec2(300.0f, 65.0f);  // Taller for more lines
+        Vec2 bg_size = Vec2(500.0f, 50.0f);
         Vec4 bg_color = Vec4(0.0f, 0.0f, 0.0f, 0.7f);
         Renderer::render_rect(bg_pos, bg_size, bg_color);
         

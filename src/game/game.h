@@ -32,6 +32,9 @@ struct GameState {
     // 2.5D depth scaling factor: (window_res / base_res)
     // Used to translate base resolution Y-positions to depth scale calculations
     float scale_factor = 1.0f;  // Will be calculated: viewport_height / BASE_HEIGHT
+    
+    // Debug: current shadow caster count (updated each frame)
+    uint32_t shadow_caster_count = 0;
 };
 
 extern GameState g_state;

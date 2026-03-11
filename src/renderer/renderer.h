@@ -44,8 +44,11 @@ struct LightData {
     float radius;       // Attenuation radius in OpenGL units
 };
 
+// Maximum number of point lights the shader can handle
+constexpr uint32_t MAX_LIGHTS = 12;
+
 // Maximum number of projector lights
-constexpr uint32_t MAX_PROJECTOR_LIGHTS = 2;
+constexpr uint32_t MAX_PROJECTOR_LIGHTS = 4;
 
 // Projector light data for cookie-based directional lighting
 // Used for window light, spotlights with patterns, etc.
@@ -62,7 +65,7 @@ struct ProjectorLightData {
 };
 
 // Maximum number of shadow casters the shader can handle
-constexpr uint32_t MAX_SHADOW_CASTERS = 4;
+constexpr uint32_t MAX_SHADOW_CASTERS = 8;
 
 // Shadow caster data for ray-quad intersection in shader
 // Position is in OpenGL coords (-1 to +1), derived from Transform2_5DComponent

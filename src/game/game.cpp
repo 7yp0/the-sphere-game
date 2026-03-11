@@ -700,6 +700,7 @@ void render() {
     
     const Renderer::ShadowCasterData* shadow_data = shadow_casters.empty() ? nullptr : shadow_casters.data();
     uint32_t num_shadow_casters = (uint32_t)shadow_casters.size();
+    g_state.shadow_caster_count = num_shadow_casters;  // For debug display
     
     // =========================================================================
     // GATHER PROJECTOR LIGHT DATA FROM ECS
