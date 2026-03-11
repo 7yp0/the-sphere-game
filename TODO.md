@@ -271,6 +271,11 @@
 
 *All changes auto-save to `assets/scenes/<scene>/geometry.json`*
 
+### 4.5.5 how to configure hotspot callbacks
+
+- [ ] hotspots polygon geometry is now saved in the geometry json. but how do we define the callbacks? (same for enabled and distance)
+- [ ] scene.cpp still defines polygons like wlakable areas and hotspots, while they are not used and come from the geometry.json
+
 ---
 
 ## Phase 5: 2.5D Lighting (COMPLETE)
