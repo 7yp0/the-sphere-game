@@ -191,110 +191,104 @@ static void handle_movement_click(Player& player, Vec2 mouse_pos) {
 
 void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_height, 
                  ECS::Transform2_5DComponent& transform) {
-    // Load Lenore spritesheet (288x920)
-    // Frame dimensions: 36x46 pixels
-    // Row 0 (y=0): Idle sprites (Down, Right, Up, Left) - 4 sprites
-    // Row 1 (y=46): Walk Down (8 frames)
-    // Row 2 (y=92): Walk Up (8 frames)
-    // Row 3 (y=138): Walk Right (8 frames)
-    // Row 4 (y=184): Walk Left (8 frames)
-    Renderer::TextureID lenore_sprite = Renderer::load_texture("player/Lenore-Sheet.png");
+    // Load testa spritesheet
+    // Frame dimensions: 104x130 pixels
+    // Row 0 (y=0): Idle (1 frame)
+    // Row 1 (y=130): Walk Left (8 frames) - mirror for Walk Right
+    // Row 2 (y=260): Walk Up (6 frames)
+    // Row 3 (y=390): Walk Down (6 frames)
+    // Sheet size: 832x520 (8 frames wide, 4 rows)
+    Renderer::TextureID testa_sprite = Renderer::load_texture("player/testa_spritesheet.png");
     
-    // Helper to create UV frame with small offset to prevent texture bleeding
-    auto create_uv = [](float x, float y, float w, float h, float sheet_w, float sheet_h) -> Renderer::SpriteFrame {
+    const float frame_w = 104.0f;
+    const float frame_h = 130.0f;
+    const float sheet_w = 832.0f;
+    const float sheet_h = 520.0f;
+    
+    // Helper to create UV frame (normal orientation)
+    auto create_uv = [&](float x, float y) -> Renderer::SpriteFrame {
         return { 
             x / sheet_w, 
             y / sheet_h, 
-            (x + w) / sheet_w, 
-            (y + h) / sheet_h
+            (x + frame_w) / sheet_w, 
+            (y + frame_h) / sheet_h
         };
     };
     
-    // Idle animations - one frame each for each direction
-    // Idle Down (frame 0 of row 0)
-    Renderer::SpriteAnimation idle_down_anim;
-    idle_down_anim.texture = lenore_sprite;
-    idle_down_anim.frames.push_back(create_uv(0.0f, 0.0f, 36.0f, 46.0f, 288.0f, 920.0f));
-    idle_down_anim.frame_duration = 1.0f;
-    idle_down_anim.elapsed_time = 0.0f;
-    idle_down_anim.current_frame = 0;
+    // Helper to create mirrored UV frame (flip horizontally)
+    auto create_uv_mirrored = [&](float x, float y) -> Renderer::SpriteFrame {
+        return { 
+            (x + frame_w) / sheet_w,  // u0 = right edge
+            y / sheet_h, 
+            x / sheet_w,              // u1 = left edge
+            (y + frame_h) / sheet_h
+        };
+    };
     
-    // Idle Right (frame 1 of row 0)
-    Renderer::SpriteAnimation idle_right_anim;
-    idle_right_anim.texture = lenore_sprite;
-    idle_right_anim.frames.push_back(create_uv(36.0f, 0.0f, 36.0f, 46.0f, 288.0f, 920.0f));
-    idle_right_anim.frame_duration = 1.0f;
-    idle_right_anim.elapsed_time = 0.0f;
-    idle_right_anim.current_frame = 0;
+    // Idle animation - Row 0, single frame (used for all idle directions)
+    Renderer::SpriteAnimation idle_anim;
+    idle_anim.texture = testa_sprite;
+    idle_anim.frames.push_back(create_uv(0.0f, 0.0f));
+    idle_anim.frame_duration = 1.0f;
+    idle_anim.elapsed_time = 0.0f;
+    idle_anim.current_frame = 0;
     
-    // Idle Up (frame 2 of row 0)
-    Renderer::SpriteAnimation idle_up_anim;
-    idle_up_anim.texture = lenore_sprite;
-    idle_up_anim.frames.push_back(create_uv(72.0f, 0.0f, 36.0f, 46.0f, 288.0f, 920.0f));
-    idle_up_anim.frame_duration = 1.0f;
-    idle_up_anim.elapsed_time = 0.0f;
-    idle_up_anim.current_frame = 0;
-    
-    // Idle Left (frame 3 of row 0)
-    Renderer::SpriteAnimation idle_left_anim;
-    idle_left_anim.texture = lenore_sprite;
-    idle_left_anim.frames.push_back(create_uv(108.0f, 0.0f, 36.0f, 46.0f, 288.0f, 920.0f));
-    idle_left_anim.frame_duration = 1.0f;
-    idle_left_anim.elapsed_time = 0.0f;
-    idle_left_anim.current_frame = 0;
-    
-    // Walk Down: Row 1 (y=46) - frames 0-7
-    Renderer::SpriteAnimation walk_down_anim;
-    walk_down_anim.texture = lenore_sprite;
-    for (int i = 0; i < 8; i++) {
-        walk_down_anim.frames.push_back(create_uv(i * 36.0f, 46.0f, 36.0f, 46.0f, 288.0f, 920.0f));
-    }
-    walk_down_anim.frame_duration = 0.12f;
-    walk_down_anim.elapsed_time = 0.0f;
-    walk_down_anim.current_frame = 0;
-    
-    // Walk Up: Row 2 (y=92) - frames 0-7
-    Renderer::SpriteAnimation walk_up_anim;
-    walk_up_anim.texture = lenore_sprite;
-    for (int i = 0; i < 8; i++) {
-        walk_up_anim.frames.push_back(create_uv(i * 36.0f, 92.0f, 36.0f, 46.0f, 288.0f, 920.0f));
-    }
-    walk_up_anim.frame_duration = 0.12f;
-    walk_up_anim.elapsed_time = 0.0f;
-    walk_up_anim.current_frame = 0;
-    
-    // Walk Right: Row 3 (y=138) - frames 0-7
-    Renderer::SpriteAnimation walk_right_anim;
-    walk_right_anim.texture = lenore_sprite;
-    for (int i = 0; i < 8; i++) {
-        walk_right_anim.frames.push_back(create_uv(i * 36.0f, 138.0f, 36.0f, 46.0f, 288.0f, 920.0f));
-    }
-    walk_right_anim.frame_duration = 0.12f;
-    walk_right_anim.elapsed_time = 0.0f;
-    walk_right_anim.current_frame = 0;
-    
-    // Walk Left: Row 4 (y=184) - frames 0-7
+    // Walk Left: Row 1 (y=130) - 8 frames
     Renderer::SpriteAnimation walk_left_anim;
-    walk_left_anim.texture = lenore_sprite;
+    walk_left_anim.texture = testa_sprite;
     for (int i = 0; i < 8; i++) {
-        walk_left_anim.frames.push_back(create_uv(i * 36.0f, 184.0f, 36.0f, 46.0f, 288.0f, 920.0f));
+        walk_left_anim.frames.push_back(create_uv(i * frame_w, 130.0f));
     }
-    walk_left_anim.frame_duration = 0.12f;
+    walk_left_anim.frame_duration = 0.1f;
     walk_left_anim.elapsed_time = 0.0f;
     walk_left_anim.current_frame = 0;
     
+    // Walk Right: Row 1 mirrored (same frames as walk_left but flipped)
+    Renderer::SpriteAnimation walk_right_anim;
+    walk_right_anim.texture = testa_sprite;
+    for (int i = 0; i < 8; i++) {
+        walk_right_anim.frames.push_back(create_uv_mirrored(i * frame_w, 130.0f));
+    }
+    walk_right_anim.frame_duration = 0.1f;
+    walk_right_anim.elapsed_time = 0.0f;
+    walk_right_anim.current_frame = 0;
+    
+    // Walk Up: Row 2 (y=260) - 6 frames
+    Renderer::SpriteAnimation walk_up_anim;
+    walk_up_anim.texture = testa_sprite;
+    for (int i = 0; i < 6; i++) {
+        walk_up_anim.frames.push_back(create_uv(i * frame_w, 260.0f));
+    }
+    walk_up_anim.frame_duration = 0.1f;
+    walk_up_anim.elapsed_time = 0.0f;
+    walk_up_anim.current_frame = 0;
+    
+    // Walk Down: Row 3 (y=390) - 6 frames
+    Renderer::SpriteAnimation walk_down_anim;
+    walk_down_anim.texture = testa_sprite;
+    for (int i = 0; i < 6; i++) {
+        walk_down_anim.frames.push_back(create_uv(i * frame_w, 390.0f));
+    }
+    walk_down_anim.frame_duration = 0.1f;
+    walk_down_anim.elapsed_time = 0.0f;
+    walk_down_anim.current_frame = 0;
+    
     // Add all animations to the bank
-    player.animations.add("idle_down", idle_down_anim);
-    player.animations.add("idle_right", idle_right_anim);
-    player.animations.add("idle_up", idle_up_anim);
-    player.animations.add("idle_left", idle_left_anim);
+    // Use same idle for all directions (single idle frame)
+    player.animations.add("idle_down", idle_anim);
+    player.animations.add("idle_right", idle_anim);
+    player.animations.add("idle_up", idle_anim);
+    player.animations.add("idle_left", idle_anim);
     player.animations.add("walk_down", walk_down_anim);
     player.animations.add("walk_up", walk_up_anim);
     player.animations.add("walk_right", walk_right_anim);
     player.animations.add("walk_left", walk_left_anim);
     
     // Also add generic "idle" that uses current direction
-    player.animations.add("idle", idle_down_anim);
+    player.animations.add("idle", idle_anim);
+    
+    // Update player size to match new sprite dimensions (scaled down for base resolution)
+    player.size = Vec2(52.0f, 65.0f);  // Half of 104x130
     
     // Initialize player position via ECS Transform
     transform.position = Vec2(viewport_width * 0.5f, viewport_height * 0.5f);

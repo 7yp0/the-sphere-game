@@ -37,8 +37,8 @@ struct Player {
     // Movement target (pixel coordinates + z-depth)
     Vec3 target_position;
     
-    // Sprite dimensions in base resolution (scaled from original 36x46)
-    Vec2 size = Vec2(25.0f, 37.5f);
+    // Sprite dimensions in base resolution (testa_spritesheet: 104x130, scaled to half)
+    Vec2 size = Vec2(52.0f, 65.0f);
     
     // Animation state
     AnimationState animation_state = AnimationState::Idle;
