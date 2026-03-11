@@ -304,28 +304,41 @@ Shadow system fully implemented and tested:
 
 ### 7.1 Migrate Existing Code
 
-- [ ] Convert `Prop` to Entity with components
-- [ ] Convert `PointLight` to Entity with components
-- [ ] Update `Scene` to use entity lists
-- [ ] Update `init_scene_test()` to create entities
+- [x] Convert `Prop` to Entity with components
+- [x] Convert `PointLight` to Entity with components
+- [x] Update `Scene` to use entity lists (removed `props` vector)
+- [x] Update `init_scene_test()` to create entities directly
 
 ### 7.2 Entity Factory Functions
 
 **File:** `src/ecs/entity_factory.h`
 
-- [ ] `create_static_prop(pos, texture, normal_map)` → EntityID
-- [ ] `create_shadow_casting_prop(pos, texture, normal_map)` → EntityID
-- [ ] `create_light(pos, color, radius, casts_shadows)` → EntityID
-- [ ] `create_lamp(pos, sprite, light_params)` → EntityID (composite)
-- [ ] `create_emissive_object(pos, texture, emissive_color)` → EntityID
+- [x] `create_static_prop(pos, size, texture, normal_map)` → EntityID
+- [x] `create_shadow_casting_prop(pos, size, texture, normal_map)` → EntityID
+- [x] `create_point_light(pos, color, intensity, radius, casts_shadows)` → EntityID
+- [x] `create_point_light_at_pixel(pixel_pos, z_depth, color, ...)` → EntityID
+- [x] `create_lamp(pos, sprite_size, sprite_tex, light_params)` → EntityID (composite)
+- [x] `create_emissive_object(pos, size, texture, emissive_color)` → EntityID
+- [x] `update_entity_z_from_depth_map(entity, depth_map, ...)` utility
 
 ### 7.3 Render Pipeline Integration
 
-- [ ] Collect entities by component type each frame
-- [ ] Sort renderables by z-depth
-- [ ] Upload shadow caster data to GPU
-- [ ] Upload light data (separated by shadow category)
-- [ ] Execute render passes
+- [x] Collect entities by component type each frame (via `scene.prop_entities`, `scene.light_entities`)
+- [x] Sort renderables by z-depth (via Transform2_5DComponent.z_depth)
+- [x] Upload shadow caster data to GPU (game.cpp shadow caster collection loop)
+- [x] Upload light data (game.cpp light loop)
+- [x] Execute render passes (background → props → player → UI)
+
+---
+
+## Phase 7 Status: ✅ COMPLETE
+
+Entity factory system implemented:
+
+- Reusable factory functions for props, lights, and composites
+- Scene uses only ECS entity lists (old `props` vector removed)
+- `init_scene_test()` uses factory functions directly
+- Render pipeline fully integrated with ECS
 
 ---
 
