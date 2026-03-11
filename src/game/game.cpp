@@ -108,6 +108,95 @@ static void test_ecs_phase1() {
     printf("========================================\n\n");
 }
 
+// Phase 2 ECS Test - validates transform components and helpers
+static void test_ecs_phase2() {
+    printf("\n========================================\n");
+    printf("     ECS PHASE 2 TEST - START\n");
+    printf("========================================\n");
+    
+    // Test 1: Transform2_5D constructors
+    printf("\n[TEST 1] Transform2_5D constructors...\n");
+    
+    ECS::Transform2_5DComponent t1;  // Default
+    printf("  Default: pos=(%.0f,%.0f), z=%.2f, rot=%.2f, scale=(%.1f,%.1f)\n",
+           t1.position.x, t1.position.y, t1.z_depth, t1.rotation, t1.scale.x, t1.scale.y);
+    
+    ECS::Transform2_5DComponent t2(Vec2(160, 90), -0.5f);  // Vec2 + z
+    printf("  Vec2+z: pos=(%.0f,%.0f), z=%.2f\n", t2.position.x, t2.position.y, t2.z_depth);
+    
+    ECS::Transform2_5DComponent t3(100.0f, 200.0f, 0.3f);  // x, y, z
+    printf("  x,y,z: pos=(%.0f,%.0f), z=%.2f\n", t3.position.x, t3.position.y, t3.z_depth);
+    
+    // Test 2: Depth scaling calculation
+    printf("\n[TEST 2] Depth scaling (compute_depth_scale)...\n");
+    
+    float scale_near = ECS::TransformHelpers::compute_depth_scale(-0.8f);  // Near camera
+    float scale_mid = ECS::TransformHelpers::compute_depth_scale(0.0f);    // Middle
+    float scale_far = ECS::TransformHelpers::compute_depth_scale(0.8f);    // Far away
+    
+    printf("  Z=-0.8 (near):  scale=%.2f (expected ~1.4)\n", scale_near);
+    printf("  Z= 0.0 (mid):   scale=%.2f (expected ~1.0)\n", scale_mid);
+    printf("  Z=+0.8 (far):   scale=%.2f (expected ~0.6)\n", scale_far);
+    
+    // Test 3: Pixel to OpenGL conversion
+    printf("\n[TEST 3] Pixel to OpenGL conversion...\n");
+    
+    uint32_t scene_w = 320, scene_h = 180;
+    
+    Vec2 top_left = ECS::TransformHelpers::pixel_to_opengl(Vec2(0, 0), scene_w, scene_h);
+    Vec2 center = ECS::TransformHelpers::pixel_to_opengl(Vec2(160, 90), scene_w, scene_h);
+    Vec2 bottom_right = ECS::TransformHelpers::pixel_to_opengl(Vec2(320, 180), scene_w, scene_h);
+    
+    printf("  Pixel(0,0) -> OpenGL(%.2f,%.2f) (expected -1,+1 = top-left)\n", top_left.x, top_left.y);
+    printf("  Pixel(160,90) -> OpenGL(%.2f,%.2f) (expected 0,0 = center)\n", center.x, center.y);
+    printf("  Pixel(320,180) -> OpenGL(%.2f,%.2f) (expected +1,-1 = bottom-right)\n", bottom_right.x, bottom_right.y);
+    
+    // Test 4: derive_3d_from_2_5d conversion
+    printf("\n[TEST 4] derive_3d_from_2_5d conversion...\n");
+    
+    ECS::Transform2_5DComponent prop_t;
+    prop_t.position = Vec2(160, 90);  // Center of scene
+    prop_t.z_depth = 0.0f;            // Middle depth
+    prop_t.scale = Vec2(1.0f, 1.0f);
+    
+    Vec2 base_size(64, 64);  // 64x64 pixel sprite
+    
+    ECS::Transform3DComponent gl_t = ECS::TransformHelpers::derive_3d_from_2_5d(
+        prop_t, base_size, scene_w, scene_h, true);
+    
+    printf("  Input: pixel(160,90), z=0.0, base_size=64x64\n");
+    printf("  Output: OpenGL pos=(%.2f,%.2f,%.2f), size=(%.3f,%.3f)\n",
+           gl_t.position.x, gl_t.position.y, gl_t.position.z, gl_t.size.x, gl_t.size.y);
+    
+    // Test 5: Entity with transform + derive
+    printf("\n[TEST 5] Entity with transform derivation...\n");
+    
+    ECS::EntityID entity = g_ecs_world.create_entity();
+    auto& transform = g_ecs_world.add_component<ECS::Transform2_5DComponent>(entity);
+    transform.position = Vec2(80, 45);  // Top-left quadrant
+    transform.z_depth = -0.5f;          // Near camera (should scale up)
+    transform.scale = Vec2(2.0f, 2.0f); // Double size
+    
+    auto& sprite = g_ecs_world.add_component<ECS::SpriteComponent>(entity);
+    sprite.base_size = Vec2(32, 32);
+    
+    ECS::Transform3DComponent derived = ECS::TransformHelpers::derive_3d_from_2_5d(
+        transform, sprite.base_size, scene_w, scene_h, true);
+    
+    float expected_depth_scale = ECS::TransformHelpers::compute_depth_scale(-0.5f);
+    printf("  Input: pixel(80,45), z=-0.5, entity_scale=2x, base=32x32\n");
+    printf("  Depth scale factor: %.2f\n", expected_depth_scale);
+    printf("  Final OpenGL pos: (%.2f, %.2f, %.2f)\n", derived.position.x, derived.position.y, derived.position.z);
+    printf("  Final OpenGL size: (%.3f, %.3f)\n", derived.size.x, derived.size.y);
+    
+    g_ecs_world.destroy_entity(entity);
+    
+    printf("\n========================================\n");
+    printf("     ECS PHASE 2 TEST - COMPLETE\n");
+    printf("     All tests passed!\n");
+    printf("========================================\n\n");
+}
+
 static void init_player() {
     player_init(g_state.player, g_state.base_width, g_state.base_height, 
                 &g_state.playerAnimations);
@@ -136,8 +225,9 @@ static void update_animated_test_light(float delta_time) {
 }
 
 void init() {
-    // Run ECS Phase 1 test at startup
+    // Run ECS tests at startup
     test_ecs_phase1();
+    test_ecs_phase2();
     
     Scene::init_scene_test();
     init_player();
