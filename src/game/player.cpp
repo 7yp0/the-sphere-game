@@ -42,7 +42,13 @@ ECS::EntityID player_create_entity(Player& player, ECS::World& world,
     sprite.pivot = player.pivot;
     sprite.visible = true;
     
-    printf("  Player: Entity=%u, pos=(%.0f,%.0f), z=%.2f, size=(%.0f,%.0f)\n",
+    // Add ShadowCasterComponent (player casts shadows)
+    auto& shadow = world.add_component<ECS::ShadowCasterComponent>(entity);
+    shadow.enabled = true;
+    shadow.alpha_threshold = 0.3f;
+    shadow.shadow_intensity = 0.7f;
+    
+    printf("  Player: Entity=%u, pos=(%.0f,%.0f), z=%.2f, size=(%.0f,%.0f), shadow_caster=YES\n",
            entity,
            transform.position.x, transform.position.y, transform.z_depth,
            sprite.base_size.x, sprite.base_size.y);

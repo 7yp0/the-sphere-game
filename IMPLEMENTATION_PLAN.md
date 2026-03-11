@@ -30,9 +30,9 @@ This document outlines the step-by-step implementation of the entity-component a
 
 **File:** `src/ecs/entity.h`
 
-- [ ] Define `EntityID` type (uint32_t)
-- [ ] Create `Entity` struct with ID and component bitfield
-- [ ] Create `EntityManager` class
+- [x] Define `EntityID` type (uint32_t)
+- [x] Create `Entity` struct with ID and component bitfield
+- [x] Create `EntityManager` class
   - `create_entity()` → EntityID
   - `destroy_entity(EntityID)`
   - `is_valid(EntityID)` → bool
@@ -41,12 +41,12 @@ This document outlines the step-by-step implementation of the entity-component a
 
 **File:** `src/ecs/component.h`
 
-- [ ] Define component type enum
-- [ ] Create component storage (contiguous arrays per component type)
-- [ ] Implement `add_component<T>(EntityID)` → T&
-- [ ] Implement `get_component<T>(EntityID)` → T*
-- [ ] Implement `has_component<T>(EntityID)` → bool
-- [ ] Implement `remove_component<T>(EntityID)`
+- [x] Define component type enum
+- [x] Create component storage (contiguous arrays per component type)
+- [x] Implement `add_component<T>(EntityID)` → T&
+- [x] Implement `get_component<T>(EntityID)` → T*
+- [x] Implement `has_component<T>(EntityID)` → bool
+- [x] Implement `remove_component<T>(EntityID)`
 
 ---
 
@@ -56,7 +56,7 @@ This document outlines the step-by-step implementation of the entity-component a
 
 **File:** `src/ecs/components/transform.h`
 
-- [ ] Define `Transform2_5DComponent` struct:
+- [x] Define `Transform2_5DComponent` struct:
 
   ```cpp
   struct Transform2_5DComponent {
@@ -67,14 +67,14 @@ This document outlines the step-by-step implementation of the entity-component a
   };
   ```
 
-- [ ] Add helper: `get_z_from_depth_map(pos)`
-- [ ] Add helper: `compute_depth_scale(z_depth)`
+- [x] Add helper: `get_z_from_depth_map(pos)`
+- [x] Add helper: `compute_depth_scale(z_depth)`
 
 ### 2.2 Transform3DComponent
 
 **File:** `src/ecs/components/transform.h`
 
-- [ ] Define `Transform3DComponent` struct:
+- [x] Define `Transform3DComponent` struct:
 
   ```cpp
   struct Transform3DComponent {
@@ -84,8 +84,8 @@ This document outlines the step-by-step implementation of the entity-component a
   };
   ```
 
-- [ ] Implement `derive_3d_from_2_5d()` conversion function
-- [ ] Handle pivot point transformation
+- [x] Implement `derive_3d_from_2_5d()` conversion function
+- [x] Handle pivot point transformation
 
 ---
 
@@ -95,7 +95,7 @@ This document outlines the step-by-step implementation of the entity-component a
 
 **File:** `src/ecs/components/sprite.h`
 
-- [ ] Define `SpriteComponent` struct:
+- [x] Define `SpriteComponent` struct:
 
   ```cpp
   struct SpriteComponent {
@@ -107,13 +107,13 @@ This document outlines the step-by-step implementation of the entity-component a
   };
   ```
 
-- [ ] Integrate with existing animation system
+- [x] Integrate with existing animation system
 
 ### 3.2 EmissiveComponent
 
 **File:** `src/ecs/components/emissive.h`
 
-- [ ] Define `EmissiveComponent` struct:
+- [x] Define `EmissiveComponent` struct:
 
   ```cpp
   struct EmissiveComponent {
@@ -121,7 +121,7 @@ This document outlines the step-by-step implementation of the entity-component a
   };
   ```
 
-- [ ] Update shader to handle emissive surfaces
+- [x] Update shader to handle emissive surfaces
 
 **Note:** Emissive color encodes both hue and brightness. Use values > 1.0 for bright emissive surfaces (e.g., `Vec3(2.0, 1.5, 0.5)` for bright orange glow). This is distinct from `LightComponent.intensity` which controls how strongly the light illuminates *other* objects.
 
@@ -131,19 +131,19 @@ This document outlines the step-by-step implementation of the entity-component a
 
 ### 4.1 Remove Existing Lighting Code
 
-- [ ] Delete `basic_lit.frag` shader completely
-- [ ] Delete `basic_lit.vert` shader completely
-- [ ] Remove all `render_sprite_lit()` functions from `renderer.h` and `renderer.cpp`
-- [ ] Remove light uniform setup code from renderer
-- [ ] Remove `PointLight` struct from `scene.h`
-- [ ] Remove `lights` vector from `Scene` struct
-- [ ] Clean up any remaining light-related code paths
+- [x] Delete `basic_lit.frag` shader completely
+- [x] Delete `basic_lit.vert` shader completely
+- [x] Remove all `render_sprite_lit()` functions from `renderer.h` and `renderer.cpp`
+- [x] Remove light uniform setup code from renderer
+- [x] Remove `PointLight` struct from `scene.h`
+- [x] Remove `lights` vector from `Scene` struct
+- [x] Clean up any remaining light-related code paths
 
 ### 4.2 LightComponent
 
 **File:** `src/ecs/components/light.h`
 
-- [ ] Define `LightComponent` struct:
+- [x] Define `LightComponent` struct:
 
   ```cpp
   struct LightComponent {
@@ -166,7 +166,7 @@ Visibility must be determined before lighting and shadows can be evaluated.
 
 **File:** `src/renderer/shaders/basic_lit.frag`
 
-- [ ] For each screen pixel, determine surface ownership:
+- [x] For each screen pixel, determine surface ownership:
   - Cast ray from camera into scene
   - Test intersection against object quads
   - If object hit first → pixel belongs to object
@@ -174,22 +174,42 @@ Visibility must be determined before lighting and shadows can be evaluated.
 
 ### 5.2 Surface Data Extraction
 
-- [ ] **Background pixels:**
+- [x] **Background pixels:**
   - Position reconstructed from depth map
   - Normal sampled from background normal map
 
-- [ ] **Object pixels:**
+- [x] **Object pixels:**
   - Hit position from ray/quad intersection
   - World position: `P_hit = P_quad + offset_x * quad_right + offset_y * quad_up`
   - Normal sampled from object's normal map
 
 ### 5.3 Lighting Accumulation
 
-- [ ] For each light:
+- [x] For each light:
   - Compute vector to light
   - Compute distance, skip if outside radius
   - Compute diffuse contribution from surface normal
   - Accumulate additively
+
+### 5.4 Implementation Notes (Lessons Learned)
+
+**Z-Coordinate Convention:**
+
+- Our system uses Z=-1 for NEAR (camera), Z=+1 for FAR (background)
+- This is the OPPOSITE of some standard conventions
+
+**Normal Map Z-Flip:**
+
+- Standard normal maps encode Z=+1 for "towards camera"
+- Our coordinate system uses Z=-1 for "towards camera"
+- Solution: Flip Z in shader: `n.z = -n.z` in `decodeNormal()`
+
+**Background vs Object Z-Depth:**
+
+- Background pixels: Z-depth sampled per-pixel from depth map
+- Object pixels: Fixed Z-depth from Transform2_5DComponent.z_depth
+- Shader uses `objectZ` uniform: -999.0 = use depth map, otherwise = fixed Z
+- "Light behind object" check: `if (lightZ > objectZ) return vec3(0.0)` prevents backside illumination for props
 
 ---
 
@@ -201,7 +221,7 @@ Visibility must be determined before lighting and shadows can be evaluated.
 
 **File:** `src/ecs/components/shadow_caster.h`
 
-- [ ] Define `ShadowCasterComponent` struct:
+- [x] Define `ShadowCasterComponent` struct:
 
   ```cpp
   struct ShadowCasterComponent {
@@ -214,7 +234,7 @@ Visibility must be determined before lighting and shadows can be evaluated.
 
 **File:** `src/renderer/shaders/basic_lit.frag`
 
-- [ ] Add shadow caster uniforms:
+- [x] Add shadow caster uniforms:
 
   ```glsl
   uniform int numShadowCasters;
@@ -225,7 +245,7 @@ Visibility must be determined before lighting and shadows can be evaluated.
   uniform vec4 shadowCasterUVRanges[MAX_SHADOW_CASTERS];
   ```
 
-- [ ] Implement `rayQuadIntersect()` function:
+- [x] Implement `rayQuadIntersect()` function:
 
   ```glsl
   bool rayQuadIntersect(vec3 rayOrigin, vec3 rayDir, 
@@ -233,19 +253,50 @@ Visibility must be determined before lighting and shadows can be evaluated.
                         out vec2 hitUV);
   ```
 
-- [ ] Implement `calculateShadow()` function:
+- [x] Implement `calculateShadow()` function:
 
   ```glsl
   float calculateShadow(vec3 fragPos, vec3 lightPos, int excludeIndex);
   ```
 
-- [ ] Add alpha testing in shadow evaluation
+- [x] Add alpha testing in shadow evaluation
 
 ### 6.3 Self-Shadowing Prevention
 
-- [ ] Pass current fragment's entity index to shader
-- [ ] Skip self-intersection in shadow loops
-- [ ] Add configurable normal bias
+- [x] Pass current fragment's entity index to shader
+- [x] Skip self-intersection in shadow loops
+
+### 6.4 Implementation Notes (Lessons Learned)
+
+**Ray Direction for Intersection:**
+
+- `rayDir` must be UNNORMALIZED (`lightPos - fragPos`)
+- The t-parameter in ray-quad intersection expects t∈(0,1) for valid hits
+- Normalizing breaks this distance check
+
+**UV Y-Flip for Shadow Sampling:**
+
+- Shadow UVs must flip Y: `hitUV.y = 1.0 - hitUV.y`
+- OpenGL Y+ is up, but texture V=0 is at top
+- Without flip, shadows appear upside-down
+
+**Coordinate Conversion Resolution:**
+
+- Shadow caster positions must be converted using **BASE resolution** (320x180)
+- NOT viewport resolution (1280x720) which is set before FBO binding
+- Use `Config::BASE_WIDTH/HEIGHT` instead of `Renderer::get_render_width()`
+- Wrong resolution causes shadow positions to be flipped/misaligned
+
+---
+
+## Phase 6 Status: ✅ COMPLETE
+
+Shadow system fully implemented and tested:
+
+- Ray-quad intersection with alpha testing
+- Self-shadowing prevention via entity index
+- Correct UV sampling with Y-flip
+- Proper coordinate conversion using BASE resolution
 
 ---
 

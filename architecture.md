@@ -59,6 +59,16 @@ Entities may contain any combination of these components.
 
 The engine distinguishes between two different transform systems.
 
+### Coordinate System Convention
+
+The engine uses OpenGL-style normalized coordinates:
+
+- **X-axis:** -1 (left) to +1 (right)
+- **Y-axis:** -1 (bottom) to +1 (top)
+- **Z-axis:** -1 (near camera) to +1 (far/background)
+
+**Important:** Z=-1 means NEAR the camera, Z=+1 means FAR from camera. This is the opposite of some conventions where positive Z points toward the viewer.
+
 ### Transform2_5DComponent
 
 This transform describes the entity's position within the game scene.
@@ -111,6 +121,21 @@ The depth map is NOT used as shadow-casting geometry.
 - Encodes the surface normal direction at each background pixel
 - Used for diffuse lighting calculations (N · L)
 - Allows the flat background to respond to dynamic lights as if it had actual surface geometry
+
+#### Normal Map Coordinate Convention
+
+Standard normal maps (OpenGL tangent space) encode:
+
+- Red channel: X-axis (left/right)
+- Green channel: Y-axis (up/down)  
+- Blue channel: Z-axis (surface facing direction)
+
+**Z-Flip Requirement:** Standard normal maps use Z=+1 (blue=255) for "towards camera", but our coordinate system uses Z=-1 for "towards camera". The shader must flip the Z component:
+
+```glsl
+vec3 n = normalMapSample * 2.0 - 1.0;
+n.z = -n.z;  // Flip Z to match our coordinate system
+```
 
 ### Background Shadow Behavior
 
@@ -194,6 +219,25 @@ P_hit = P_quad + offset_x * quad_right + offset_y * quad_up
 
 Lighting is accumulated from all relevant lights affecting the surface.
 
+### Background vs Object Lighting
+
+The lighting calculation differs between background pixels and object pixels:
+
+**Background pixels:**
+
+- Z-depth is sampled per-pixel from the depth map
+- Each background pixel can have a different depth
+- No backface culling (background surfaces can be lit from any direction based on normal map)
+
+**Object/Prop pixels:**
+
+- Z-depth is constant for the entire sprite (from Transform2_5DComponent.z_depth)
+- The shader receives `objectZ` uniform to distinguish from background (`objectZ = -999` means use depth map)
+- Backface culling: if light is BEHIND the object (lightZ > objectZ), no illumination
+- Normal map determines shading intensity for front-facing surfaces
+
+### Light Contribution
+
 For each light:
 
 1. Compute vector to light
@@ -233,6 +277,22 @@ When a shadow ray hits an object quad:
 4. Only pixels above alpha threshold block light
 
 This allows sprites with irregular silhouettes (e.g., trees, characters) to cast shadows that match their visible shape rather than their bounding quad.
+
+### UV Coordinate Convention for Shadows
+
+When computing UV coordinates from ray-quad intersection:
+
+- The Y-coordinate must be flipped: `hitUV.y = 1.0 - hitUV.y`
+- Reason: OpenGL world Y+ points upward, but texture V=0 is at the top
+- Without this flip, shadows appear upside-down on walls
+
+### Shadow Caster Coordinate Conversion
+
+**Critical:** When converting shadow caster positions from pixel coordinates to OpenGL coordinates, always use the **FBO base resolution** (e.g., 320x180), NOT the current viewport resolution (e.g., 1280x720).
+
+- Shadow casters are rendered at FBO resolution
+- Using viewport dimensions causes Y-flip and position errors
+- Use `Config::BASE_WIDTH/HEIGHT` instead of `get_render_width()/get_render_height()`
 
 ## Limitations and Trade-offs
 

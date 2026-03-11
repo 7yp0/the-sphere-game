@@ -35,7 +35,13 @@ static ECS::EntityID create_prop_entity(const Prop& prop) {
     sprite.pivot = prop.pivot;
     sprite.visible = true;
     
-    printf("[ECS] Created prop '%s': Entity=%u, pos=(%.0f,%.0f), z=%.2f\n",
+    // Add ShadowCasterComponent (props cast shadows by default)
+    auto& shadow = g_state.ecs_world.add_component<ECS::ShadowCasterComponent>(entity);
+    shadow.enabled = true;
+    shadow.alpha_threshold = 0.3f;
+    shadow.shadow_intensity = 0.7f;
+    
+    printf("[ECS] Created prop '%s': Entity=%u, pos=(%.0f,%.0f), z=%.2f, shadow_caster=YES\n",
            prop.name.c_str(), entity, 
            transform.position.x, transform.position.y, transform.z_depth);
     

@@ -44,6 +44,21 @@ struct LightData {
     float radius;       // Attenuation radius in OpenGL units
 };
 
+// Maximum number of shadow casters the shader can handle
+constexpr uint32_t MAX_SHADOW_CASTERS = 4;
+
+// Shadow caster data for ray-quad intersection in shader
+// Position is in OpenGL coords (-1 to +1), derived from Transform2_5DComponent
+struct ShadowCasterData {
+    Vec3 position;           // Center position in OpenGL coords (X,Y = screen, Z = depth)
+    Vec2 size;               // Size in OpenGL coords
+    Vec4 uv_range;           // UV bounds for texture sampling (minU, minV, maxU, maxV)
+    TextureID texture;       // Diffuse texture for alpha testing
+    float alpha_threshold;   // Alpha value above which shadow is cast
+    float shadow_intensity;  // How dark the shadow is (0=black, 1=no effect)
+    int32_t entity_index;    // Entity index for self-shadowing prevention (-1 = no exclusion)
+};
+
 // Lit sprite rendering with ECS-based lights
 // objectZ: -999.0 = use depth map (background), otherwise use this Z value (props)
 void render_sprite_lit(TextureID tex, Vec3 pos, Vec2 size, 
@@ -60,6 +75,20 @@ void render_sprite_animated_lit(const SpriteAnimation* anim, Vec3 pos, Vec2 size
                                 const LightData* lights, uint32_t num_lights,
                                 TextureID normal_map = 0, PivotPoint pivot = PivotPoint::TOP_LEFT,
                                 float objectZ = -999.0f);
+
+// Lit sprite rendering WITH shadow casters
+// These functions also support shadow casting by testing ray-quad intersections
+void render_sprite_lit_shadowed(TextureID tex, Vec3 pos, Vec2 size, 
+                                const LightData* lights, uint32_t num_lights,
+                                const ShadowCasterData* shadow_casters, uint32_t num_shadow_casters,
+                                TextureID normal_map = 0, PivotPoint pivot = PivotPoint::TOP_LEFT,
+                                float objectZ = -999.0f, int32_t self_entity_index = -1);
+
+void render_sprite_lit_shadowed(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range,
+                                const LightData* lights, uint32_t num_lights,
+                                const ShadowCasterData* shadow_casters, uint32_t num_shadow_casters,
+                                TextureID normal_map = 0, PivotPoint pivot = PivotPoint::TOP_LEFT,
+                                float objectZ = -999.0f, int32_t self_entity_index = -1);
 
 // Framebuffer Object (FBO) for offscreen rendering at base resolution
 // All scene rendering goes to FBO at 320x180, then upscaled to viewport

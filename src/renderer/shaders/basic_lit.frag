@@ -16,6 +16,9 @@ uniform float aspectRatio;      // viewport width / height
 // objectZ = actual value means this is a prop (use this Z, check if light is behind)
 uniform float objectZ;
 
+// Self-entity index for shadow exclusion (-1 = no exclusion)
+uniform int selfEntityIndex;
+
 // Lighting
 #define MAX_LIGHTS 8
 uniform int numLights;
@@ -24,11 +27,124 @@ uniform vec3 lightColors[MAX_LIGHTS];      // RGB (0-1)
 uniform float lightIntensities[MAX_LIGHTS];
 uniform float lightRadii[MAX_LIGHTS];
 
+// Shadow casters
+#define MAX_SHADOW_CASTERS 4
+uniform int numShadowCasters;
+uniform vec3 shadowCasterPositions[MAX_SHADOW_CASTERS];   // Center position (OpenGL coords)
+uniform vec2 shadowCasterSizes[MAX_SHADOW_CASTERS];       // Width, height (OpenGL units)
+uniform float shadowCasterZDepths[MAX_SHADOW_CASTERS];    // Z depth of the caster
+uniform vec4 shadowCasterUVRanges[MAX_SHADOW_CASTERS];    // minU, minV, maxU, maxV
+uniform float shadowCasterAlphaThresholds[MAX_SHADOW_CASTERS];
+uniform float shadowCasterIntensities[MAX_SHADOW_CASTERS];
+uniform int shadowCasterEntityIndices[MAX_SHADOW_CASTERS]; // For self-exclusion
+uniform sampler2D shadowCasterTex0;
+uniform sampler2D shadowCasterTex1;
+uniform sampler2D shadowCasterTex2;
+uniform sampler2D shadowCasterTex3;
+
 // Ambient light
 uniform vec3 ambientColor;  // Default ambient color
 uniform float ambientIntensity;  // Default ambient intensity
 
 out vec4 FragColor;
+
+// Sample shadow caster texture by index (GLSL doesn't allow array indexing samplers)
+vec4 sampleShadowCasterTexture(int index, vec2 uv) {
+    if (index == 0) return texture(shadowCasterTex0, uv);
+    if (index == 1) return texture(shadowCasterTex1, uv);
+    if (index == 2) return texture(shadowCasterTex2, uv);
+    if (index == 3) return texture(shadowCasterTex3, uv);
+    return vec4(0.0);
+}
+
+// Ray-Quad intersection test
+// Returns true if ray intersects the axis-aligned quad, with UV coordinates at hit point
+// rayOrigin: starting point of ray (fragment position in 3D)
+// rayDir: direction towards light (NOT normalized! length = distance to light)
+// quadCenter: center of the shadow caster quad (OpenGL coords)
+// quadSize: width and height of the quad (NOT half-size)
+// quadZ: Z depth of the quad plane
+// hitUV: output UV coordinates within the quad (0-1 range)
+bool rayQuadIntersect(vec3 rayOrigin, vec3 rayDir, vec3 quadCenter, vec2 quadSize, float quadZ, out vec2 hitUV) {
+    // Check if ray is parallel to the quad plane (Z = quadZ)
+    if (abs(rayDir.z) < 0.0001) {
+        return false;
+    }
+    
+    // Find t where ray intersects the Z=quadZ plane
+    // t is parametric: 0 = at fragment, 1 = at light
+    float t = (quadZ - rayOrigin.z) / rayDir.z;
+    
+    // Only count intersections BETWEEN fragment and light (0 < t < 1)
+    if (t <= 0.0 || t >= 1.0) {
+        return false;
+    }
+    
+    // Calculate intersection point on the plane
+    vec3 hitPoint = rayOrigin + rayDir * t;
+    
+    // Check if hit point is within quad bounds (quadSize is full size, not half)
+    vec2 halfSize = quadSize * 0.5;
+    vec2 localPos = hitPoint.xy - quadCenter.xy;
+    
+    if (abs(localPos.x) > halfSize.x || abs(localPos.y) > halfSize.y) {
+        return false;
+    }
+    
+    // Convert to UV coordinates (0-1 range)
+    // Note: Y is flipped because OpenGL Y+ is up, but texture V=0 is at top
+    hitUV.x = (localPos.x + halfSize.x) / quadSize.x;
+    hitUV.y = 1.0 - (localPos.y + halfSize.y) / quadSize.y;
+    
+    return true;
+}
+
+// Calculate shadow factor for a fragment
+// Returns shadow multiplier (0.0 = full shadow, 1.0 = no shadow)
+// fragPos: 3D position of fragment
+// lightPos: 3D position of light
+// excludeIndex: entity index to exclude (for self-shadowing prevention)
+float calculateShadow(vec3 fragPos, vec3 lightPos, int excludeIndex) {
+    if (numShadowCasters == 0) {
+        return 1.0;  // No shadow casters, fully lit
+    }
+    
+    // Direction from fragment towards light (NOT normalized!)
+    // This way t=0 at fragment, t=1 at light
+    vec3 rayDir = lightPos - fragPos;
+    
+    // Test ray against each shadow caster
+    for (int i = 0; i < numShadowCasters && i < MAX_SHADOW_CASTERS; i++) {
+        // Skip self-shadowing
+        if (shadowCasterEntityIndices[i] == excludeIndex && excludeIndex >= 0) {
+            continue;
+        }
+        
+        // Shadow caster must be between fragment and light (in Z)
+        float casterZ = shadowCasterZDepths[i];
+        
+        // Test ray-quad intersection
+        vec2 hitUV;
+        if (rayQuadIntersect(fragPos, rayDir, shadowCasterPositions[i], shadowCasterSizes[i], casterZ, hitUV)) {
+            // Map hit UV to texture UV range
+            vec4 uvRange = shadowCasterUVRanges[i];
+            vec2 texUV = vec2(
+                mix(uvRange.x, uvRange.z, hitUV.x),  // minU to maxU
+                mix(uvRange.y, uvRange.w, hitUV.y)   // minV to maxV
+            );
+            
+            // Sample shadow caster texture
+            vec4 casterSample = sampleShadowCasterTexture(i, texUV);
+            
+            // If alpha is above threshold, we're in shadow
+            if (casterSample.a > shadowCasterAlphaThresholds[i]) {
+                return shadowCasterIntensities[i];  // Return shadow intensity (darker = lower value)
+            }
+        }
+    }
+    
+    return 1.0;  // No shadow hit, fully lit
+}
 
 // Convert normal from normal map [0,1] to direction [-1,1]
 // Standard normal maps use Z=+1 for "towards camera", but our coordinate system
@@ -147,7 +263,15 @@ void main() {
     vec3 totalLight = ambientColor * ambientIntensity;
     
     for (int i = 0; i < numLights && i < MAX_LIGHTS; i++) {
-        totalLight += calculatePointLight(i, fragPos3D, normal, isObject, surfaceZ);
+        vec3 lightContribution = calculatePointLight(i, fragPos3D, normal, isObject, surfaceZ);
+        
+        // Apply shadow if there's any light contribution
+        if (length(lightContribution) > 0.001) {
+            float shadowFactor = calculateShadow(fragPos3D, lightPositions[i], selfEntityIndex);
+            lightContribution *= shadowFactor;
+        }
+        
+        totalLight += lightContribution;
     }
     
     // Apply lighting to diffuse color

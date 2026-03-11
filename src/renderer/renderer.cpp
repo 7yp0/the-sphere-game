@@ -369,6 +369,10 @@ static void render_sprite_lit_internal(TextureID tex, Vec3 pos, Vec2 size, Vec4 
     // objectZ = -999.0 means background (use depth map), otherwise it's a prop
     glUniform1f(glGetUniformLocation(litShaderProgram, "objectZ"), objectZ);
     
+    // No self-entity exclusion and no shadow casters for basic lit rendering
+    glUniform1i(glGetUniformLocation(litShaderProgram, "selfEntityIndex"), -1);
+    glUniform1i(glGetUniformLocation(litShaderProgram, "numShadowCasters"), 0);
+    
     // Set ambient light
     glUniform3f(glGetUniformLocation(litShaderProgram, "ambientColor"), 0.15f, 0.15f, 0.2f);
     glUniform1f(glGetUniformLocation(litShaderProgram, "ambientIntensity"), 1.0f);
@@ -442,6 +446,171 @@ void render_sprite_animated_lit(const SpriteAnimation* anim, Vec3 pos, Vec2 size
     Vec4 tex_coord_range(frame.u0, frame.v0, frame.u1, frame.v1);
     
     render_sprite_lit_internal(anim->texture, pos, size, tex_coord_range, lights, num_lights, normal_map, pivot, objectZ);
+}
+
+// =============================================================================
+// LIT SPRITE RENDERING WITH SHADOWS
+// =============================================================================
+
+// Internal: Core lit sprite rendering with shadow casters
+static void render_sprite_lit_shadowed_internal(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range,
+                                                const LightData* lights, uint32_t num_lights,
+                                                const ShadowCasterData* shadow_casters, uint32_t num_shadow_casters,
+                                                TextureID normal_map, PivotPoint pivot, 
+                                                float objectZ, int32_t self_entity_index)
+{
+    // Get current render target dimensions (FBO or viewport)
+    uint32_t render_width = get_render_width();
+    uint32_t render_height = get_render_height();
+    
+    // Convert pixel coordinates to OpenGL coordinates
+    Vec2 opengl_pos = Coords::pixel_to_opengl(Vec2(pos.x, pos.y), render_width, render_height);
+    Vec2 opengl_size = Vec2(
+        (size.x / (float)render_width) * 2.0f,
+        (size.y / (float)render_height) * 2.0f
+    );
+    
+    // Calculate offset from pivot point to center
+    Vec2 pivot_offset = Coords::get_pivot_offset(pivot, size.x, size.y);
+    Vec2 pivot_offset_opengl = Vec2(
+        (pivot_offset.x / (float)render_width) * 2.0f,
+        -(pivot_offset.y / (float)render_height) * 2.0f
+    );
+    
+    // Shader expects center point
+    Vec2 opengl_center = Vec2(
+        opengl_pos.x + pivot_offset_opengl.x,
+        opengl_pos.y + pivot_offset_opengl.y
+    );
+    
+    glUseProgram(litShaderProgram);
+    
+    // Set sprite uniforms
+    glUniform2f(glGetUniformLocation(litShaderProgram, "spritePos"), opengl_center.x, opengl_center.y);
+    glUniform2f(glGetUniformLocation(litShaderProgram, "spriteSize"), opengl_size.x, opengl_size.y);
+    glUniform1f(glGetUniformLocation(litShaderProgram, "spriteZ"), pos.z);
+    glUniform4f(glGetUniformLocation(litShaderProgram, "texCoordRange"), 
+                tex_coord_range.x, tex_coord_range.y, tex_coord_range.z, tex_coord_range.w);
+    
+    // Set aspect ratio for correct circular light falloff
+    float aspectRatio = (float)render_width / (float)render_height;
+    glUniform1f(glGetUniformLocation(litShaderProgram, "aspectRatio"), aspectRatio);
+    
+    // Set object Z for lighting calculations
+    glUniform1f(glGetUniformLocation(litShaderProgram, "objectZ"), objectZ);
+    
+    // Set self entity index for shadow exclusion
+    glUniform1i(glGetUniformLocation(litShaderProgram, "selfEntityIndex"), self_entity_index);
+    
+    // Set ambient light
+    glUniform3f(glGetUniformLocation(litShaderProgram, "ambientColor"), 0.15f, 0.15f, 0.2f);
+    glUniform1f(glGetUniformLocation(litShaderProgram, "ambientIntensity"), 1.0f);
+    
+    // Set light uniforms (max 8 lights)
+    uint32_t actual_lights = num_lights > 8 ? 8 : num_lights;
+    glUniform1i(glGetUniformLocation(litShaderProgram, "numLights"), actual_lights);
+    
+    if (actual_lights > 0 && lights) {
+        std::vector<Vec3> positions;
+        std::vector<Vec3> colors;
+        std::vector<float> intensities;
+        std::vector<float> radii;
+        
+        for (uint32_t i = 0; i < actual_lights; i++) {
+            positions.push_back(lights[i].position);
+            colors.push_back(lights[i].color);
+            intensities.push_back(lights[i].intensity);
+            radii.push_back(lights[i].radius);
+        }
+        
+        glUniform3fv(glGetUniformLocation(litShaderProgram, "lightPositions"), actual_lights, (float*)positions.data());
+        glUniform3fv(glGetUniformLocation(litShaderProgram, "lightColors"), actual_lights, (float*)colors.data());
+        glUniform1fv(glGetUniformLocation(litShaderProgram, "lightIntensities"), actual_lights, intensities.data());
+        glUniform1fv(glGetUniformLocation(litShaderProgram, "lightRadii"), actual_lights, radii.data());
+    }
+    
+    // Set shadow caster uniforms (max MAX_SHADOW_CASTERS)
+    uint32_t actual_casters = num_shadow_casters > MAX_SHADOW_CASTERS ? MAX_SHADOW_CASTERS : num_shadow_casters;
+    glUniform1i(glGetUniformLocation(litShaderProgram, "numShadowCasters"), actual_casters);
+    
+    if (actual_casters > 0 && shadow_casters) {
+        std::vector<Vec3> casterPositions;
+        std::vector<Vec2> casterSizes;
+        std::vector<float> casterZDepths;
+        std::vector<Vec4> casterUVRanges;
+        std::vector<float> casterAlphaThresholds;
+        std::vector<float> casterIntensities;
+        std::vector<int> casterEntityIndices;
+        
+        for (uint32_t i = 0; i < actual_casters; i++) {
+            casterPositions.push_back(shadow_casters[i].position);
+            casterSizes.push_back(shadow_casters[i].size);
+            casterZDepths.push_back(shadow_casters[i].position.z);  // Z from position
+            casterUVRanges.push_back(shadow_casters[i].uv_range);
+            casterAlphaThresholds.push_back(shadow_casters[i].alpha_threshold);
+            casterIntensities.push_back(shadow_casters[i].shadow_intensity);
+            casterEntityIndices.push_back(shadow_casters[i].entity_index);
+        }
+        
+        glUniform3fv(glGetUniformLocation(litShaderProgram, "shadowCasterPositions"), actual_casters, (float*)casterPositions.data());
+        glUniform2fv(glGetUniformLocation(litShaderProgram, "shadowCasterSizes"), actual_casters, (float*)casterSizes.data());
+        glUniform1fv(glGetUniformLocation(litShaderProgram, "shadowCasterZDepths"), actual_casters, casterZDepths.data());
+        glUniform4fv(glGetUniformLocation(litShaderProgram, "shadowCasterUVRanges"), actual_casters, (float*)casterUVRanges.data());
+        glUniform1fv(glGetUniformLocation(litShaderProgram, "shadowCasterAlphaThresholds"), actual_casters, casterAlphaThresholds.data());
+        glUniform1fv(glGetUniformLocation(litShaderProgram, "shadowCasterIntensities"), actual_casters, casterIntensities.data());
+        glUniform1iv(glGetUniformLocation(litShaderProgram, "shadowCasterEntityIndices"), actual_casters, casterEntityIndices.data());
+        
+        // Bind shadow caster textures to texture units 3-6
+        for (uint32_t i = 0; i < actual_casters; i++) {
+            glActiveTexture(GL_TEXTURE3 + i);
+            glBindTexture(GL_TEXTURE_2D, shadow_casters[i].texture);
+        }
+        
+        // Set sampler uniforms for shadow caster textures
+        glUniform1i(glGetUniformLocation(litShaderProgram, "shadowCasterTex0"), 3);
+        glUniform1i(glGetUniformLocation(litShaderProgram, "shadowCasterTex1"), 4);
+        glUniform1i(glGetUniformLocation(litShaderProgram, "shadowCasterTex2"), 5);
+        glUniform1i(glGetUniformLocation(litShaderProgram, "shadowCasterTex3"), 6);
+    } else {
+        // No shadow casters - set count to 0
+        glUniform1i(glGetUniformLocation(litShaderProgram, "numShadowCasters"), 0);
+    }
+    
+    // Bind textures (units 0-2 for main sprite)
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, normal_map ? normal_map : tex);
+    
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, g_depth_map_texture);
+    
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+}
+
+void render_sprite_lit_shadowed(TextureID tex, Vec3 pos, Vec2 size, 
+                                const LightData* lights, uint32_t num_lights,
+                                const ShadowCasterData* shadow_casters, uint32_t num_shadow_casters,
+                                TextureID normal_map, PivotPoint pivot, 
+                                float objectZ, int32_t self_entity_index)
+{
+    render_sprite_lit_shadowed_internal(tex, pos, size, Vec4(0.0f, 0.0f, 1.0f, 1.0f), 
+                                        lights, num_lights, shadow_casters, num_shadow_casters, 
+                                        normal_map, pivot, objectZ, self_entity_index);
+}
+
+void render_sprite_lit_shadowed(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range,
+                                const LightData* lights, uint32_t num_lights,
+                                const ShadowCasterData* shadow_casters, uint32_t num_shadow_casters,
+                                TextureID normal_map, PivotPoint pivot, 
+                                float objectZ, int32_t self_entity_index)
+{
+    render_sprite_lit_shadowed_internal(tex, pos, size, tex_coord_range, 
+                                        lights, num_lights, shadow_casters, num_shadow_casters, 
+                                        normal_map, pivot, objectZ, self_entity_index);
 }
 
 // =============================================================================
