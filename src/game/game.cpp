@@ -19,9 +19,6 @@ namespace Game {
 
 GameState g_state;
 
-// ECS World instance
-static ECS::World g_ecs_world;
-
 // Phase 1 ECS Test - validates entity and component systems
 static void test_ecs_phase1() {
     printf("\n========================================\n");
@@ -30,29 +27,29 @@ static void test_ecs_phase1() {
     
     // Test 1: Create entities
     printf("\n[TEST 1] Creating entities...\n");
-    ECS::EntityID entity1 = g_ecs_world.create_entity();
-    ECS::EntityID entity2 = g_ecs_world.create_entity();
-    ECS::EntityID entity3 = g_ecs_world.create_entity();
+    ECS::EntityID entity1 = g_state.ecs_world.create_entity();
+    ECS::EntityID entity2 = g_state.ecs_world.create_entity();
+    ECS::EntityID entity3 = g_state.ecs_world.create_entity();
     
-    printf("  Created entity 1: ID=%u, valid=%s\n", entity1, g_ecs_world.is_valid(entity1) ? "YES" : "NO");
-    printf("  Created entity 2: ID=%u, valid=%s\n", entity2, g_ecs_world.is_valid(entity2) ? "YES" : "NO");
-    printf("  Created entity 3: ID=%u, valid=%s\n", entity3, g_ecs_world.is_valid(entity3) ? "YES" : "NO");
-    printf("  Total entities: %u\n", g_ecs_world.get_entity_count());
+    printf("  Created entity 1: ID=%u, valid=%s\n", entity1, g_state.ecs_world.is_valid(entity1) ? "YES" : "NO");
+    printf("  Created entity 2: ID=%u, valid=%s\n", entity2, g_state.ecs_world.is_valid(entity2) ? "YES" : "NO");
+    printf("  Created entity 3: ID=%u, valid=%s\n", entity3, g_state.ecs_world.is_valid(entity3) ? "YES" : "NO");
+    printf("  Total entities: %u\n", g_state.ecs_world.get_entity_count());
     
     // Test 2: Add components
     printf("\n[TEST 2] Adding components...\n");
     
-    auto& transform1 = g_ecs_world.add_component<ECS::Transform2_5DComponent>(entity1);
+    auto& transform1 = g_state.ecs_world.add_component<ECS::Transform2_5DComponent>(entity1);
     transform1.position = Vec2(100, 200);
     transform1.z_depth = 0.5f;
     printf("  Entity 1: Added Transform2_5D (pos=%.0f,%.0f, z_depth=%.2f)\n", 
            transform1.position.x, transform1.position.y, transform1.z_depth);
     
-    auto& sprite1 = g_ecs_world.add_component<ECS::SpriteComponent>(entity1);
+    auto& sprite1 = g_state.ecs_world.add_component<ECS::SpriteComponent>(entity1);
     sprite1.visible = true;
     printf("  Entity 1: Added SpriteComponent (visible=%s)\n", sprite1.visible ? "YES" : "NO");
     
-    auto& light2 = g_ecs_world.add_component<ECS::LightComponent>(entity2);
+    auto& light2 = g_state.ecs_world.add_component<ECS::LightComponent>(entity2);
     light2.color = Vec3(1.0f, 0.8f, 0.5f);
     light2.intensity = 2.0f;
     light2.radius = 5.0f;
@@ -64,21 +61,21 @@ static void test_ecs_phase1() {
     // Test 3: Query components
     printf("\n[TEST 3] Querying components...\n");
     
-    printf("  Entity 1 has Transform2_5D: %s\n", g_ecs_world.has_component<ECS::Transform2_5DComponent>(entity1) ? "YES" : "NO");
-    printf("  Entity 1 has LightComponent: %s\n", g_ecs_world.has_component<ECS::LightComponent>(entity1) ? "YES" : "NO");
-    printf("  Entity 2 has LightComponent: %s\n", g_ecs_world.has_component<ECS::LightComponent>(entity2) ? "YES" : "NO");
-    printf("  Entity 3 has any components: %s\n", g_ecs_world.has_component<ECS::Transform2_5DComponent>(entity3) ? "YES" : "NO");
+    printf("  Entity 1 has Transform2_5D: %s\n", g_state.ecs_world.has_component<ECS::Transform2_5DComponent>(entity1) ? "YES" : "NO");
+    printf("  Entity 1 has LightComponent: %s\n", g_state.ecs_world.has_component<ECS::LightComponent>(entity1) ? "YES" : "NO");
+    printf("  Entity 2 has LightComponent: %s\n", g_state.ecs_world.has_component<ECS::LightComponent>(entity2) ? "YES" : "NO");
+    printf("  Entity 3 has any components: %s\n", g_state.ecs_world.has_component<ECS::Transform2_5DComponent>(entity3) ? "YES" : "NO");
     
     // Test 4: Get components
     printf("\n[TEST 4] Getting component data...\n");
     
-    auto* t = g_ecs_world.get_component<ECS::Transform2_5DComponent>(entity1);
+    auto* t = g_state.ecs_world.get_component<ECS::Transform2_5DComponent>(entity1);
     if (t) {
         printf("  Entity 1 Transform2_5D: pos=(%.0f,%.0f), z_depth=%.2f\n", 
                t->position.x, t->position.y, t->z_depth);
     }
     
-    auto* l = g_ecs_world.get_component<ECS::LightComponent>(entity2);
+    auto* l = g_state.ecs_world.get_component<ECS::LightComponent>(entity2);
     if (l) {
         printf("  Entity 2 LightComponent: color=(%.1f,%.1f,%.1f), radius=%.1f\n",
                l->color.x, l->color.y, l->color.z, l->radius);
@@ -88,19 +85,19 @@ static void test_ecs_phase1() {
     printf("\n[TEST 5] Destroying entity and recycling...\n");
     
     printf("  Destroying entity 2...\n");
-    g_ecs_world.destroy_entity(entity2);
-    printf("  Entity 2 valid after destroy: %s\n", g_ecs_world.is_valid(entity2) ? "YES" : "NO");
-    printf("  Total entities: %u\n", g_ecs_world.get_entity_count());
+    g_state.ecs_world.destroy_entity(entity2);
+    printf("  Entity 2 valid after destroy: %s\n", g_state.ecs_world.is_valid(entity2) ? "YES" : "NO");
+    printf("  Total entities: %u\n", g_state.ecs_world.get_entity_count());
     
     printf("  Creating new entity (should reuse ID)...\n");
-    ECS::EntityID entity4 = g_ecs_world.create_entity();
+    ECS::EntityID entity4 = g_state.ecs_world.create_entity();
     printf("  New entity ID: %u (recycled from entity 2)\n", entity4);
-    printf("  Total entities: %u\n", g_ecs_world.get_entity_count());
+    printf("  Total entities: %u\n", g_state.ecs_world.get_entity_count());
     
     // Cleanup test entities 
-    g_ecs_world.destroy_entity(entity1);
-    g_ecs_world.destroy_entity(entity3);
-    g_ecs_world.destroy_entity(entity4);
+    g_state.ecs_world.destroy_entity(entity1);
+    g_state.ecs_world.destroy_entity(entity3);
+    g_state.ecs_world.destroy_entity(entity4);
     
     printf("\n========================================\n");
     printf("     ECS PHASE 1 TEST - COMPLETE\n");
@@ -171,13 +168,13 @@ static void test_ecs_phase2() {
     // Test 5: Entity with transform + derive
     printf("\n[TEST 5] Entity with transform derivation...\n");
     
-    ECS::EntityID entity = g_ecs_world.create_entity();
-    auto& transform = g_ecs_world.add_component<ECS::Transform2_5DComponent>(entity);
+    ECS::EntityID entity = g_state.ecs_world.create_entity();
+    auto& transform = g_state.ecs_world.add_component<ECS::Transform2_5DComponent>(entity);
     transform.position = Vec2(80, 45);  // Top-left quadrant
     transform.z_depth = -0.5f;          // Near camera (should scale up)
     transform.scale = Vec2(2.0f, 2.0f); // Double size
     
-    auto& sprite = g_ecs_world.add_component<ECS::SpriteComponent>(entity);
+    auto& sprite = g_state.ecs_world.add_component<ECS::SpriteComponent>(entity);
     sprite.base_size = Vec2(32, 32);
     
     ECS::Transform3DComponent derived = ECS::TransformHelpers::derive_3d_from_2_5d(
@@ -189,7 +186,7 @@ static void test_ecs_phase2() {
     printf("  Final OpenGL pos: (%.2f, %.2f, %.2f)\n", derived.position.x, derived.position.y, derived.position.z);
     printf("  Final OpenGL size: (%.3f, %.3f)\n", derived.size.x, derived.size.y);
     
-    g_ecs_world.destroy_entity(entity);
+    g_state.ecs_world.destroy_entity(entity);
     
     printf("\n========================================\n");
     printf("     ECS PHASE 2 TEST - COMPLETE\n");
@@ -197,9 +194,117 @@ static void test_ecs_phase2() {
     printf("========================================\n\n");
 }
 
-static void init_player() {
-    player_init(g_state.player, g_state.base_width, g_state.base_height, 
-                &g_state.playerAnimations);
+// Phase 3 ECS Test - validates sprite and emissive components
+static void test_ecs_phase3() {
+    printf("\n========================================\n");
+    printf("     ECS PHASE 3 TEST - START\n");
+    printf("========================================\n");
+    
+    // Test 1: SpriteComponent defaults
+    printf("\n[TEST 1] SpriteComponent defaults...\n");
+    
+    ECS::SpriteComponent sprite;
+    printf("  texture=%u, normal_map=%u\n", sprite.texture, sprite.normal_map);
+    printf("  base_size=(%.0f,%.0f)\n", sprite.base_size.x, sprite.base_size.y);
+    printf("  uv_range=(%.2f,%.2f,%.2f,%.2f)\n", sprite.uv_range.x, sprite.uv_range.y, sprite.uv_range.z, sprite.uv_range.w);
+    printf("  visible=%s, flip_x=%s, flip_y=%s\n", 
+           sprite.visible ? "YES" : "NO", sprite.flip_x ? "YES" : "NO", sprite.flip_y ? "YES" : "NO");
+    printf("  is_animated=%s\n", sprite.is_animated() ? "YES" : "NO");
+    
+    // Test 2: EmissiveComponent
+    printf("\n[TEST 2] EmissiveComponent...\n");
+    
+    ECS::EmissiveComponent emissive_default;
+    printf("  Default: color=(%.1f,%.1f,%.1f), intensity=%.1f, emitting=%s\n",
+           emissive_default.emissive_color.x, emissive_default.emissive_color.y, emissive_default.emissive_color.z,
+           emissive_default.intensity, emissive_default.is_emitting() ? "YES" : "NO");
+    
+    ECS::EmissiveComponent emissive_glow(Vec3(2.0f, 1.5f, 0.5f), 1.5f);
+    Vec3 emission = emissive_glow.get_emission();
+    printf("  Glow: color=(%.1f,%.1f,%.1f), intensity=%.1f\n",
+           emissive_glow.emissive_color.x, emissive_glow.emissive_color.y, emissive_glow.emissive_color.z,
+           emissive_glow.intensity);
+    printf("  Final emission: (%.2f,%.2f,%.2f), emitting=%s\n",
+           emission.x, emission.y, emission.z, emissive_glow.is_emitting() ? "YES" : "NO");
+    
+    // Test 3: Spritesheet UV helper
+    printf("\n[TEST 3] Spritesheet UV helper...\n");
+    
+    // 4x4 grid, cell (2,1) = third column, second row
+    Vec4 uv = ECS::SpriteHelpers::create_spritesheet_uv(2, 1, 4, 4);
+    printf("  Grid 4x4, cell (2,1): uv=(%.3f,%.3f,%.3f,%.3f)\n", uv.x, uv.y, uv.z, uv.w);
+    printf("  Expected: (0.500, 0.250, 0.750, 0.500)\n");
+    
+    // Test 4: UV flip helper
+    printf("\n[TEST 4] UV flip helper...\n");
+    
+    Vec4 original(0.0f, 0.0f, 0.5f, 0.5f);
+    Vec4 flipped_x = ECS::SpriteHelpers::apply_flip(original, true, false);
+    Vec4 flipped_y = ECS::SpriteHelpers::apply_flip(original, false, true);
+    Vec4 flipped_both = ECS::SpriteHelpers::apply_flip(original, true, true);
+    
+    printf("  Original: (%.1f,%.1f,%.1f,%.1f)\n", original.x, original.y, original.z, original.w);
+    printf("  Flip X:   (%.1f,%.1f,%.1f,%.1f)\n", flipped_x.x, flipped_x.y, flipped_x.z, flipped_x.w);
+    printf("  Flip Y:   (%.1f,%.1f,%.1f,%.1f)\n", flipped_y.x, flipped_y.y, flipped_y.z, flipped_y.w);
+    printf("  Flip XY:  (%.1f,%.1f,%.1f,%.1f)\n", flipped_both.x, flipped_both.y, flipped_both.z, flipped_both.w);
+    
+    // Test 5: Entity with sprite + emissive (lamp example)
+    printf("\n[TEST 5] Entity: Lamp with sprite + emissive...\n");
+    
+    ECS::EntityID lamp = g_state.ecs_world.create_entity();
+    
+    auto& lamp_transform = g_state.ecs_world.add_component<ECS::Transform2_5DComponent>(lamp);
+    lamp_transform.position = Vec2(200, 100);
+    lamp_transform.z_depth = 0.2f;
+    
+    auto& lamp_sprite = g_state.ecs_world.add_component<ECS::SpriteComponent>(lamp);
+    lamp_sprite.texture = 1;  // Dummy texture ID
+    lamp_sprite.base_size = Vec2(24, 48);
+    lamp_sprite.pivot = PivotPoint::BOTTOM_CENTER;
+    
+    auto& lamp_emissive = g_state.ecs_world.add_component<ECS::EmissiveComponent>(lamp);
+    lamp_emissive.emissive_color = Vec3(1.0f, 0.9f, 0.6f);  // Warm yellow
+    lamp_emissive.intensity = 2.0f;
+    
+    printf("  Created lamp entity ID=%u\n", lamp);
+    printf("  Transform: pos=(%.0f,%.0f), z=%.2f\n", 
+           lamp_transform.position.x, lamp_transform.position.y, lamp_transform.z_depth);
+    printf("  Sprite: tex=%u, size=(%.0f,%.0f), pivot=BOTTOM_CENTER\n",
+           lamp_sprite.texture, lamp_sprite.base_size.x, lamp_sprite.base_size.y);
+    printf("  Emissive: (%.1f,%.1f,%.1f) * %.1f\n",
+           lamp_emissive.emissive_color.x, lamp_emissive.emissive_color.y, lamp_emissive.emissive_color.z,
+           lamp_emissive.intensity);
+    
+    // Verify component queries
+    printf("  Has Transform2_5D: %s\n", g_state.ecs_world.has_component<ECS::Transform2_5DComponent>(lamp) ? "YES" : "NO");
+    printf("  Has Sprite: %s\n", g_state.ecs_world.has_component<ECS::SpriteComponent>(lamp) ? "YES" : "NO");
+    printf("  Has Emissive: %s\n", g_state.ecs_world.has_component<ECS::EmissiveComponent>(lamp) ? "YES" : "NO");
+    printf("  Has Light (should be NO): %s\n", g_state.ecs_world.has_component<ECS::LightComponent>(lamp) ? "YES" : "NO");
+    
+    g_state.ecs_world.destroy_entity(lamp);
+    
+    printf("\n========================================\n");
+    printf("     ECS PHASE 3 TEST - COMPLETE\n");
+    printf("     All tests passed!\n");
+    printf("========================================\n\n");
+}
+
+// Helper: Get player transform (for update loop)
+static ECS::Transform2_5DComponent* get_player_transform() {
+    if (g_state.player_entity == ECS::INVALID_ENTITY) return nullptr;
+    return g_state.ecs_world.get_component<ECS::Transform2_5DComponent>(g_state.player_entity);
+}
+
+// Helper: Update sprite animation from player state
+static void update_player_sprite_animation() {
+    if (g_state.player_entity == ECS::INVALID_ENTITY) return;
+    
+    auto* sprite = g_state.ecs_world.get_component<ECS::SpriteComponent>(g_state.player_entity);
+    if (sprite) {
+        const char* anim_name = player_get_animation_name(g_state.player);
+        Renderer::SpriteAnimation* anim = g_state.player.animations.get(anim_name);
+        sprite->set_animation(anim);
+    }
 }
 
 static void update_animated_test_light(float delta_time) {
@@ -228,9 +333,14 @@ void init() {
     // Run ECS tests at startup
     test_ecs_phase1();
     test_ecs_phase2();
+    test_ecs_phase3();
     
+    // Initialize scene (this also creates prop ECS entities)
     Scene::init_scene_test();
-    init_player();
+    
+    // Create player entity (this initializes player and its ECS transform)
+    g_state.player_entity = player_create_entity(g_state.player, g_state.ecs_world,
+                                                  g_state.base_width, g_state.base_height);
     
     // Initialize framebuffer for offscreen rendering at base resolution
     Renderer::init_framebuffer(Config::BASE_WIDTH, Config::BASE_HEIGHT);
@@ -257,8 +367,15 @@ void update(float delta_time) {
     Debug::handle_debug_keys();
 #endif
     
-    player_handle_input(g_state.player);
-    player_update(g_state.player, g_state.base_width, g_state.base_height, delta_time);
+    // Get player transform from ECS
+    ECS::Transform2_5DComponent* player_transform = get_player_transform();
+    if (player_transform) {
+        player_handle_input(g_state.player, *player_transform);
+        player_update(g_state.player, *player_transform, g_state.base_width, g_state.base_height, delta_time);
+        
+        // Update sprite animation based on player state
+        update_player_sprite_animation();
+    }
     
     update_animated_test_light(delta_time);
 }
@@ -277,48 +394,67 @@ void render() {
                                g_state.scene.lights,
                                g_state.scene.background_normal_map);
     
-    // Render all props with their z-depth from scene definition
-    for (size_t i = 0; i < g_state.scene.props.size(); ++i) {
-        const Scene::Prop& prop = g_state.scene.props[i];
+    // =========================================================================
+    // Render props using ECS components (from current scene)
+    // =========================================================================
+    for (ECS::EntityID prop_entity : g_state.scene.prop_entities) {
+        auto* transform = g_state.ecs_world.get_component<ECS::Transform2_5DComponent>(prop_entity);
+        auto* sprite = g_state.ecs_world.get_component<ECS::SpriteComponent>(prop_entity);
         
-        // Calculate depth scaling for 2.5D effect (based on depth map at position)
-        float depth_scale = Scene::get_depth_scaling(g_state.scene, prop.position.x, prop.position.y);
+        if (!transform || !sprite || !sprite->visible) continue;
+        
+        // Calculate depth scaling from ECS transform
+        float depth_scale = ECS::TransformHelpers::compute_depth_scale(transform->z_depth);
         Vec2 scaled_size = Vec2(
-            prop.size.x * depth_scale,
-            prop.size.y * depth_scale
+            sprite->base_size.x * transform->scale.x * depth_scale,
+            sprite->base_size.y * transform->scale.y * depth_scale
         );
         
-        // Use actual 3D position from scene (z-coordinate from scene definition)
-        Renderer::render_sprite_lit(prop.texture, prop.position, scaled_size,
-                                   g_state.scene.lights, prop.normal_map, prop.pivot);
+        // Create 3D position for rendering (pixel coords + z_depth)
+        Vec3 render_pos(transform->position.x, transform->position.y, transform->z_depth);
+        
+        // Render with lighting
+        Renderer::render_sprite_lit(sprite->texture, render_pos, scaled_size,
+                                   g_state.scene.lights, sprite->normal_map, sprite->pivot);
     }
     
-    // Render player with its actual 3D position from game state
-    const char* anim_name = player_get_animation_name(g_state.player);
-    Renderer::SpriteAnimation* player_anim = g_state.playerAnimations.get(anim_name);
-    if (player_anim) {
-        // Calculate depth scaling for 2.5D effect (based on depth map at position)
-        float depth_scale = Scene::get_depth_scaling(g_state.scene, g_state.player.position.x, g_state.player.position.y);
-        Vec2 scaled_size = Vec2(
-            g_state.player.size.x * depth_scale,
-            g_state.player.size.y * depth_scale
-        );
+    // =========================================================================
+    // Render player using ECS components
+    // =========================================================================
+    if (g_state.player_entity != ECS::INVALID_ENTITY) {
+        auto* transform = g_state.ecs_world.get_component<ECS::Transform2_5DComponent>(g_state.player_entity);
+        auto* sprite = g_state.ecs_world.get_component<ECS::SpriteComponent>(g_state.player_entity);
         
-        // Use actual 3D position from game state (z-coordinate is set during initialization)
-        Renderer::render_sprite_animated_lit(player_anim, 
-                                            g_state.player.position, 
-                                            scaled_size,
-                                            g_state.scene.lights,
-                                            0,  // normal_map: use default
-                                            g_state.player.pivot);
+        if (transform && sprite && sprite->visible) {
+            // Calculate depth scaling
+            float depth_scale = ECS::TransformHelpers::compute_depth_scale(transform->z_depth);
+            Vec2 scaled_size = Vec2(
+                sprite->base_size.x * transform->scale.x * depth_scale,
+                sprite->base_size.y * transform->scale.y * depth_scale
+            );
+            
+            // Create 3D position for rendering
+            Vec3 render_pos(transform->position.x, transform->position.y, transform->z_depth);
+            
+            // Render animated sprite if animation is set
+            if (sprite->is_animated() && sprite->animation) {
+                Renderer::render_sprite_animated_lit(sprite->animation, 
+                                                    render_pos, 
+                                                    scaled_size,
+                                                    g_state.scene.lights,
+                                                    sprite->normal_map,
+                                                    sprite->pivot);
+            } else {
+                Renderer::render_sprite_lit(sprite->texture, render_pos, scaled_size,
+                                           g_state.scene.lights, sprite->normal_map, sprite->pivot);
+            }
+        }
     }
     
     // Debug: Rotes Rechteck an der Lichtposition (in base resolution coordinates)
     if (g_state.scene.lights.size() > 0) {
         Vec3 light_pos = g_state.scene.lights[0].position;
         // Konvertiere OpenGL-Koordinaten (-1 bis +1) zu Pixel-Koordinaten (base resolution)
-        // OpenGL X: -1=links, +1=rechts → Pixel: 0 bis base_width
-        // OpenGL Y: -1=unten, +1=oben → Pixel: base_height bis 0 (invertiert!)
         float pixel_x = (light_pos.x + 1.0f) * 0.5f * g_state.base_width;
         float pixel_y = (1.0f - light_pos.y) * 0.5f * g_state.base_height;
         

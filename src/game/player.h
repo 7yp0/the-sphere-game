@@ -2,7 +2,13 @@
 
 #include "types.h"
 #include "core/animation_bank.h"
+#include "ecs/components/transform.h"
+#include "ecs/components/sprite.h"
+#include "ecs/entity.h"
 #include <cstdint>
+
+// Forward declaration
+namespace ECS { class World; }
 
 namespace Game {
 
@@ -28,15 +34,20 @@ enum class HotspotInteractionState {
 };
 
 struct Player {
-    // State
-    Vec3 position;                              // Pixel coordinates in scene space (xy) + z-depth (z)
-    Vec3 target_position;                       // Pixel coordinates in scene space + z-depth
-    Vec2 size = Vec2(25.0f, 37.5f);             // Sprite dimensions in base resolution (scaled from original 36x46)
+    // Movement target (pixel coordinates + z-depth)
+    Vec3 target_position;
+    
+    // Sprite dimensions in base resolution (scaled from original 36x46)
+    Vec2 size = Vec2(25.0f, 37.5f);
+    
+    // Animation state
     AnimationState animation_state = AnimationState::Idle;
-    WalkDirection walk_direction = WalkDirection::Down;  // Current facing direction
-    Core::AnimationBank* animations;            // Generic animation bank for any entity
+    WalkDirection walk_direction = WalkDirection::Down;
+    Core::AnimationBank animations;  // Owned animation bank for this player
     PivotPoint pivot = PivotPoint::BOTTOM_CENTER;
-    int active_hotspot_index = -1;              // -1 = none, otherwise index into scene.geometry.hotspots
+    
+    // Hotspot interaction
+    int active_hotspot_index = -1;
     HotspotInteractionState hotspot_state = HotspotInteractionState::None;
     
     // Settings/Config (all values in base resolution 320x180)
@@ -48,12 +59,18 @@ struct Player {
     float stuck_movement_threshold = 0.025f;       // Pixels per frame to consider player stuck
 };
 
+// Create player ECS entity with Transform and Sprite components
+// Returns the created entity ID
+ECS::EntityID player_create_entity(Player& player, ECS::World& world,
+                                   uint32_t base_width, uint32_t base_height);
+
 void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_height, 
-                 Core::AnimationBank* animations);
+                 ECS::Transform2_5DComponent& transform);
 
-void player_handle_input(Player& player);
+void player_handle_input(Player& player, ECS::Transform2_5DComponent& transform);
 
-void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_height, float delta_time);
+void player_update(Player& player, ECS::Transform2_5DComponent& transform,
+                   uint32_t viewport_width, uint32_t viewport_height, float delta_time);
 
 // Get the animation name for the current player state and direction
 const char* player_get_animation_name(const Player& player);

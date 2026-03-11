@@ -7,10 +7,54 @@
 #include "renderer/spritesheet_utils.h"
 #include "collision/polygon_utils.h"
 #include "scene/scene.h"
+#include "ecs/ecs.h"
 #include <cmath>
 #include <algorithm>
+#include <cstdio>
 
 namespace Game {
+
+// Helper: Get Vec3 position from Transform (position.xy + z_depth)
+static Vec3 get_position_3d(const ECS::Transform2_5DComponent& transform) {
+    return Vec3(transform.position.x, transform.position.y, transform.z_depth);
+}
+
+// ============================================================================
+// Player Entity Creation
+// ============================================================================
+
+ECS::EntityID player_create_entity(Player& player, ECS::World& world,
+                                   uint32_t base_width, uint32_t base_height) {
+    printf("\n[ECS] Creating player entity...\n");
+    
+    // Create entity
+    ECS::EntityID entity = world.create_entity();
+    
+    // Add Transform2_5D component
+    auto& transform = world.add_component<ECS::Transform2_5DComponent>(entity);
+    
+    // Initialize player - this sets up animations AND initializes transform position
+    player_init(player, base_width, base_height, transform);
+    
+    // Add SpriteComponent
+    auto& sprite = world.add_component<ECS::SpriteComponent>(entity);
+    sprite.base_size = player.size;
+    sprite.pivot = player.pivot;
+    sprite.visible = true;
+    
+    printf("  Player: Entity=%u, pos=(%.0f,%.0f), z=%.2f, size=(%.0f,%.0f)\n",
+           entity,
+           transform.position.x, transform.position.y, transform.z_depth,
+           sprite.base_size.x, sprite.base_size.y);
+    
+    return entity;
+}
+
+// Helper: Set position from Vec3 to Transform
+static void set_position_3d(ECS::Transform2_5DComponent& transform, const Vec3& pos) {
+    transform.position = Vec2(pos.x, pos.y);
+    transform.z_depth = pos.z;
+}
 
 // Helper function: Determine walk direction from movement vector
 static WalkDirection determine_walk_direction(Vec2 direction) {
@@ -36,7 +80,6 @@ static void set_player_animation_state(Player& player, AnimationState new_state,
     
     player.animation_state = new_state;
     player.walk_direction = new_direction;
-    if (!player.animations) return;
     
     const char* anim_name = nullptr;
     if (new_state == AnimationState::Idle) {
@@ -57,23 +100,23 @@ static void set_player_animation_state(Player& player, AnimationState new_state,
         }
     }
     
-    Renderer::SpriteAnimation* anim = player.animations->get(anim_name);
+    Renderer::SpriteAnimation* anim = player.animations.get(anim_name);
     if (anim) {
         Renderer::animation_reset(anim);
     }
 }
 
 // Helper function: Check if player is within interaction range of hotspot (squared distance to avoid sqrt)
-static bool is_player_in_hotspot_range(const Player& player, const Scene::Hotspot& hotspot) {
-    Vec2 closest = Collision::closest_point_on_polygon(player.position, hotspot.bounds);
-    Vec2 delta = Vec2(closest.x - player.position.x, closest.y - player.position.y);
+static bool is_player_in_hotspot_range(const Vec2& player_pos, const Player& player, const Scene::Hotspot& hotspot) {
+    Vec2 closest = Collision::closest_point_on_polygon(player_pos, hotspot.bounds);
+    Vec2 delta = Vec2(closest.x - player_pos.x, closest.y - player_pos.y);
     float dist_sq = delta.x * delta.x + delta.y * delta.y;
     float threshold = hotspot.interaction_distance + player.hotspot_proximity_tolerance;
     return dist_sq <= (threshold * threshold);  // Compare squared to avoid sqrt()
 }
 
 // Helper function: Handle hotspot click detection and approach
-static void handle_hotspot_click(Player& player, Vec2 mouse_pos) {
+static void handle_hotspot_click(Player& player, const Vec2& player_pos, Vec2 mouse_pos) {
     player.active_hotspot_index = -1;
     player.hotspot_state = HotspotInteractionState::None;
     
@@ -87,21 +130,22 @@ static void handle_hotspot_click(Player& player, Vec2 mouse_pos) {
             player.active_hotspot_index = (int)i;
             
             // Check if player is already in interaction distance
-            if (is_player_in_hotspot_range(player, hotspot)) {
+            if (is_player_in_hotspot_range(player_pos, player, hotspot)) {
                 // Already in range - trigger callback immediately
                 if (hotspot.callback) {
                     hotspot.callback();
                 }
-                player.target_position = player.position;
+                float current_z = Scene::get_z_from_depth_map(g_state.scene, player_pos.x, player_pos.y);
+                player.target_position = Vec3(player_pos.x, player_pos.y, current_z);
                 player.hotspot_state = HotspotInteractionState::InRange;
                 return;
             }
             
             // Calculate approach point: move from hotspot outward to interaction distance
-            Vec2 closest_on_hotspot = Collision::closest_point_on_polygon(player.position, hotspot.bounds);
+            Vec2 closest_on_hotspot = Collision::closest_point_on_polygon(player_pos, hotspot.bounds);
             Vec2 to_player = Vec2(
-                player.position.x - closest_on_hotspot.x,
-                player.position.y - closest_on_hotspot.y
+                player_pos.x - closest_on_hotspot.x,
+                player_pos.y - closest_on_hotspot.y
             );
             float dist_to_player_sq = to_player.x * to_player.x + to_player.y * to_player.y;
             float direction_threshold_sq = player.direction_normalization_threshold * player.direction_normalization_threshold;
@@ -140,7 +184,7 @@ static void handle_movement_click(Player& player, Vec2 mouse_pos) {
 }
 
 void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_height, 
-                 Core::AnimationBank* animations) {
+                 ECS::Transform2_5DComponent& transform) {
     // Load Lenore spritesheet (288x920)
     // Frame dimensions: 36x46 pixels
     // Row 0 (y=0): Idle sprites (Down, Right, Up, Left) - 4 sprites
@@ -234,31 +278,31 @@ void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_heig
     walk_left_anim.current_frame = 0;
     
     // Add all animations to the bank
-    animations->add("idle_down", idle_down_anim);
-    animations->add("idle_right", idle_right_anim);
-    animations->add("idle_up", idle_up_anim);
-    animations->add("idle_left", idle_left_anim);
-    animations->add("walk_down", walk_down_anim);
-    animations->add("walk_up", walk_up_anim);
-    animations->add("walk_right", walk_right_anim);
-    animations->add("walk_left", walk_left_anim);
+    player.animations.add("idle_down", idle_down_anim);
+    player.animations.add("idle_right", idle_right_anim);
+    player.animations.add("idle_up", idle_up_anim);
+    player.animations.add("idle_left", idle_left_anim);
+    player.animations.add("walk_down", walk_down_anim);
+    player.animations.add("walk_up", walk_up_anim);
+    player.animations.add("walk_right", walk_right_anim);
+    player.animations.add("walk_left", walk_left_anim);
     
     // Also add generic "idle" that uses current direction
-    animations->add("idle", idle_down_anim);
+    player.animations.add("idle", idle_down_anim);
     
-    // Initialize player entity
-    player.position = Vec3(viewport_width * 0.5f, viewport_height * 0.5f, 0.0f);
-    player.target_position = Vec3(viewport_width * 0.5f, viewport_height * 0.5f, 0.0f);
-    // Calculate player Z position from depth map based on initial XY coordinates
-    player.position.z = Scene::get_z_from_depth_map(g_state.scene, player.position.x, player.position.y);
-    player.target_position.z = player.position.z;
-    // player.size comes from struct default (100x150)
+    // Initialize player position via ECS Transform
+    transform.position = Vec2(viewport_width * 0.5f, viewport_height * 0.5f);
+    // Calculate Z from depth map based on initial XY coordinates
+    transform.z_depth = Scene::get_z_from_depth_map(g_state.scene, transform.position.x, transform.position.y);
+    
+    // Initialize target to current position
+    player.target_position = Vec3(transform.position.x, transform.position.y, transform.z_depth);
+    // player.size comes from struct default
     player.animation_state = AnimationState::Idle;
     player.walk_direction = WalkDirection::Down;
-    player.animations = animations;
 }
 
-void player_handle_input(Player& player) {
+void player_handle_input(Player& player, ECS::Transform2_5DComponent& transform) {
     if (Platform::mouse_clicked()) {
         Vec2 mouse_viewport = Platform::get_mouse_pos();
         // Scale mouse position from viewport (1280x720) to base resolution (320x180)
@@ -266,7 +310,7 @@ void player_handle_input(Player& player) {
             mouse_viewport.x * (float)Config::BASE_WIDTH / (float)Config::VIEWPORT_WIDTH,
             mouse_viewport.y * (float)Config::BASE_HEIGHT / (float)Config::VIEWPORT_HEIGHT
         );
-        handle_hotspot_click(player, mouse_pos);
+        handle_hotspot_click(player, transform.position, mouse_pos);
         
         // If no hotspot was clicked, handle regular movement
         if (player.active_hotspot_index == -1) {
@@ -275,49 +319,54 @@ void player_handle_input(Player& player) {
     }
 }
 
-static void clamp_player_position(Player& player, uint32_t viewport_width, uint32_t viewport_height) {
+static void clamp_position(Vec2& position, const Player& player, uint32_t viewport_width, uint32_t viewport_height) {
     const float left = player.boundary_margin;
     const float right = viewport_width - player.boundary_margin;
     const float top = player.boundary_margin;
     const float bottom = viewport_height - player.boundary_margin;
     
-    player.position.x = std::max(left, std::min(right, player.position.x));
-    player.position.y = std::max(top, std::min(bottom, player.position.y));
+    position.x = std::max(left, std::min(right, position.x));
+    position.y = std::max(top, std::min(bottom, position.y));
 }
 
-static void apply_collision_response(Player& player, Vec3 old_position, const std::vector<Collision::Polygon>& walkable_areas, const Scene::Scene& scene) {
+static void apply_collision_response(Vec2& position, float& z_depth, Vec3 old_position, const std::vector<Collision::Polygon>& walkable_areas, const Scene::Scene& scene) {
     if (walkable_areas.empty()) return;
     
     // If player is inside walkable areas, no collision
-    if (Collision::point_in_any_polygon(player.position, walkable_areas)) {
+    if (Collision::point_in_any_polygon(position, walkable_areas)) {
         return;
     }
     
     // Collision detected - try wall sliding
     // Try X-axis only movement
-    Vec2 x_only = Vec2(player.position.x, old_position.y);
+    Vec2 x_only = Vec2(position.x, old_position.y);
     if (Collision::point_in_any_polygon(x_only, walkable_areas)) {
-        player.position = Vec3(x_only.x, x_only.y, Scene::get_z_from_depth_map(scene, x_only.x, x_only.y));
+        position = x_only;
+        z_depth = Scene::get_z_from_depth_map(scene, x_only.x, x_only.y);
         return;
     }
     
     // Try Y-axis only movement
-    Vec2 y_only = Vec2(old_position.x, player.position.y);
+    Vec2 y_only = Vec2(old_position.x, position.y);
     if (Collision::point_in_any_polygon(y_only, walkable_areas)) {
-        player.position = Vec3(y_only.x, y_only.y, Scene::get_z_from_depth_map(scene, y_only.x, y_only.y));
+        position = y_only;
+        z_depth = Scene::get_z_from_depth_map(scene, y_only.x, y_only.y);
         return;
     }
     
     // Both blocked - revert to old position (full stop)
-    player.position = old_position;
+    position = Vec2(old_position.x, old_position.y);
+    z_depth = old_position.z;
 }
 
-void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_height, float delta_time) {
-    Vec3 old_position = player.position;  // Save for collision response (includes z)
+void player_update(Player& player, ECS::Transform2_5DComponent& transform,
+                   uint32_t viewport_width, uint32_t viewport_height, float delta_time) {
+    // Save old position for collision response (as Vec3: xy + z)
+    Vec3 old_position = get_position_3d(transform);
     
     Vec2 direction = Vec2(
-        player.target_position.x - player.position.x,
-        player.target_position.y - player.position.y
+        player.target_position.x - transform.position.x,
+        player.target_position.y - transform.position.y
     );
     
     float distance_sq = direction.x * direction.x + direction.y * direction.y;
@@ -347,8 +396,7 @@ void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_he
         }
     }
     
-    Renderer::SpriteAnimation* current_anim = 
-        (player.animations) ? player.animations->get(anim_name) : nullptr;
+    Renderer::SpriteAnimation* current_anim = player.animations.get(anim_name);
     if (current_anim) {
         Renderer::animate(current_anim, delta_time);
     }
@@ -367,21 +415,22 @@ void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_he
         float move_distance_sq = movement.x * movement.x + movement.y * movement.y;
         if (move_distance_sq >= distance_sq) {
             // Snap to target to avoid oscillation
-            player.position = player.target_position;
+            set_position_3d(transform, player.target_position);
         } else {
-            player.position.x += movement.x;
-            player.position.y += movement.y;
-            // Update Z continuously based on Y position during movement
-            player.position.z = Scene::get_z_from_depth_map(g_state.scene, player.position.x, player.position.y);
+            transform.position.x += movement.x;
+            transform.position.y += movement.y;
+            // Update Z continuously based on position during movement
+            transform.z_depth = Scene::get_z_from_depth_map(g_state.scene, transform.position.x, transform.position.y);
         }
         
-        clamp_player_position(player, viewport_width, viewport_height);
-        apply_collision_response(player, old_position, g_state.scene.geometry.walkable_areas, g_state.scene);
+        clamp_position(transform.position, player, viewport_width, viewport_height);
+        apply_collision_response(transform.position, transform.z_depth, old_position, 
+                                g_state.scene.geometry.walkable_areas, g_state.scene);
         
         // Check if player actually moved (not stuck against walls) - using squared comparison
         Vec2 position_delta = Vec2(
-            player.position.x - old_position.x,
-            player.position.y - old_position.y
+            transform.position.x - old_position.x,
+            transform.position.y - old_position.y
         );
         float actual_movement_sq = position_delta.x * position_delta.x + position_delta.y * position_delta.y;
         float stuck_threshold_sq = player.stuck_movement_threshold * player.stuck_movement_threshold;
@@ -390,7 +439,7 @@ void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_he
         if (actual_movement_sq < stuck_threshold_sq) {
             // Stop trying to move - give up on this target
             // Animation will switch to Idle in the next frame when distance becomes 0
-            player.target_position = player.position;
+            player.target_position = get_position_3d(transform);
         }
     }
     
@@ -401,13 +450,13 @@ void player_update(Player& player, uint32_t viewport_width, uint32_t viewport_he
         
         // Only trigger callback when transitioning from Approaching to InRange (not if already InRange)
         if (player.hotspot_state == HotspotInteractionState::Approaching &&
-            is_player_in_hotspot_range(player, hotspot)) {
+            is_player_in_hotspot_range(transform.position, player, hotspot)) {
             // Player reached the hotspot - trigger callback
             if (hotspot.callback) {
                 hotspot.callback();
             }
             // Stop all movement
-            player.target_position = player.position;
+            player.target_position = get_position_3d(transform);
             player.active_hotspot_index = -1;
             player.hotspot_state = HotspotInteractionState::InRange;
         }

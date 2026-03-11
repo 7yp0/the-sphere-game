@@ -6,14 +6,21 @@
 #include "scene/scene.h"
 #include "config.h"
 #include "player.h"
+#include "ecs/ecs.h"
 #include <cstdint>
+#include <vector>
 
 namespace Game {
 
 struct GameState {
     Scene::Scene scene;
-    Core::AnimationBank playerAnimations;
     Player player;
+    
+    // ECS World - manages all entities and components
+    ECS::World ecs_world;
+    
+    // Player entity ID for quick access
+    ECS::EntityID player_entity = ECS::INVALID_ENTITY;
     
     uint32_t viewport_width = Config::VIEWPORT_WIDTH;
     uint32_t viewport_height = Config::VIEWPORT_HEIGHT;
