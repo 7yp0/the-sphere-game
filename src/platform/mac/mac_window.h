@@ -23,6 +23,7 @@ uint32_t get_window_height();
 bool mouse_clicked();  // Returns true once per click (consume-on-read)
 bool mouse_right_clicked();  // Returns true once per right-click (consume-on-read)
 bool mouse_down();     // Returns true while mouse button is held
+float scroll_delta();  // Returns scroll delta Y (positive = up, negative = down), consume-on-read
 bool key_pressed(int key_code);
 bool shift_down();     // Returns true while Shift key is held
 
@@ -30,6 +31,7 @@ void set_mouse_pos(Vec2 pos);
 void set_mouse_clicked(bool clicked);
 void set_mouse_right_clicked(bool clicked);
 void set_mouse_down(bool down);
+void set_scroll_delta(float delta);
 void set_key_pressed(int key_code, bool pressed);
 
 }

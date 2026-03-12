@@ -11,6 +11,7 @@
 // Helper macros for extracting coordinates from LPARAM
 #define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
 #define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
+#define GET_WHEEL_DELTA_WPARAM(wp) ((short)HIWORD(wp))
 
 // Forward declarations
 namespace Platform {
@@ -32,6 +33,7 @@ static bool g_mouseDown = false;
 static bool g_keys[256] = {};
 static uint32_t g_window_width = 0;
 static uint32_t g_window_height = 0;
+static float g_scroll_delta = 0.0f;
 
 // Windows message callback
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
@@ -72,6 +74,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
             // Windows has Y=0 at top, game expects Y=0 at bottom
             // Try without flip first to diagnose
             set_mouse_pos(Vec2((float)x, (float)y));
+            return 0;
+        }
+
+        case WM_MOUSEWHEEL:
+        {
+            short wheelDelta = GET_WHEEL_DELTA_WPARAM(wparam);
+            // Positive = scroll up (objects move up), Negative = scroll down (objects move down)
+            // Each "wheel notch" is WHEEL_DELTA units (typically 120)
+            g_scroll_delta += wheelDelta / 120.0f;  // Normalize to units
             return 0;
         }
 
@@ -344,6 +355,13 @@ bool key_pressed(int key_code)
 bool shift_down()
 {
     return (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+}
+
+float scroll_delta()
+{
+    float delta = g_scroll_delta;
+    g_scroll_delta = 0.0f;
+    return delta;
 }
 
 void set_mouse_pos(Vec2 pos)

@@ -24,18 +24,19 @@ namespace ECS {
 
 struct Transform2_5DComponent {
     Vec2 position;      // Pixel coordinates in scene
-    float z_depth;      // Computed from depth map or set manually (-1 to +1)
+    float z_depth;      // Depth into screen (-1 = near camera, +1 = far/background)
+    float elevation;    // Height above ground (0 = on ground, >0 = floating)
     float rotation;     // Rotation in radians
     Vec2 scale;         // Scale factors (1.0 = base size)
     
     Transform2_5DComponent() 
-        : position(0, 0), z_depth(0), rotation(0), scale(1, 1) {}
+        : position(0, 0), z_depth(0), elevation(0), rotation(0), scale(1, 1) {}
     
-    Transform2_5DComponent(Vec2 pos, float z = 0.0f)
-        : position(pos), z_depth(z), rotation(0), scale(1, 1) {}
+    Transform2_5DComponent(Vec2 pos, float z = 0.0f, float elev = 0.0f)
+        : position(pos), z_depth(z), elevation(elev), rotation(0), scale(1, 1) {}
     
-    Transform2_5DComponent(float x, float y, float z = 0.0f)
-        : position(x, y), z_depth(z), rotation(0), scale(1, 1) {}
+    Transform2_5DComponent(float x, float y, float z = 0.0f, float elev = 0.0f)
+        : position(x, y), z_depth(z), elevation(elev), rotation(0), scale(1, 1) {}
 };
 
 // ============================================================================

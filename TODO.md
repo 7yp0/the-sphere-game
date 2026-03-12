@@ -283,8 +283,36 @@
 
 ### 4.5.7 Debug editor
 
-- [ ] move/positon player and objects player
-- [ ] move/position light sources (also on Z axis, but how? and choose direction for projector lights and the other stuff, but how?)
+- [x] move/positon player and objects (props) - 2.5D: nur X/Y, Z automatisch aus Depth Map
+- [x] move/position light sources - 3D: X/Y via drag, Z via scroll wheel oder +/- keys
+- [x] elevation of objects does not work very good. shadows are not right!
+- [ ] vertical line of lights does not reflect the distance from light position to the 2.5D ground (so basically where on the background plane the light would be standing when it wasn't floating in the air)
+- [ ] direction für projector lights (shift click in 2.5D room to where it should shine?)
+
+**2.5D vs 3D Koordinatensystem:**
+
+- **Props/Player (2.5D)**: Nur X/Y verschiebbar, Z wird automatisch aus der Depth Map basierend auf Y-Position berechnet
+- **Lichter (3D)**: Frei in X/Y/Z bewegbar, Z manuell per Scroll/+/-
+
+**Neue Tasten im Entity-Modus:**
+
+| Input | Action |
+|-------|--------|
+| `E` | Toggle Entity-Modus (ein/aus) |
+| `Click` auf Entity | Selektieren + Drag starten |
+| `Drag` | X/Y Position verschieben |
+| `Scroll` | Z-Achse anpassen (nur Lichter!) |
+| `+` (Shift+=) | Z näher zur Kamera (nur Lichter!) |
+| `-` | Z weiter weg (nur Lichter!) |
+
+**Entity-Marker im Entity-Modus:**
+
+- **Props**: Grüne Quadrate (2.5D)
+- **Point Lights**: Gelbe Rauten (3D)
+- **Projector Lights**: Orange Dreiecke (3D)
+- **Player**: Cyan Kreis (2.5D)
+
+**Entities werden in `entities.json` gespeichert** (auto-save wie geometry.json)
 
 - [x] walk speed muss sich abhängig von der z position ändern
 

@@ -1,0 +1,43 @@
+{
+  "props": [
+    {
+      "index": 0,
+      "position": [75.2168, 127.343],
+      "elevation": 0
+    },
+    {
+      "index": 1,
+      "position": [225.752, 83.7715],
+      "elevation": 0.430858
+    },
+    {
+      "index": 2,
+      "position": [142.225, 107.945],
+      "elevation": 0
+    }
+  ],
+  "point_lights": [
+    {
+      "index": 0,
+      "position": [-0.547926, 0.6, 0.6],
+      "color": [1, 0.9, 0.7],
+      "intensity": 1.5,
+      "radius": 2,
+      "casts_shadows": true
+    },
+    {
+      "index": 1,
+      "position": [0.399396, 0.146777, 0.829425],
+      "color": [0.4, 0.5, 0.8],
+      "intensity": 0.8,
+      "radius": 1.5,
+      "casts_shadows": false
+    }
+  ],
+  "projector_lights": [
+  ],
+  "player": {
+    "position": [169.465, 91.1641],
+    "elevation": -0.000365265
+  }
+}

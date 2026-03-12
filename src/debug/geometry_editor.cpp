@@ -5,6 +5,7 @@
 #include "game/game.h"
 #include "platform.h"
 #include "config.h"
+#include "ecs/entity_factory.h"
 #include <cstdio>
 #include <cmath>
 #include <cfloat>
@@ -22,6 +23,7 @@ namespace GeometryEditor {
 
 static EditorState g_state;
 static Vec2 g_mouse_pos;
+static int g_frame_counter = 0;  // For double-click detection
 
 // macOS virtual key codes
 #ifdef __APPLE__
@@ -30,16 +32,22 @@ static Vec2 g_mouse_pos;
     static constexpr int KEY_O = 31;
     static constexpr int KEY_F = 3;
     static constexpr int KEY_R = 15;
+    static constexpr int KEY_E = 14;
     static constexpr int KEY_ESC = 53;
     static constexpr int KEY_DELETE = 51;
+    static constexpr int KEY_MINUS = 27;      // - key
+    static constexpr int KEY_EQUALS = 24;     // = key (+ with shift)
 #else
     static constexpr int KEY_W = 0x57;
     static constexpr int KEY_H = 0x48;
     static constexpr int KEY_O = 0x4F;
     static constexpr int KEY_F = 0x46;
     static constexpr int KEY_R = 0x52;
+    static constexpr int KEY_E = 0x45;
     static constexpr int KEY_ESC = 0x1B;
     static constexpr int KEY_DELETE = 0x2E;
+    static constexpr int KEY_MINUS = 0xBD;
+    static constexpr int KEY_EQUALS = 0xBB;
 #endif
 
 // Previous key states for edge detection
@@ -48,8 +56,11 @@ static bool s_prev_h = false;
 static bool s_prev_o = false;
 static bool s_prev_f = false;
 static bool s_prev_r = false;
+static bool s_prev_e = false;
 static bool s_prev_esc = false;
 static bool s_prev_del = false;
+static bool s_prev_minus = false;
+static bool s_prev_equals = false;
 
 static constexpr float VERTEX_SELECT_RADIUS = 8.0f;  // Pixels in base resolution
 static constexpr float EDGE_SELECT_DISTANCE = 6.0f;  // Distance from edge to detect click
@@ -123,6 +134,10 @@ void toggle() {
         g_state.current_polygon_points.clear();
         g_state.selected_polygon_index = -1;
         g_state.selected_vertex_index = -1;
+        // Reset entity selection
+        g_state.entity_selection_type = EntitySelectionType::NONE;
+        g_state.selected_entity = ECS::INVALID_ENTITY;
+        g_state.selected_entity_index = -1;
     }
 }
 
@@ -131,6 +146,7 @@ const char* get_mode_string() {
         case EditorMode::CREATING_WALKABLE: return "CREATING WALKABLE";
         case EditorMode::CREATING_HOTSPOT: return "CREATING HOTSPOT";
         case EditorMode::CREATING_OBSTACLE: return "CREATING OBSTACLE";
+        case EditorMode::SELECT_ENTITY: return "ENTITY MODE";
         default: return "SELECT";
     }
 }
@@ -147,6 +163,190 @@ static float polygon_area(const Collision::Polygon& poly) {
         area -= poly.points[j].x * poly.points[i].y;
     }
     return fabsf(area) * 0.5f;
+}
+
+// ============================================================================
+// ENTITY EDITOR HELPERS
+// ============================================================================
+
+static constexpr float ENTITY_SELECT_RADIUS = 20.0f;  // Pixels for entity selection
+
+// Find entity (prop, light, player) near position
+static bool find_entity_at(Vec2 pos, EntitySelectionType& out_type, int& out_index, ECS::EntityID& out_entity) {
+    auto& ecs = Game::g_state.ecs_world;
+    auto& scene = Game::g_state.scene;
+    
+    float best_dist_sq = ENTITY_SELECT_RADIUS * ENTITY_SELECT_RADIUS;
+    out_type = EntitySelectionType::NONE;
+    out_index = -1;
+    out_entity = ECS::INVALID_ENTITY;
+    
+    // Check player first (priority)
+    if (Game::g_state.player_entity != ECS::INVALID_ENTITY) {
+        auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(Game::g_state.player_entity);
+        if (transform) {
+            float dx = pos.x - transform->position.x;
+            float dy = pos.y - transform->position.y;
+            float dist_sq = dx*dx + dy*dy;
+            if (dist_sq < best_dist_sq) {
+                best_dist_sq = dist_sq;
+                out_type = EntitySelectionType::PLAYER;
+                out_index = 0;
+                out_entity = Game::g_state.player_entity;
+            }
+        }
+    }
+    
+    // Check props
+    for (size_t i = 0; i < scene.prop_entities.size(); i++) {
+        auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(scene.prop_entities[i]);
+        if (!transform) continue;
+        
+        float dx = pos.x - transform->position.x;
+        float dy = pos.y - transform->position.y;
+        float dist_sq = dx*dx + dy*dy;
+        if (dist_sq < best_dist_sq) {
+            best_dist_sq = dist_sq;
+            out_type = EntitySelectionType::PROP;
+            out_index = (int)i;
+            out_entity = scene.prop_entities[i];
+        }
+    }
+    
+    // Check point lights (need to convert OpenGL to pixel coords for comparison)
+    for (size_t i = 0; i < scene.light_entities.size(); i++) {
+        auto* transform = ecs.get_component<ECS::Transform3DComponent>(scene.light_entities[i]);
+        if (!transform) continue;
+        
+        // Convert OpenGL coords to pixel coords for comparison
+        float pixel_x = (transform->position.x + 1.0f) * 0.5f * Config::BASE_WIDTH;
+        float pixel_y = (1.0f - transform->position.y) * 0.5f * Config::BASE_HEIGHT;
+        
+        float dx = pos.x - pixel_x;
+        float dy = pos.y - pixel_y;
+        float dist_sq = dx*dx + dy*dy;
+        if (dist_sq < best_dist_sq) {
+            best_dist_sq = dist_sq;
+            out_type = EntitySelectionType::POINT_LIGHT;
+            out_index = (int)i;
+            out_entity = scene.light_entities[i];
+        }
+    }
+    
+    // Check projector lights
+    for (size_t i = 0; i < scene.projector_light_entities.size(); i++) {
+        auto* transform = ecs.get_component<ECS::Transform3DComponent>(scene.projector_light_entities[i]);
+        if (!transform) continue;
+        
+        float pixel_x = (transform->position.x + 1.0f) * 0.5f * Config::BASE_WIDTH;
+        float pixel_y = (1.0f - transform->position.y) * 0.5f * Config::BASE_HEIGHT;
+        
+        float dx = pos.x - pixel_x;
+        float dy = pos.y - pixel_y;
+        float dist_sq = dx*dx + dy*dy;
+        if (dist_sq < best_dist_sq) {
+            best_dist_sq = dist_sq;
+            out_type = EntitySelectionType::PROJECTOR_LIGHT;
+            out_index = (int)i;
+            out_entity = scene.projector_light_entities[i];
+        }
+    }
+    
+    return out_type != EntitySelectionType::NONE;
+}
+
+// Adjust Z-depth of selected light (only for lights, objects get Z from depth map)
+static void adjust_entity_z(float delta) {
+    if (g_state.selected_entity == ECS::INVALID_ENTITY) return;
+    
+    auto& ecs = Game::g_state.ecs_world;
+    
+    // 2.5D Objects: adjust elevation (height above ground)
+    if (g_state.entity_selection_type == EntitySelectionType::PROP ||
+        g_state.entity_selection_type == EntitySelectionType::PLAYER) {
+        auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(g_state.selected_entity);
+        if (transform) {
+            transform->elevation += delta;
+            transform->elevation = fmaxf(-0.5f, fminf(1.0f, transform->elevation));  // Clamp to reasonable range
+            DEBUG_INFO("[GeoEditor] Object elevation: %.3f", transform->elevation);
+        }
+    }
+    // 3D Lights: adjust Z position in render space
+    else if (g_state.entity_selection_type == EntitySelectionType::POINT_LIGHT ||
+             g_state.entity_selection_type == EntitySelectionType::PROJECTOR_LIGHT) {
+        auto* transform = ecs.get_component<ECS::Transform3DComponent>(g_state.selected_entity);
+        if (transform) {
+            transform->position.z += delta;
+            transform->position.z = fmaxf(-1.0f, fminf(1.0f, transform->position.z));
+            DEBUG_INFO("[GeoEditor] Light Z-position: %.3f", transform->position.z);
+        }
+    }
+}
+
+// Adjust entity Z by mouse drag delta (for Shift+Drag on lights/objects)
+static void adjust_entity_z_by_mouse_delta(float delta_pixels) {
+    if (g_state.selected_entity == ECS::INVALID_ENTITY) return;
+    
+    auto& ecs = Game::g_state.ecs_world;
+    
+    // 2.5D Objects: adjust elevation via drag
+    if (g_state.entity_selection_type == EntitySelectionType::PROP ||
+        g_state.entity_selection_type == EntitySelectionType::PLAYER) {
+        float elev_delta = -delta_pixels / 500.0f;  // 500 pixels = 1.0 elevation
+        auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(g_state.selected_entity);
+        if (transform) {
+            transform->elevation += elev_delta;
+            transform->elevation = fmaxf(-0.5f, fminf(1.0f, transform->elevation));
+        }
+    }
+    // 3D Lights: adjust Z-position via drag
+    else if (g_state.entity_selection_type == EntitySelectionType::POINT_LIGHT ||
+             g_state.entity_selection_type == EntitySelectionType::PROJECTOR_LIGHT) {
+        float z_delta = -delta_pixels / 1000.0f;  // 1000 pixels = 1.0 Z-unit
+        auto* transform = ecs.get_component<ECS::Transform3DComponent>(g_state.selected_entity);
+        if (transform) {
+            transform->position.z += z_delta;
+            transform->position.z = fmaxf(-1.0f, fminf(1.0f, transform->position.z));
+        }
+    }
+}
+
+// Move entity position (pixel coords for props/player, converts to OpenGL for lights)
+// For 2.5D objects: Store only X,Y, Z is calculated from depth map during rendering
+static void move_entity_to(Vec2 new_pos) {
+    if (g_state.selected_entity == ECS::INVALID_ENTITY) return;
+    
+    auto& ecs = Game::g_state.ecs_world;
+    
+    if (g_state.entity_selection_type == EntitySelectionType::PROP ||
+        g_state.entity_selection_type == EntitySelectionType::PLAYER) {
+        auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(g_state.selected_entity);
+        if (transform) {
+            transform->position.x = new_pos.x;
+            transform->position.y = new_pos.y;
+            // Z is calculated from depth map during rendering
+        }
+    }
+    else if (g_state.entity_selection_type == EntitySelectionType::POINT_LIGHT ||
+             g_state.entity_selection_type == EntitySelectionType::PROJECTOR_LIGHT) {
+        auto* transform = ecs.get_component<ECS::Transform3DComponent>(g_state.selected_entity);
+        if (transform) {
+            // Convert pixel to OpenGL coords (only X/Y, Z stays unchanged)
+            transform->position.x = (new_pos.x / Config::BASE_WIDTH) * 2.0f - 1.0f;
+            transform->position.y = 1.0f - (new_pos.y / Config::BASE_HEIGHT) * 2.0f;
+        }
+    }
+}
+
+// Get entity name for display
+static const char* get_entity_type_name(EntitySelectionType type) {
+    switch (type) {
+        case EntitySelectionType::PROP: return "PROP";
+        case EntitySelectionType::POINT_LIGHT: return "POINT LIGHT";
+        case EntitySelectionType::PROJECTOR_LIGHT: return "PROJECTOR LIGHT";
+        case EntitySelectionType::PLAYER: return "PLAYER";
+        default: return "NONE";
+    }
 }
 
 // Find the smallest polygon containing the point (for selection)
@@ -507,6 +707,8 @@ static void delete_vertex(int poly_idx, int vert_idx, SelectionType sel_type) {
 }
 
 void update(Vec2 mouse_base_coords) {
+    g_frame_counter++;  // Increment frame counter for double-click detection
+    
     if (!g_state.is_active) return;
     
     g_mouse_pos = mouse_base_coords;
@@ -517,15 +719,73 @@ void update(Vec2 mouse_base_coords) {
     bool key_o = Platform::key_pressed(KEY_O);
     bool key_f = Platform::key_pressed(KEY_F);
     bool key_r = Platform::key_pressed(KEY_R);
+    bool key_e = Platform::key_pressed(KEY_E);
     bool key_esc = Platform::key_pressed(KEY_ESC);
     bool key_del = Platform::key_pressed(KEY_DELETE);
+    bool key_minus = Platform::key_pressed(KEY_MINUS);
+    bool key_equals = Platform::key_pressed(KEY_EQUALS);
+    
+    // Get scroll delta for Z-axis adjustment
+    float scroll_delta = Platform::scroll_delta();
     
     // R - Reload geometry from JSON (preserves callbacks)
     if (key_r && !s_prev_r && g_state.mode == EditorMode::NONE) {
         load_geometry(Game::g_state.scene.name.c_str());
     }
     
-    // W - Start creating walkable area
+    // E - Toggle Entity mode
+    if (key_e && !s_prev_e) {
+        if (g_state.mode == EditorMode::SELECT_ENTITY) {
+            // Exit entity mode
+            g_state.mode = EditorMode::NONE;
+            g_state.entity_selection_type = EntitySelectionType::NONE;
+            g_state.selected_entity = ECS::INVALID_ENTITY;
+            g_state.selected_entity_index = -1;
+            DEBUG_INFO("[GeoEditor] Exited entity mode");
+        } else if (g_state.mode == EditorMode::NONE) {
+            // Enter entity mode
+            g_state.mode = EditorMode::SELECT_ENTITY;
+            // Clear polygon selection
+            g_state.selected_polygon_index = -1;
+            g_state.selected_vertex_index = -1;
+            g_state.selection_type = SelectionType::NONE;
+            DEBUG_INFO("[GeoEditor] Entered entity mode (E=exit, click=select, drag=move, scroll/+/-=Z)");
+        }
+    }
+    
+    // Z-axis adjustment for entities (elevation for objects, Z for lights)
+    if (g_state.mode == EditorMode::SELECT_ENTITY && 
+        g_state.selected_entity != ECS::INVALID_ENTITY) {
+        
+        float z_change = 0.0f;
+        
+        // Scroll wheel (trackpad or mouse)
+        if (fabsf(scroll_delta) > 0.1f) {
+            if (g_state.entity_selection_type == EntitySelectionType::POINT_LIGHT ||
+                g_state.entity_selection_type == EntitySelectionType::PROJECTOR_LIGHT) {
+                z_change = scroll_delta * 0.01f;  // Smaller step for lights
+            } else {
+                z_change = scroll_delta * 0.005f;  // Smaller step for objects elevation
+            }
+        }
+        
+        // + key - move toward camera (Z/elevation decreases)
+        if (key_equals && !s_prev_equals) {
+            z_change = -0.01f;
+        }
+        
+        // - key - move away from camera (Z/elevation increases)
+        if (key_minus && !s_prev_minus) {
+            z_change = 0.01f;
+        }
+        
+        if (z_change != 0.0f) {
+            adjust_entity_z(z_change);
+            save_entities(Game::g_state.scene.name.c_str());
+        }
+    }
+    
+    // W - Start creating walkable area (only if not in entity mode)
     if (key_w && !s_prev_w && g_state.mode == EditorMode::NONE) {
         g_state.mode = EditorMode::CREATING_WALKABLE;
         g_state.current_polygon_points.clear();
@@ -584,7 +844,7 @@ void update(Vec2 mouse_base_coords) {
         delete_selected();
     }
     
-    // Update drag
+    // Update drag (polygon vertices)
     if (g_state.dragging && g_state.selected_vertex_index >= 0) {
         auto& scene = Game::g_state.scene;
         Vec2 new_pos = mouse_base_coords;
@@ -613,6 +873,22 @@ void update(Vec2 mouse_base_coords) {
         }
     }
     
+    // Update drag (entities in entity mode)
+    if (g_state.dragging && g_state.mode == EditorMode::SELECT_ENTITY && 
+        g_state.selected_entity != ECS::INVALID_ENTITY) {
+        
+        // Check if Shift is held (for elevation/Z movement)
+        if (Platform::shift_down()) {
+            // Shift+Drag: adjust elevation/Z based on mouse Y movement
+            float delta_y = mouse_base_coords.y - g_state.drag_start.y;
+            adjust_entity_z_by_mouse_delta(delta_y);
+            // Don't change X/Y position
+        } else {
+            // Normal drag: move X/Y
+            move_entity_to(mouse_base_coords);
+        }
+    }
+    
     // Find hovered vertex (only on selected polygon)
     int vert_idx;
     if (find_vertex_at(mouse_base_coords, vert_idx)) {
@@ -626,12 +902,107 @@ void update(Vec2 mouse_base_coords) {
     s_prev_o = key_o;
     s_prev_f = key_f;
     s_prev_r = key_r;
+    s_prev_e = key_e;
     s_prev_esc = key_esc;
     s_prev_del = key_del;
+    s_prev_minus = key_minus;
+    s_prev_equals = key_equals;
 }
 
 void on_mouse_click(Vec2 pos) {
     if (!g_state.is_active) return;
+    
+    // =========================================================================
+    // ENTITY MODE: Select and drag entities
+    // =========================================================================
+    if (g_state.mode == EditorMode::SELECT_ENTITY) {
+        // Check for double-click (same entity, same position, within ~18 frames = 0.3 seconds @ 60fps)
+        const int DOUBLE_CLICK_FRAME_THRESHOLD = 18;
+        const float DOUBLE_CLICK_DISTANCE = 15.0f;
+        
+        // Find what's at this click position
+        EntitySelectionType type;
+        int index;
+        ECS::EntityID entity;
+        bool found_entity = find_entity_at(pos, type, index, entity);
+        
+        // Check if this is a double-click on the same entity
+        if (found_entity && entity == g_state.selected_entity &&
+            (g_frame_counter - g_state.last_click_frame) < DOUBLE_CLICK_FRAME_THRESHOLD) {
+            float dx = pos.x - g_state.last_click_pos.x;
+            float dy = pos.y - g_state.last_click_pos.y;
+            float dist_sq = dx*dx + dy*dy;
+            if (dist_sq < DOUBLE_CLICK_DISTANCE * DOUBLE_CLICK_DISTANCE) {
+                // Double-click detected! Reset elevation/Z to 0
+                auto& ecs = Game::g_state.ecs_world;
+                if (type == EntitySelectionType::PROP || type == EntitySelectionType::PLAYER) {
+                    auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(entity);
+                    if (transform) {
+                        transform->elevation = 0.0f;
+                        DEBUG_INFO("[GeoEditor] Double-click: Reset elevation to 0.0f");
+                    }
+                } else if (type == EntitySelectionType::POINT_LIGHT || type == EntitySelectionType::PROJECTOR_LIGHT) {
+                    auto* transform = ecs.get_component<ECS::Transform3DComponent>(entity);
+                    if (transform) {
+                        transform->position.z = 0.0f;
+                        DEBUG_INFO("[GeoEditor] Double-click: Reset Z to 0.0f");
+                    }
+                }
+                // Don't drag after double-click
+                g_state.last_click_frame = -1000;  // Reset timing
+                return;
+            }
+        }
+        
+        // Update last click info for next potential double-click
+        g_state.last_click_frame = g_frame_counter;
+        g_state.last_click_pos = pos;
+        
+        // If we already have an entity selected and click on it, start dragging
+        if (g_state.selected_entity != ECS::INVALID_ENTITY) {
+            if (find_entity_at(pos, type, index, entity) && entity == g_state.selected_entity) {
+                g_state.dragging = true;
+                g_state.drag_start = pos;
+                DEBUG_INFO("[GeoEditor] Started dragging %s", get_entity_type_name(type));
+                return;
+            }
+        }
+        
+        // Try to select an entity
+        if (find_entity_at(pos, type, index, entity)) {
+            g_state.entity_selection_type = type;
+            g_state.selected_entity_index = index;
+            g_state.selected_entity = entity;
+            g_state.dragging = true;
+            g_state.drag_start = pos;
+            
+            // Get Z value for display
+            float z_value = 0.0f;
+            auto& ecs = Game::g_state.ecs_world;
+            if (type == EntitySelectionType::PROP || type == EntitySelectionType::PLAYER) {
+                auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(entity);
+                if (transform) z_value = transform->elevation;
+            } else {
+                auto* transform = ecs.get_component<ECS::Transform3DComponent>(entity);
+                if (transform) z_value = transform->position.z;
+            }
+            
+            DEBUG_INFO("[GeoEditor] Selected %s #%d (Z=%.2f) - drag to move, scroll/+/-=Z", 
+                   get_entity_type_name(type), index, z_value);
+            return;
+        }
+        
+        // Deselect entity
+        g_state.entity_selection_type = EntitySelectionType::NONE;
+        g_state.selected_entity = ECS::INVALID_ENTITY;
+        g_state.selected_entity_index = -1;
+        g_state.last_click_frame = -1000;  // Reset timing
+        return;
+    }
+    
+    // =========================================================================
+    // POLYGON MODE (original code)
+    // =========================================================================
     
     // Shift+Click on selected hotspot sets target_position
     if (Platform::shift_down() && 
@@ -751,8 +1122,15 @@ void on_mouse_right_click(Vec2 pos) {
 void on_mouse_release() {
     if (g_state.dragging) {
         g_state.dragging = false;
+        
         // Auto-save after drag
-        save_geometry(Game::g_state.scene.name.c_str());
+        if (g_state.mode == EditorMode::SELECT_ENTITY) {
+            // Save entities when dragging entities
+            save_entities(Game::g_state.scene.name.c_str());
+        } else {
+            // Save geometry when dragging polygons
+            save_geometry(Game::g_state.scene.name.c_str());
+        }
     }
 }
 
@@ -861,14 +1239,191 @@ void render() {
         }
     }
     
+    // =========================================================================
+    // ENTITY MODE: Draw entity markers
+    // =========================================================================
+    if (g_state.mode == EditorMode::SELECT_ENTITY) {
+        auto& ecs = Game::g_state.ecs_world;
+        
+        // Draw prop markers (green boxes)
+        for (size_t i = 0; i < scene.prop_entities.size(); i++) {
+            auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(scene.prop_entities[i]);
+            if (!transform) continue;
+            
+            Vec3 pos(transform->position.x * scale_x, transform->position.y * scale_y, ui_z);
+            bool is_selected = (g_state.entity_selection_type == EntitySelectionType::PROP && 
+                               g_state.selected_entity_index == (int)i);
+            
+            Vec4 color = is_selected ? Vec4(0.0f, 1.0f, 0.0f, 1.0f) : Vec4(0.0f, 0.7f, 0.0f, 0.6f);
+            float size = is_selected ? 16.0f : 12.0f;
+            Renderer::render_rect(pos, Vec2(size, size), color);
+        }
+        
+        // Draw point light markers (yellow circles/diamonds)
+        for (size_t i = 0; i < scene.light_entities.size(); i++) {
+            auto* transform = ecs.get_component<ECS::Transform3DComponent>(scene.light_entities[i]);
+            if (!transform) continue;
+            
+            float pixel_x = (transform->position.x + 1.0f) * 0.5f * Config::BASE_WIDTH;
+            float pixel_y = (1.0f - transform->position.y) * 0.5f * Config::BASE_HEIGHT;
+            Vec3 pos(pixel_x * scale_x, pixel_y * scale_y, ui_z);
+            
+            bool is_selected = (g_state.entity_selection_type == EntitySelectionType::POINT_LIGHT && 
+                               g_state.selected_entity_index == (int)i);
+            
+            Vec4 color = is_selected ? Vec4(1.0f, 1.0f, 0.0f, 1.0f) : Vec4(0.8f, 0.8f, 0.0f, 0.6f);
+            float size = is_selected ? 16.0f : 12.0f;
+            
+            // Draw diamond shape for lights
+            Renderer::render_line(Vec3(pos.x - size, pos.y, ui_z), Vec3(pos.x, pos.y - size, ui_z), color, 2.0f);
+            Renderer::render_line(Vec3(pos.x, pos.y - size, ui_z), Vec3(pos.x + size, pos.y, ui_z), color, 2.0f);
+            Renderer::render_line(Vec3(pos.x + size, pos.y, ui_z), Vec3(pos.x, pos.y + size, ui_z), color, 2.0f);
+            Renderer::render_line(Vec3(pos.x, pos.y + size, ui_z), Vec3(pos.x - size, pos.y, ui_z), color, 2.0f);
+            
+            // For selected light, show if elevated with a subtle ring
+            if (is_selected && scene.depth_map.is_valid()) {
+                float ground_z = ECS::TransformHelpers::get_z_from_depth_map(
+                    scene.depth_map, pixel_x, pixel_y, scene.width, scene.height);
+                
+                float z_diff = transform->position.z - ground_z;
+                // Show line and ring if light is significantly elevated
+                if (fabsf(z_diff) > 0.05f) {
+                    // Draw vertical line from light to ground position
+                    float visual_offset = z_diff * 100.0f * scale_y;  // Visual representation of Z difference
+                    Vec4 line_color(0.5f, 1.0f, 1.0f, 0.5f);  // Faded cyan
+                    Vec3 ground_pos(pos.x, pos.y + visual_offset, ui_z);
+                    Renderer::render_line(pos, ground_pos, line_color, 1.0f);
+                    
+                    // Subtle ring around light marker
+                    Vec4 ring_color(0.5f, 1.0f, 1.0f, 0.3f);  // Faded cyan
+                    float ring_size = size + 5.0f;
+                    const int segments = 12;
+                    for (int s = 0; s < segments; s++) {
+                        float a1 = (float)s / segments * 6.28318f;
+                        float a2 = (float)(s + 1) / segments * 6.28318f;
+                        Renderer::render_line(
+                            Vec3(pos.x + cosf(a1) * ring_size, pos.y + sinf(a1) * ring_size, ui_z),
+                            Vec3(pos.x + cosf(a2) * ring_size, pos.y + sinf(a2) * ring_size, ui_z),
+                            ring_color, 1.0f);
+                    }
+                }
+            }
+        }
+        
+        // Draw projector light markers (orange triangles)
+        for (size_t i = 0; i < scene.projector_light_entities.size(); i++) {
+            auto* transform = ecs.get_component<ECS::Transform3DComponent>(scene.projector_light_entities[i]);
+            if (!transform) continue;
+            
+            float pixel_x = (transform->position.x + 1.0f) * 0.5f * Config::BASE_WIDTH;
+            float pixel_y = (1.0f - transform->position.y) * 0.5f * Config::BASE_HEIGHT;
+            Vec3 pos(pixel_x * scale_x, pixel_y * scale_y, ui_z);
+            
+            bool is_selected = (g_state.entity_selection_type == EntitySelectionType::PROJECTOR_LIGHT && 
+                               g_state.selected_entity_index == (int)i);
+            
+            Vec4 color = is_selected ? Vec4(1.0f, 0.5f, 0.0f, 1.0f) : Vec4(0.8f, 0.4f, 0.0f, 0.6f);
+            float size = is_selected ? 16.0f : 12.0f;
+            
+            // Draw triangle for projector (pointing in direction)
+            Renderer::render_line(Vec3(pos.x, pos.y - size, ui_z), Vec3(pos.x - size, pos.y + size, ui_z), color, 2.0f);
+            Renderer::render_line(Vec3(pos.x - size, pos.y + size, ui_z), Vec3(pos.x + size, pos.y + size, ui_z), color, 2.0f);
+            Renderer::render_line(Vec3(pos.x + size, pos.y + size, ui_z), Vec3(pos.x, pos.y - size, ui_z), color, 2.0f);
+            
+            // For selected projector, show if elevated with a subtle ring
+            if (is_selected && scene.depth_map.is_valid()) {
+                float ground_z = ECS::TransformHelpers::get_z_from_depth_map(
+                    scene.depth_map, pixel_x, pixel_y, scene.width, scene.height);
+                
+                float z_diff = transform->position.z - ground_z;
+                // Show line and ring if light is significantly elevated
+                if (fabsf(z_diff) > 0.05f) {
+                    // Draw vertical line from projector to ground position
+                    float visual_offset = z_diff * 100.0f * scale_y;
+                    Vec4 line_color(1.0f, 0.7f, 0.5f, 0.5f);  // Faded light orange
+                    Vec3 ground_pos(pos.x, pos.y + visual_offset, ui_z);
+                    Renderer::render_line(pos, ground_pos, line_color, 1.0f);
+                    
+                    // Subtle ring around projector marker
+                    Vec4 ring_color(1.0f, 0.7f, 0.5f, 0.3f);  // Faded light orange
+                    float ring_size = size + 5.0f;
+                    const int segments = 12;
+                    for (int s = 0; s < segments; s++) {
+                        float a1 = (float)s / segments * 6.28318f;
+                        float a2 = (float)(s + 1) / segments * 6.28318f;
+                        Renderer::render_line(
+                            Vec3(pos.x + cosf(a1) * ring_size, pos.y + sinf(a1) * ring_size, ui_z),
+                            Vec3(pos.x + cosf(a2) * ring_size, pos.y + sinf(a2) * ring_size, ui_z),
+                            ring_color, 1.0f);
+                    }
+                }
+            }
+        }
+        
+        // Draw player marker (cyan circle)
+        if (Game::g_state.player_entity != ECS::INVALID_ENTITY) {
+            auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(Game::g_state.player_entity);
+            if (transform) {
+                Vec3 pos(transform->position.x * scale_x, transform->position.y * scale_y, ui_z);
+                bool is_selected = (g_state.entity_selection_type == EntitySelectionType::PLAYER);
+                
+                Vec4 color = is_selected ? Vec4(0.0f, 1.0f, 1.0f, 1.0f) : Vec4(0.0f, 0.7f, 0.7f, 0.6f);
+                float size = is_selected ? 18.0f : 14.0f;
+                
+                // Draw circle (approximated with lines)
+                const int segments = 8;
+                for (int s = 0; s < segments; s++) {
+                    float a1 = (float)s / segments * 6.28318f;
+                    float a2 = (float)(s + 1) / segments * 6.28318f;
+                    Renderer::render_line(
+                        Vec3(pos.x + cosf(a1) * size, pos.y + sinf(a1) * size, ui_z),
+                        Vec3(pos.x + cosf(a2) * size, pos.y + sinf(a2) * size, ui_z),
+                        color, 2.0f);
+                }
+                
+                // For selected player, no need to visualize elevation as it's shown in status bar
+            }
+        }
+    }
+    
     // Draw mode indicator with black background
-    char mode_text[128];
-    if (g_state.selection_type == SelectionType::HOTSPOT && g_state.selected_polygon_index >= 0) {
+    char mode_text[256];
+    if (g_state.mode == EditorMode::SELECT_ENTITY && g_state.selected_entity != ECS::INVALID_ENTITY) {
+        // Show selected entity info with position, Z value, etc.
+        auto& ecs = Game::g_state.ecs_world;
+        bool is_2_5d = (g_state.entity_selection_type == EntitySelectionType::PROP ||
+                        g_state.entity_selection_type == EntitySelectionType::PLAYER);
+        
+        if (is_2_5d) {
+            auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(g_state.selected_entity);
+            float x = transform ? transform->position.x : 0.0f;
+            float y = transform ? transform->position.y : 0.0f;
+            float elev = transform ? transform->elevation : 0.0f;
+            
+            // 2.5D Objects: Show position and elevation
+            snprintf(mode_text, sizeof(mode_text), "[%s #%d] Pos=(%.0f,%.0f) Elev=%.2f | Drag(XY) Shift+Drag(Elev) +/-", 
+                     get_entity_type_name(g_state.entity_selection_type), 
+                     g_state.selected_entity_index, x, y, elev);
+        } else {
+            auto* transform = ecs.get_component<ECS::Transform3DComponent>(g_state.selected_entity);
+            // Convert OpenGL coords back to pixel for display
+            float px = transform ? (transform->position.x + 1.0f) * 0.5f * Config::BASE_WIDTH : 0.0f;
+            float py = transform ? (1.0f - transform->position.y) * 0.5f * Config::BASE_HEIGHT : 0.0f;
+            float z = transform ? transform->position.z : 0.0f;
+            
+            // 3D Lights: Show position and Z
+            snprintf(mode_text, sizeof(mode_text), "[%s #%d] Pos=(%.0f,%.0f) Z=%.2f | Drag(XY) Shift+Drag(Z) +/-", 
+                     get_entity_type_name(g_state.entity_selection_type), 
+                     g_state.selected_entity_index, px, py, z);
+        }
+    } else if (g_state.mode == EditorMode::SELECT_ENTITY) {
+        snprintf(mode_text, sizeof(mode_text), "[ENTITY MODE] Click to select, E=exit");
+    } else if (g_state.selection_type == SelectionType::HOTSPOT && g_state.selected_polygon_index >= 0) {
         const auto& hotspot = scene.geometry.hotspots[g_state.selected_polygon_index];
         snprintf(mode_text, sizeof(mode_text), "[HOTSPOT: %s] Shift+Click to set target", 
                  hotspot.name.c_str());
     } else {
-        snprintf(mode_text, sizeof(mode_text), "[%s]", get_mode_string());
+        snprintf(mode_text, sizeof(mode_text), "[%s] E=entity mode", get_mode_string());
     }
     
     // Black semi-transparent background for mode indicator
@@ -1246,6 +1801,364 @@ bool load_geometry(const char* scene_name) {
            path.c_str(), scene.geometry.walkable_areas.size(), 
            scene.geometry.obstacles.size(), scene.geometry.hotspots.size());
     
+    return true;
+}
+
+// ============================================================================
+// ENTITY SERIALIZATION
+// ============================================================================
+
+bool save_entities(const char* scene_name) {
+    if (!scene_name || scene_name[0] == '\0') {
+        DEBUG_ERROR("[GeoEditor] Cannot save entities: no scene name");
+        return false;
+    }
+    
+    const auto& scene = Game::g_state.scene;
+    auto& ecs = Game::g_state.ecs_world;
+    
+    // Build absolute path to assets directory
+    std::string root = get_project_root();
+    std::string path = root + "assets/scenes/";
+    path += scene_name;
+    path += "/entities.json";
+    
+    std::ofstream file(path);
+    if (!file.is_open()) {
+        DEBUG_ERROR("[GeoEditor] Failed to open %s for writing", path.c_str());
+        return false;
+    }
+    
+    file << "{\n";
+    
+    // Save props
+    file << "  \"props\": [\n";
+    for (size_t i = 0; i < scene.prop_entities.size(); i++) {
+        auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(scene.prop_entities[i]);
+        if (!transform) continue;
+        
+        file << "    {\n";
+        file << "      \"index\": " << i << ",\n";
+        file << "      \"position\": [" << transform->position.x << ", " << transform->position.y << "],\n";
+        file << "      \"elevation\": " << transform->elevation << "\n";
+        file << "    }";
+        if (i + 1 < scene.prop_entities.size()) file << ",";
+        file << "\n";
+    }
+    file << "  ],\n";
+    
+    // Save point lights
+    file << "  \"point_lights\": [\n";
+    for (size_t i = 0; i < scene.light_entities.size(); i++) {
+        auto* transform = ecs.get_component<ECS::Transform3DComponent>(scene.light_entities[i]);
+        auto* light = ecs.get_component<ECS::LightComponent>(scene.light_entities[i]);
+        if (!transform) continue;
+        
+        file << "    {\n";
+        file << "      \"index\": " << i << ",\n";
+        file << "      \"position\": [" << transform->position.x << ", " << transform->position.y << ", " << transform->position.z << "]";
+        if (light) {
+            file << ",\n";
+            file << "      \"color\": [" << light->color.x << ", " << light->color.y << ", " << light->color.z << "],\n";
+            file << "      \"intensity\": " << light->intensity << ",\n";
+            file << "      \"radius\": " << light->radius << ",\n";
+            file << "      \"casts_shadows\": " << (light->casts_shadows ? "true" : "false") << "\n";
+        } else {
+            file << "\n";
+        }
+        file << "    }";
+        if (i + 1 < scene.light_entities.size()) file << ",";
+        file << "\n";
+    }
+    file << "  ],\n";
+    
+    // Save projector lights
+    file << "  \"projector_lights\": [\n";
+    for (size_t i = 0; i < scene.projector_light_entities.size(); i++) {
+        auto* transform = ecs.get_component<ECS::Transform3DComponent>(scene.projector_light_entities[i]);
+        auto* projector = ecs.get_component<ECS::ProjectorLightComponent>(scene.projector_light_entities[i]);
+        if (!transform) continue;
+        
+        file << "    {\n";
+        file << "      \"index\": " << i << ",\n";
+        file << "      \"position\": [" << transform->position.x << ", " << transform->position.y << ", " << transform->position.z << "]";
+        if (projector) {
+            file << ",\n";
+            file << "      \"direction\": [" << projector->direction.x << ", " << projector->direction.y << ", " << projector->direction.z << "],\n";
+            file << "      \"color\": [" << projector->color.x << ", " << projector->color.y << ", " << projector->color.z << "],\n";
+            file << "      \"intensity\": " << projector->intensity << "\n";
+        } else {
+            file << "\n";
+        }
+        file << "    }";
+        if (i + 1 < scene.projector_light_entities.size()) file << ",";
+        file << "\n";
+    }
+    file << "  ],\n";
+    
+    // Save player position
+    file << "  \"player\": {\n";
+    if (Game::g_state.player_entity != ECS::INVALID_ENTITY) {
+        auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(Game::g_state.player_entity);
+        if (transform) {
+            file << "    \"position\": [" << transform->position.x << ", " << transform->position.y << "],\n";
+            file << "    \"elevation\": " << transform->elevation << "\n";
+        }
+    }
+    file << "  }\n";
+    
+    file << "}\n";
+    file.close();
+    
+    DEBUG_INFO("[GeoEditor] Saved entities to %s", path.c_str());
+    return true;
+}
+
+bool load_entities(const char* scene_name) {
+    if (!scene_name || scene_name[0] == '\0') {
+        DEBUG_ERROR("[GeoEditor] Cannot load entities: no scene name");
+        return false;
+    }
+    
+    // Build absolute path to assets directory
+    std::string root = get_project_root();
+    std::string path = root + "assets/scenes/";
+    path += scene_name;
+    path += "/entities.json";
+    
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        DEBUG_LOG("[GeoEditor] No entities file at %s (will create on save)", path.c_str());
+        return false;
+    }
+    
+    // Read entire file
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    std::string content = buffer.str();
+    file.close();
+    
+    auto& scene = Game::g_state.scene;
+    auto& ecs = Game::g_state.ecs_world;
+    
+    // Parse props section
+    size_t props_start = content.find("\"props\"");
+    if (props_start != std::string::npos) {
+        size_t arr_start = content.find('[', props_start);
+        size_t arr_end = arr_start;
+        int bracket_count = 1;
+        for (size_t i = arr_start + 1; i < content.size() && bracket_count > 0; i++) {
+            if (content[i] == '[') bracket_count++;
+            else if (content[i] == ']') bracket_count--;
+            if (bracket_count == 0) arr_end = i;
+        }
+        
+        size_t pos = arr_start;
+        while (pos < arr_end) {
+            size_t obj_start = content.find('{', pos);
+            if (obj_start >= arr_end || obj_start == std::string::npos) break;
+            
+            size_t obj_end = content.find('}', obj_start);
+            if (obj_end >= content.size()) break;
+            
+            // Parse index
+            int index = -1;
+            size_t idx_key = content.find("\"index\"", obj_start);
+            if (idx_key < obj_end) {
+                size_t colon = content.find(':', idx_key);
+                sscanf(content.c_str() + colon + 1, "%d", &index);
+            }
+            
+            // Parse position
+            size_t pos_key = content.find("\"position\"", obj_start);
+            if (pos_key < obj_end && index >= 0 && index < (int)scene.prop_entities.size()) {
+                size_t pos_arr_start = content.find('[', pos_key);
+                size_t pos_arr_end = content.find(']', pos_arr_start);
+                std::string coords = content.substr(pos_arr_start + 1, pos_arr_end - pos_arr_start - 1);
+                float x = 0, y = 0;
+                if (sscanf(coords.c_str(), "%f, %f", &x, &y) == 2 ||
+                    sscanf(coords.c_str(), "%f,%f", &x, &y) == 2) {
+                    auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(scene.prop_entities[index]);
+                    if (transform) {
+                        transform->position.x = x;
+                        transform->position.y = y;
+                    }
+                }
+            }
+            
+            // Parse z_depth
+            size_t z_key = content.find("\"z_depth\"", obj_start);
+            if (z_key < obj_end && index >= 0 && index < (int)scene.prop_entities.size()) {
+                size_t colon = content.find(':', z_key);
+                float z = 0;
+                sscanf(content.c_str() + colon + 1, "%f", &z);
+                auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(scene.prop_entities[index]);
+                if (transform) {
+                    transform->z_depth = z;
+                }
+            }
+            
+            // Parse elevation
+            size_t elev_key = content.find("\"elevation\"", obj_start);
+            if (elev_key < obj_end && index >= 0 && index < (int)scene.prop_entities.size()) {
+                size_t colon = content.find(':', elev_key);
+                float elev = 0;
+                sscanf(content.c_str() + colon + 1, "%f", &elev);
+                auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(scene.prop_entities[index]);
+                if (transform) {
+                    transform->elevation = elev;
+                }
+            }
+            
+            pos = obj_end + 1;
+        }
+    }
+    
+    // Parse point_lights section
+    size_t lights_start = content.find("\"point_lights\"");
+    if (lights_start != std::string::npos) {
+        size_t arr_start = content.find('[', lights_start);
+        size_t arr_end = arr_start;
+        int bracket_count = 1;
+        for (size_t i = arr_start + 1; i < content.size() && bracket_count > 0; i++) {
+            if (content[i] == '[') bracket_count++;
+            else if (content[i] == ']') bracket_count--;
+            if (bracket_count == 0) arr_end = i;
+        }
+        
+        size_t pos = arr_start;
+        while (pos < arr_end) {
+            size_t obj_start = content.find('{', pos);
+            if (obj_start >= arr_end || obj_start == std::string::npos) break;
+            
+            size_t obj_end = content.find('}', obj_start);
+            if (obj_end >= content.size()) break;
+            
+            // Parse index
+            int index = -1;
+            size_t idx_key = content.find("\"index\"", obj_start);
+            if (idx_key < obj_end) {
+                size_t colon = content.find(':', idx_key);
+                sscanf(content.c_str() + colon + 1, "%d", &index);
+            }
+            
+            // Parse position (3D)
+            size_t pos_key = content.find("\"position\"", obj_start);
+            if (pos_key < obj_end && index >= 0 && index < (int)scene.light_entities.size()) {
+                size_t pos_arr_start = content.find('[', pos_key);
+                size_t pos_arr_end = content.find(']', pos_arr_start);
+                std::string coords = content.substr(pos_arr_start + 1, pos_arr_end - pos_arr_start - 1);
+                float x = 0, y = 0, z = 0;
+                if (sscanf(coords.c_str(), "%f, %f, %f", &x, &y, &z) == 3 ||
+                    sscanf(coords.c_str(), "%f,%f,%f", &x, &y, &z) == 3) {
+                    auto* transform = ecs.get_component<ECS::Transform3DComponent>(scene.light_entities[index]);
+                    if (transform) {
+                        transform->position = Vec3(x, y, z);
+                    }
+                }
+            }
+            
+            pos = obj_end + 1;
+        }
+    }
+    
+    // Parse projector_lights section
+    size_t projector_start = content.find("\"projector_lights\"");
+    if (projector_start != std::string::npos) {
+        size_t arr_start = content.find('[', projector_start);
+        size_t arr_end = arr_start;
+        int bracket_count = 1;
+        for (size_t i = arr_start + 1; i < content.size() && bracket_count > 0; i++) {
+            if (content[i] == '[') bracket_count++;
+            else if (content[i] == ']') bracket_count--;
+            if (bracket_count == 0) arr_end = i;
+        }
+        
+        size_t pos = arr_start;
+        while (pos < arr_end) {
+            size_t obj_start = content.find('{', pos);
+            if (obj_start >= arr_end || obj_start == std::string::npos) break;
+            
+            size_t obj_end = content.find('}', obj_start);
+            if (obj_end >= content.size()) break;
+            
+            // Parse index
+            int index = -1;
+            size_t idx_key = content.find("\"index\"", obj_start);
+            if (idx_key < obj_end) {
+                size_t colon = content.find(':', idx_key);
+                sscanf(content.c_str() + colon + 1, "%d", &index);
+            }
+            
+            // Parse position (3D)
+            size_t pos_key = content.find("\"position\"", obj_start);
+            if (pos_key < obj_end && index >= 0 && index < (int)scene.projector_light_entities.size()) {
+                size_t pos_arr_start = content.find('[', pos_key);
+                size_t pos_arr_end = content.find(']', pos_arr_start);
+                std::string coords = content.substr(pos_arr_start + 1, pos_arr_end - pos_arr_start - 1);
+                float x = 0, y = 0, z = 0;
+                if (sscanf(coords.c_str(), "%f, %f, %f", &x, &y, &z) == 3 ||
+                    sscanf(coords.c_str(), "%f,%f,%f", &x, &y, &z) == 3) {
+                    auto* transform = ecs.get_component<ECS::Transform3DComponent>(scene.projector_light_entities[index]);
+                    if (transform) {
+                        transform->position = Vec3(x, y, z);
+                    }
+                }
+            }
+            
+            pos = obj_end + 1;
+        }
+    }
+    
+    // Parse player section
+    size_t player_start = content.find("\"player\"");
+    if (player_start != std::string::npos && Game::g_state.player_entity != ECS::INVALID_ENTITY) {
+        size_t obj_start = content.find('{', player_start);
+        size_t obj_end = content.find('}', obj_start);
+        
+        // Parse position
+        size_t pos_key = content.find("\"position\"", obj_start);
+        if (pos_key < obj_end) {
+            size_t pos_arr_start = content.find('[', pos_key);
+            size_t pos_arr_end = content.find(']', pos_arr_start);
+            std::string coords = content.substr(pos_arr_start + 1, pos_arr_end - pos_arr_start - 1);
+            float x = 0, y = 0;
+            if (sscanf(coords.c_str(), "%f, %f", &x, &y) == 2 ||
+                sscanf(coords.c_str(), "%f,%f", &x, &y) == 2) {
+                auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(Game::g_state.player_entity);
+                if (transform) {
+                    transform->position.x = x;
+                    transform->position.y = y;
+                }
+            }
+        }
+        
+        // Parse z_depth
+        size_t z_key = content.find("\"z_depth\"", obj_start);
+        if (z_key < obj_end) {
+            size_t colon = content.find(':', z_key);
+            float z = 0;
+            sscanf(content.c_str() + colon + 1, "%f", &z);
+            auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(Game::g_state.player_entity);
+            if (transform) {
+                transform->z_depth = z;
+            }
+        }
+        
+        // Parse elevation
+        size_t elev_key = content.find("\"elevation\"", obj_start);
+        if (elev_key < obj_end) {
+            size_t colon = content.find(':', elev_key);
+            float elev = 0;
+            sscanf(content.c_str() + colon + 1, "%f", &elev);
+            auto* transform = ecs.get_component<ECS::Transform2_5DComponent>(Game::g_state.player_entity);
+            if (transform) {
+                transform->elevation = elev;
+            }
+        }
+    }
+    
+    DEBUG_INFO("[GeoEditor] Loaded entity positions from %s", path.c_str());
     return true;
 }
 

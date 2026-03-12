@@ -73,6 +73,11 @@ namespace Platform {
     Platform::set_mouse_pos(Vec2(loc.x, Platform::get_window_height() - loc.y));
 }
 
+- (void)scrollWheel:(NSEvent *)event {
+    // Accumulate scroll delta (positive = scroll up, negative = scroll down)
+    Platform::set_scroll_delta([event scrollingDeltaY]);
+}
+
 @end
 
 @interface OpenGLView : NSOpenGLView
@@ -105,6 +110,7 @@ static Vec2 g_mousePos = Vec2(0.0f, 0.0f);
 static bool g_mouseClicked = false;
 static bool g_mouseRightClicked = false;
 static bool g_mouseDown = false;
+static float g_scrollDelta = 0.0f;
 static bool g_keys[256] = {};
 static uint32_t g_window_width = 0;
 static uint32_t g_window_height = 0;
@@ -301,6 +307,18 @@ bool mouse_right_clicked()
 void set_mouse_right_clicked(bool clicked)
 {
     g_mouseRightClicked = clicked;
+}
+
+float scroll_delta()
+{
+    float delta = g_scrollDelta;
+    g_scrollDelta = 0.0f;  // Consume on read
+    return delta;
+}
+
+void set_scroll_delta(float delta)
+{
+    g_scrollDelta += delta;  // Accumulate in case of multiple events per frame
 }
 
 }

@@ -191,8 +191,13 @@ void render() {
             uint32_t render_width = Config::BASE_WIDTH;
             uint32_t render_height = Config::BASE_HEIGHT;
             
-            // Calculate depth scale and size (same as rendering)
-            float depth_scale = ECS::TransformHelpers::compute_depth_scale(transform->z_depth);
+            // Calculate ground Z from depth map
+            float ground_z = ECS::TransformHelpers::get_z_from_depth_map(
+                g_state.scene.depth_map, transform->position.x, transform->position.y,
+                g_state.scene.width, g_state.scene.height);
+            
+            // Calculate depth scale from GROUND Z (not z_depth)
+            float depth_scale = ECS::TransformHelpers::compute_depth_scale(ground_z);
             Vec2 scaled_size = Vec2(
                 sprite->base_size.x * transform->scale.x * depth_scale,
                 sprite->base_size.y * transform->scale.y * depth_scale
@@ -216,8 +221,14 @@ void render() {
                 opengl_pos.y + pivot_offset_opengl.y
             );
             
+            // Apply elevation offset to shadow Y (shadow starts from elevated position)
+            float elevation_opengl_y = (transform->elevation * 50.0f / (float)render_height) * 2.0f;
+            
+            // Shadow Z = ground level ONLY (Z-ordering stays at ground, only Y is affected by elevation)
+            float shadow_z = ground_z;
+            
             Renderer::ShadowCasterData sc;
-            sc.position = Vec3(opengl_center.x, opengl_center.y, transform->z_depth);
+            sc.position = Vec3(opengl_center.x, opengl_center.y + elevation_opengl_y, shadow_z);
             sc.size = opengl_size;
             sc.uv_range = sprite->uv_range;
             sc.texture = sprite->texture;
@@ -241,7 +252,13 @@ void render() {
             uint32_t render_width = Config::BASE_WIDTH;
             uint32_t render_height = Config::BASE_HEIGHT;
             
-            float depth_scale = ECS::TransformHelpers::compute_depth_scale(transform->z_depth);
+            // Calculate ground Z from depth map
+            float ground_z = ECS::TransformHelpers::get_z_from_depth_map(
+                g_state.scene.depth_map, transform->position.x, transform->position.y,
+                g_state.scene.width, g_state.scene.height);
+            
+            // Calculate depth scale from GROUND Z (not z_depth)
+            float depth_scale = ECS::TransformHelpers::compute_depth_scale(ground_z);
             Vec2 scaled_size = Vec2(
                 sprite->base_size.x * transform->scale.x * depth_scale,
                 sprite->base_size.y * transform->scale.y * depth_scale
@@ -263,8 +280,14 @@ void render() {
                 opengl_pos.y + pivot_offset_opengl.y
             );
             
+            // Apply elevation offset to shadow Y (shadow starts from elevated position)
+            float elevation_opengl_y = (transform->elevation * 50.0f / (float)render_height) * 2.0f;
+            
+            // Shadow Z = ground level ONLY (Z-ordering stays at ground, only Y is affected by elevation)
+            float shadow_z = ground_z;
+            
             Renderer::ShadowCasterData sc;
-            sc.position = Vec3(opengl_center.x, opengl_center.y, transform->z_depth);
+            sc.position = Vec3(opengl_center.x, opengl_center.y + elevation_opengl_y, shadow_z);
             sc.size = opengl_size;
             // For animated sprites, use the current frame's UV range
             if (sprite->is_animated() && sprite->animation && !sprite->animation->frames.empty()) {
@@ -368,22 +391,32 @@ void render() {
                    transform->z_depth, transform->position.x, transform->position.y);
         }
         
-        // Calculate depth scaling from ECS transform
-        float depth_scale = ECS::TransformHelpers::compute_depth_scale(transform->z_depth);
+        // Calculate Z from depth map (ground level at this pixel)
+        float ground_z = ECS::TransformHelpers::get_z_from_depth_map(
+            g_state.scene.depth_map, transform->position.x, transform->position.y,
+            g_state.scene.width, g_state.scene.height);
+        
+        // Calculate depth scaling from GROUND Z (not adjusted for elevation)
+        float depth_scale = ECS::TransformHelpers::compute_depth_scale(ground_z);
         Vec2 scaled_size = Vec2(
             sprite->base_size.x * transform->scale.x * depth_scale,
             sprite->base_size.y * transform->scale.y * depth_scale
         );
         
-        // Create 3D position for rendering (pixel coords + z_depth)
-        Vec3 render_pos(transform->position.x, transform->position.y, transform->z_depth);
+        // Elevation moves object UP in 2D viewport: render_y -= elevation * pixels_per_unit
+        // Keep render_z at ground_z for correct occlusion
+        float elevation_pixels = transform->elevation * 50.0f;  // 50 pixels per elevation unit
+        Vec3 render_pos(transform->position.x, transform->position.y - elevation_pixels, ground_z);
+        
+        // Z for shader shadow calculation: stay at ground_z (elevation doesn't change Z-ordering)
+        float shadow_z = ground_z;
         
         // Render prop with lighting AND shadows - pass entity index to skip self-shadowing
         Renderer::render_sprite_lit_shadowed(sprite->texture, render_pos, scaled_size,
                                             light_data, num_lights,
                                             shadow_data, num_shadow_casters,
                                             sprite->normal_map, sprite->pivot,
-                                            transform->z_depth, prop_render_index);
+                                            shadow_z, prop_render_index);
         prop_render_index++;
     }
     props_printed = true;
@@ -397,15 +430,25 @@ void render() {
         auto* sprite = g_state.ecs_world.get_component<ECS::SpriteComponent>(g_state.player_entity);
         
         if (transform && sprite && sprite->visible) {
-            // Calculate depth scaling
-            float depth_scale = ECS::TransformHelpers::compute_depth_scale(transform->z_depth);
+            // Calculate Z from depth map (ground level at this pixel)
+            float ground_z = ECS::TransformHelpers::get_z_from_depth_map(
+                g_state.scene.depth_map, transform->position.x, transform->position.y,
+                g_state.scene.width, g_state.scene.height);
+            
+            // Calculate depth scaling from GROUND Z (not adjusted for elevation)
+            float depth_scale = ECS::TransformHelpers::compute_depth_scale(ground_z);
             Vec2 scaled_size = Vec2(
                 sprite->base_size.x * transform->scale.x * depth_scale,
                 sprite->base_size.y * transform->scale.y * depth_scale
             );
             
-            // Create 3D position for rendering
-            Vec3 render_pos(transform->position.x, transform->position.y, transform->z_depth);
+            // Elevation moves object UP in 2D viewport: render_y -= elevation * pixels_per_unit
+            // Keep render_z at ground_z for correct occlusion
+            float elevation_pixels = transform->elevation * 50.0f;  // 50 pixels per elevation unit
+            Vec3 render_pos(transform->position.x, transform->position.y - elevation_pixels, ground_z);
+            
+            // Z for shader shadow calculation: stay at ground_z (elevation doesn't change Z-ordering)
+            float shadow_z = ground_z;
             
             // Player's entity index for self-shadow skip (after all props)
             int32_t player_entity_index = (int32_t)g_state.scene.prop_entities.size();
@@ -419,14 +462,14 @@ void render() {
                                                 shadow_data, num_shadow_casters,
                                                 sprite->normal_map,
                                                 sprite->pivot,
-                                                transform->z_depth,
+                                                shadow_z,
                                                 player_entity_index);
             } else {
                 Renderer::render_sprite_lit_shadowed(sprite->texture, render_pos, scaled_size,
                                            light_data, num_lights, 
                                            shadow_data, num_shadow_casters,
                                            sprite->normal_map, sprite->pivot,
-                                           transform->z_depth, player_entity_index);
+                                           shadow_z, player_entity_index);
             }
         }
     }

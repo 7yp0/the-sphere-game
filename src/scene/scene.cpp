@@ -161,6 +161,9 @@ void init_scene_test() {
     );
     g_state.scene.projector_light_entities.push_back(window_light);
     printf("[ECS] Created window light: Entity=%u\n", window_light);
+    
+    // Load entity positions from JSON (overwrites hardcoded positions if file exists)
+    GeometryEditor::load_entities(scene.name.c_str());
 }
 
 bool register_hotspot_callback(const std::string& hotspot_name, std::function<void()> callback) {
