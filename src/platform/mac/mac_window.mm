@@ -266,6 +266,11 @@ bool key_pressed(int key_code)
     return false;
 }
 
+bool shift_down()
+{
+    return ([NSEvent modifierFlags] & NSEventModifierFlagShift) != 0;
+}
+
 void set_mouse_pos(Vec2 pos)
 {
     g_mousePos = pos;

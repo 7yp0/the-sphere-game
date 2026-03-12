@@ -478,6 +478,22 @@ void update(Vec2 mouse_base_coords) {
 void on_mouse_click(Vec2 pos) {
     if (!g_state.is_active) return;
     
+    // Shift+Click on selected hotspot sets target_position
+    if (Platform::shift_down() && 
+        g_state.selection_type == SelectionType::HOTSPOT && 
+        g_state.selected_polygon_index >= 0) {
+        auto& scene = Game::g_state.scene;
+        if (g_state.selected_polygon_index < (int)scene.geometry.hotspots.size()) {
+            auto& hotspot = scene.geometry.hotspots[g_state.selected_polygon_index];
+            hotspot.target_position = pos;
+            hotspot.has_target_position = true;
+            DEBUG_INFO("[GeoEditor] Set target position for hotspot '%s' to (%.1f, %.1f)", 
+                   hotspot.name.c_str(), pos.x, pos.y);
+            save_geometry(scene.name.c_str());
+            return;
+        }
+    }
+    
     // If creating polygon
     if (g_state.mode != EditorMode::NONE) {
         // Check if clicking first vertex to close
@@ -514,6 +530,19 @@ void on_mouse_click(Vec2 pos) {
         return;
     }
     
+    // Try to click inside a hotspot to select it
+    const auto& scene = Game::g_state.scene;
+    for (size_t i = 0; i < scene.geometry.hotspots.size(); i++) {
+        if (Collision::point_in_polygon(pos, scene.geometry.hotspots[i].bounds)) {
+            g_state.selected_polygon_index = (int)i;
+            g_state.selected_vertex_index = -1;  // No vertex selected
+            g_state.selection_type = SelectionType::HOTSPOT;
+            DEBUG_INFO("[GeoEditor] Selected hotspot '%s' (clicked inside)", 
+                   scene.geometry.hotspots[i].name.c_str());
+            return;
+        }
+    }
+    
     // Deselect
     g_state.selected_polygon_index = -1;
     g_state.selected_vertex_index = -1;
@@ -523,6 +552,30 @@ void on_mouse_click(Vec2 pos) {
 void on_mouse_right_click(Vec2 pos) {
     if (!g_state.is_active) return;
     if (g_state.mode != EditorMode::NONE) return;  // Don't delete while creating
+    
+    // Right-click on selected hotspot: delete target_position if it has one
+    if (g_state.selection_type == SelectionType::HOTSPOT && 
+        g_state.selected_polygon_index >= 0) {
+        auto& scene = Game::g_state.scene;
+        if (g_state.selected_polygon_index < (int)scene.geometry.hotspots.size()) {
+            auto& hotspot = scene.geometry.hotspots[g_state.selected_polygon_index];
+            // Check if click is inside the hotspot or near target_position
+            if (hotspot.has_target_position) {
+                float dx = pos.x - hotspot.target_position.x;
+                float dy = pos.y - hotspot.target_position.y;
+                float dist_sq = dx*dx + dy*dy;
+                // Delete if clicking near target marker or inside hotspot
+                if (dist_sq <= 100.0f || Collision::point_in_polygon(pos, hotspot.bounds)) {
+                    hotspot.has_target_position = false;
+                    hotspot.target_position = Vec2(0.0f, 0.0f);
+                    DEBUG_INFO("[GeoEditor] Deleted target position for hotspot '%s'", 
+                           hotspot.name.c_str());
+                    save_geometry(scene.name.c_str());
+                    return;
+                }
+            }
+        }
+    }
     
     // Try to find vertex at position
     int poly_idx, vert_idx;
@@ -614,9 +667,38 @@ void render() {
         }
     }
     
+    // Draw target_position markers for hotspots (magenta cross)
+    const auto& scene = Game::g_state.scene;
+    for (size_t i = 0; i < scene.geometry.hotspots.size(); i++) {
+        const auto& hotspot = scene.geometry.hotspots[i];
+        if (hotspot.has_target_position) {
+            Vec3 target_pos(hotspot.target_position.x * scale_x, 
+                            hotspot.target_position.y * scale_y, ui_z);
+            
+            // Different color if this hotspot is selected
+            Vec4 color = (g_state.selection_type == SelectionType::HOTSPOT && 
+                          g_state.selected_polygon_index == (int)i)
+                ? Vec4(1.0f, 0.0f, 1.0f, 1.0f)   // Bright magenta for selected
+                : Vec4(1.0f, 0.5f, 1.0f, 0.7f);  // Faded magenta for others
+            
+            // Draw cross marker
+            float size = 8.0f;
+            Renderer::render_line(Vec3(target_pos.x - size, target_pos.y, ui_z),
+                                  Vec3(target_pos.x + size, target_pos.y, ui_z), color, 2.0f);
+            Renderer::render_line(Vec3(target_pos.x, target_pos.y - size, ui_z),
+                                  Vec3(target_pos.x, target_pos.y + size, ui_z), color, 2.0f);
+        }
+    }
+    
     // Draw mode indicator
-    char mode_text[64];
-    snprintf(mode_text, sizeof(mode_text), "[%s]", get_mode_string());
+    char mode_text[128];
+    if (g_state.selection_type == SelectionType::HOTSPOT && g_state.selected_polygon_index >= 0) {
+        const auto& hotspot = scene.geometry.hotspots[g_state.selected_polygon_index];
+        snprintf(mode_text, sizeof(mode_text), "[HOTSPOT: %s] Shift+Click to set target", 
+                 hotspot.name.c_str());
+    } else {
+        snprintf(mode_text, sizeof(mode_text), "[%s]", get_mode_string());
+    }
     Renderer::render_text(mode_text, Vec2(10.0f, Config::VIEWPORT_HEIGHT - 30.0f), 1.0f);
 }
 
@@ -670,6 +752,9 @@ bool save_geometry(const char* scene_name) {
         file << "    {\n";
         file << "      \"name\": \"" << hotspot.name << "\",\n";
         file << "      \"interaction_distance\": " << hotspot.interaction_distance << ",\n";
+        if (hotspot.has_target_position) {
+            file << "      \"target_position\": [" << hotspot.target_position.x << ", " << hotspot.target_position.y << "],\n";
+        }
         file << "      \"points\": [";
         for (size_t j = 0; j < hotspot.bounds.points.size(); j++) {
             file << "[" << hotspot.bounds.points[j].x << ", " << hotspot.bounds.points[j].y << "]";
@@ -817,6 +902,22 @@ bool load_geometry(const char* scene_name) {
                 float dist = 0;
                 sscanf(content.c_str() + colon + 1, "%f", &dist);
                 hotspot.interaction_distance = dist;
+            }
+            
+            // Parse target_position (optional)
+            size_t target_key = content.find("\"target_position\"", obj_start);
+            if (target_key < obj_end && target_key != std::string::npos) {
+                size_t arr_start = content.find('[', target_key);
+                size_t arr_end = content.find(']', arr_start);
+                if (arr_start < obj_end && arr_end < obj_end) {
+                    std::string coords = content.substr(arr_start + 1, arr_end - arr_start - 1);
+                    float x = 0, y = 0;
+                    if (sscanf(coords.c_str(), "%f, %f", &x, &y) == 2 ||
+                        sscanf(coords.c_str(), "%f,%f", &x, &y) == 2) {
+                        hotspot.target_position = Vec2(x, y);
+                        hotspot.has_target_position = true;
+                    }
+                }
             }
             
             // Parse points

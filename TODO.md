@@ -277,7 +277,7 @@
 
 ### 4.5.6 how to configure hotspot callbacks
 
-- [ ] hotspots are clickable areas for objects in the 2.5D room. So when I click on a hotspot, I expect that the player is moving to the object (x y Z) it belongs to
+- [x] hotspots are clickable areas for objects in the 2.5D room. So when I click on a hotspot, I expect that the player is moving to the object (x y Z) it belongs to
 - [ ] hotspots polygon geometry is now saved in the geometry json. but how do we define the callbacks? (same for enabled and distance)
 - [ ] scene.cpp still defines polygons like walkable areas and hotspots, while they are not used and come from the geometry.json
 

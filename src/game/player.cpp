@@ -131,42 +131,68 @@ static void handle_hotspot_click(Player& player, ECS::WalkerComponent& walker,
             // Found clicked hotspot
             player.active_hotspot_index = (int)i;
             
-            // Check if player is already in interaction distance
-            if (is_player_in_hotspot_range(player_pos, player, hotspot)) {
-                // Already in range - trigger callback immediately
-                if (hotspot.callback) {
-                    hotspot.callback();
+            // Determine target position for approach
+            Vec2 approach_point_2d;
+            
+            if (hotspot.has_target_position) {
+                // Use explicit target position defined in geometry
+                approach_point_2d = hotspot.target_position;
+                
+                // Check if player is already at target position
+                float dx = player_pos.x - approach_point_2d.x;
+                float dy = player_pos.y - approach_point_2d.y;
+                float dist_sq = dx*dx + dy*dy;
+                float threshold = hotspot.interaction_distance + player.hotspot_proximity_tolerance;
+                
+                if (dist_sq <= threshold * threshold) {
+                    // Already at target - trigger callback immediately
+                    if (hotspot.callback) {
+                        hotspot.callback();
+                    }
+                    float current_z = Scene::get_z_from_depth_map(g_state.scene, player_pos.x, player_pos.y);
+                    walker_set_target(walker, Vec3(player_pos.x, player_pos.y, current_z),
+                                      g_state.scene.geometry.walkable_areas);
+                    player.hotspot_state = HotspotInteractionState::InRange;
+                    return;
                 }
-                float current_z = Scene::get_z_from_depth_map(g_state.scene, player_pos.x, player_pos.y);
-                walker_set_target(walker, Vec3(player_pos.x, player_pos.y, current_z),
-                                  g_state.scene.geometry.walkable_areas);
-                player.hotspot_state = HotspotInteractionState::InRange;
-                return;
-            }
-            
-            // Calculate approach point: move from hotspot outward to interaction distance
-            Vec2 closest_on_hotspot = Collision::closest_point_on_polygon(player_pos, hotspot.bounds);
-            Vec2 to_player = Vec2(
-                player_pos.x - closest_on_hotspot.x,
-                player_pos.y - closest_on_hotspot.y
-            );
-            float dist_to_player_sq = to_player.x * to_player.x + to_player.y * to_player.y;
-            float direction_threshold_sq = player.direction_normalization_threshold * player.direction_normalization_threshold;
-            
-            // Normalize direction vector (using squared comparison to avoid sqrt when possible)
-            if (dist_to_player_sq > direction_threshold_sq) {
-                float dist_to_player = std::sqrt(dist_to_player_sq);
-                to_player.x /= dist_to_player;
-                to_player.y /= dist_to_player;
             } else {
-                to_player = Vec2(0.0f, 1.0f);  // Default: downward
+                // No explicit target - use old behavior with interaction_distance
+                if (is_player_in_hotspot_range(player_pos, player, hotspot)) {
+                    // Already in range - trigger callback immediately
+                    if (hotspot.callback) {
+                        hotspot.callback();
+                    }
+                    float current_z = Scene::get_z_from_depth_map(g_state.scene, player_pos.x, player_pos.y);
+                    walker_set_target(walker, Vec3(player_pos.x, player_pos.y, current_z),
+                                      g_state.scene.geometry.walkable_areas);
+                    player.hotspot_state = HotspotInteractionState::InRange;
+                    return;
+                }
+                
+                // Calculate approach point: move from hotspot outward to interaction distance
+                Vec2 closest_on_hotspot = Collision::closest_point_on_polygon(player_pos, hotspot.bounds);
+                Vec2 to_player = Vec2(
+                    player_pos.x - closest_on_hotspot.x,
+                    player_pos.y - closest_on_hotspot.y
+                );
+                float dist_to_player_sq = to_player.x * to_player.x + to_player.y * to_player.y;
+                float direction_threshold_sq = player.direction_normalization_threshold * player.direction_normalization_threshold;
+                
+                // Normalize direction vector
+                if (dist_to_player_sq > direction_threshold_sq) {
+                    float dist_to_player = std::sqrt(dist_to_player_sq);
+                    to_player.x /= dist_to_player;
+                    to_player.y /= dist_to_player;
+                } else {
+                    to_player = Vec2(0.0f, 1.0f);  // Default: downward
+                }
+                
+                // Set target at interaction_distance away from hotspot boundary
+                approach_point_2d = Vec2(
+                    closest_on_hotspot.x + to_player.x * hotspot.interaction_distance,
+                    closest_on_hotspot.y + to_player.y * hotspot.interaction_distance
+                );
             }
-            
-            // Set target at interaction_distance away from hotspot boundary
-            Vec2 approach_point_2d = Vec2(
-                closest_on_hotspot.x + to_player.x * hotspot.interaction_distance,
-                closest_on_hotspot.y + to_player.y * hotspot.interaction_distance
-            );
             
             // Sample Z from depth map based on world position
             float target_z = Scene::get_z_from_depth_map(g_state.scene, approach_point_2d.x, approach_point_2d.y);
@@ -400,14 +426,29 @@ void player_update(Player& player, ECS::Transform2_5DComponent& transform,
         player.active_hotspot_index < (int)g_state.scene.geometry.hotspots.size()) {
         Scene::Hotspot& hotspot = g_state.scene.geometry.hotspots[player.active_hotspot_index];
         
-        if (player.hotspot_state == HotspotInteractionState::Approaching &&
-            is_player_in_hotspot_range(transform.position, player, hotspot)) {
-            if (hotspot.callback) {
-                hotspot.callback();
+        if (player.hotspot_state == HotspotInteractionState::Approaching) {
+            bool arrived = false;
+            
+            if (hotspot.has_target_position) {
+                // Check if arrived at explicit target position
+                float dx = transform.position.x - hotspot.target_position.x;
+                float dy = transform.position.y - hotspot.target_position.y;
+                float dist_sq = dx*dx + dy*dy;
+                float threshold = hotspot.interaction_distance + player.hotspot_proximity_tolerance;
+                arrived = (dist_sq <= threshold * threshold);
+            } else {
+                // Check if arrived at hotspot (old behavior)
+                arrived = is_player_in_hotspot_range(transform.position, player, hotspot);
             }
-            walker_stop(walker, transform.position);
-            player.active_hotspot_index = -1;
-            player.hotspot_state = HotspotInteractionState::InRange;
+            
+            if (arrived) {
+                if (hotspot.callback) {
+                    hotspot.callback();
+                }
+                walker_stop(walker, transform.position);
+                player.active_hotspot_index = -1;
+                player.hotspot_state = HotspotInteractionState::InRange;
+            }
         }
     }
 }

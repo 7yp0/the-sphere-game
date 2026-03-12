@@ -33,6 +33,11 @@ struct Hotspot {
     float interaction_distance = 0.0f;
     bool enabled = true;
     std::function<void()> callback;
+    
+    // Target position where player should stand when interacting
+    // If has_target_position is false, calculates approach point dynamically
+    Vec2 target_position = Vec2(0.0f, 0.0f);
+    bool has_target_position = false;
 };
 
 struct SceneGeometry {

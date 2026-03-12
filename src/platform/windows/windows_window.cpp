@@ -341,6 +341,11 @@ bool key_pressed(int key_code)
     return false;
 }
 
+bool shift_down()
+{
+    return (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+}
+
 void set_mouse_pos(Vec2 pos)
 {
     g_mousePos = pos;
