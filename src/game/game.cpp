@@ -98,10 +98,8 @@ static void update_animated_light(float delta_time) {
 
 void init() {    
     // Initialize scene (this also creates prop ECS entities)
+    // Note: Geometry is loaded from JSON inside init_scene_test() before callbacks are registered
     Scene::init_scene_test();
-    
-    // Try to load geometry from JSON (if exists, will override hardcoded geometry)
-    Debug::load_scene_geometry();
     
     // Create player entity (this initializes player and its ECS transform)
     g_state.player_entity = player_create_entity(g_state.player, g_state.ecs_world,

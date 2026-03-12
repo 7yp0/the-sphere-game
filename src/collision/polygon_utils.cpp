@@ -43,6 +43,39 @@ static float cross_product(Vec2 p1, Vec2 p2, Vec2 p3) {
     return (p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x);
 }
 
+// Check if polygon is convex (all cross products have same sign)
+bool is_polygon_convex(const Polygon& polygon) {
+    if (!polygon.is_valid()) return false;
+    if (polygon.points.size() < 3) return false;
+    
+    size_t n = polygon.points.size();
+    bool sign_positive = false;
+    bool sign_set = false;
+    
+    for (size_t i = 0; i < n; i++) {
+        Vec2 p1 = polygon.points[i];
+        Vec2 p2 = polygon.points[(i + 1) % n];
+        Vec2 p3 = polygon.points[(i + 2) % n];
+        
+        float cross = cross_product(p1, p2, p3);
+        
+        // Skip degenerate edges (collinear points)
+        if (std::abs(cross) < 0.0001f) continue;
+        
+        if (!sign_set) {
+            sign_positive = (cross > 0);
+            sign_set = true;
+        } else {
+            // If sign changes, polygon is concave
+            if ((cross > 0) != sign_positive) {
+                return false;
+            }
+        }
+    }
+    
+    return true;
+}
+
 // Helper: check if two line segments intersect
 static bool segments_intersect(Vec2 p1, Vec2 p2, Vec2 p3, Vec2 p4) {
     float d1 = cross_product(p3, p4, p1);
@@ -192,19 +225,31 @@ bool polygon_inside_polygon(const Polygon& inner, const Polygon& outer) {
 bool point_in_walkable_area(Vec2 point, const std::vector<Polygon>& polygons) {
     if (polygons.empty()) return false;
     
-    // Count how many polygons contain this point
-    // If point is in an odd number of polygons, it's walkable
-    // If point is in an even number > 0, it's in a "hole"
-    int containment_count = 0;
-    
+    // Check if point is inside any walkable area polygon
     for (const auto& poly : polygons) {
         if (point_in_polygon(point, poly)) {
-            containment_count++;
+            return true;
         }
     }
     
-    // Odd = walkable, Even = hole (or outside if 0)
-    return (containment_count % 2) == 1;
+    return false;
+}
+
+bool point_is_walkable(Vec2 point, const std::vector<Polygon>& walkable_areas, 
+                       const std::vector<Polygon>& obstacles) {
+    // Must be in at least one walkable area
+    if (!point_in_walkable_area(point, walkable_areas)) {
+        return false;
+    }
+    
+    // Must NOT be in any obstacle
+    for (const auto& obstacle : obstacles) {
+        if (point_in_polygon(point, obstacle)) {
+            return false;
+        }
+    }
+    
+    return true;
 }
 
 Vec2 closest_point_on_any_polygon(Vec2 point, const std::vector<Polygon>& polygons) {

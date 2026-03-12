@@ -1,14 +1,16 @@
 # Geometry Editor - Debug Tool
 
-The Geometry Editor is an in-game debug tool for creating and editing walkable areas and hotspots directly in the game.
+The Geometry Editor is an in-game debug tool for creating and editing walkable areas, obstacles, and hotspots directly in the game.
 
 ## Activation
 
 Press **D** to toggle the debug overlay and geometry editor. When active, you'll see:
 
-- Green polygons = Walkable Areas
-- Red polygons = Hotspots
-- Current mode displayed at bottom: `[SELECT]`, `[CREATING WALKABLE]`, or `[CREATING HOTSPOT]`
+- Green polygons = Walkable Areas (where player CAN walk)
+- Orange polygons = Obstacles (where player CANNOT walk)
+- Red polygons = Hotspots (interactive areas)
+- Magenta cross = Hotspot target position (where player walks to)
+- Current mode displayed at bottom: `[SELECT]`, `[CREATING WALKABLE]`, `[CREATING OBSTACLE]`, or `[CREATING HOTSPOT]`
 
 ## Quick Reference
 
@@ -16,17 +18,24 @@ Press **D** to toggle the debug overlay and geometry editor. When active, you'll
 |-----------|--------|
 | **D** | Toggle debug overlay & editor |
 | **W** | Start creating walkable area |
+| **O** | Start creating obstacle |
 | **H** | Start creating hotspot |
 | **F** | Finish/close polygon |
+| **R** | Reload geometry from JSON (preserves callbacks) |
 | **ESC** | Cancel creation / Deselect |
 | **DEL** | Delete selected polygon |
 | **Left-click vertex** | Select & drag vertex |
 | **Left-click edge** | Insert new vertex |
+| **Left-click inside hotspot** | Select hotspot |
+| **Shift+Left-click** | Set hotspot target position |
 | **Right-click vertex** | Delete vertex |
+| **Right-click target** | Delete target position |
 
 ## Creating Polygons
 
 ### Walkable Areas (Green)
+
+Define areas where the player CAN walk.
 
 1. Press **W** to enter walkable area creation mode
 2. Click to place vertices (minimum 3 required)
@@ -35,12 +44,28 @@ Press **D** to toggle the debug overlay and geometry editor. When active, you'll
    - Pressing **F** to finish
 4. Polygon auto-saves to `assets/scenes/<scene>/geometry.json`
 
+### Obstacles (Orange)
+
+Define areas where the player CANNOT walk (tables, pillars, pits, etc.).
+
+1. Press **O** to enter obstacle creation mode
+2. Click to place vertices around the obstacle
+3. Close the polygon the same way as walkable areas
+4. Place obstacles INSIDE walkable areas to block movement
+
 ### Hotspots (Red)
+
+Define interactive areas the player can click on.
 
 1. Press **H** to enter hotspot creation mode
 2. Click to place vertices (minimum 3 required)
 3. Close the polygon the same way as walkable areas
 4. Hotspots are interactive areas the player can click on
+5. **Optional:** Select the hotspot and **Shift+Click** to set a target position
+
+**Target Position:** When set, the player walks to this exact point instead of calculating an approach point dynamically. This is useful for doors, items, or NPCs where the player should stand at a specific spot.
+
+See [HOTSPOTS.md](HOTSPOTS.md) for detailed hotspot configuration.
 
 ## Editing Polygons
 
@@ -97,20 +122,26 @@ Example content:
 {
   "walkable_areas": [
     {
-      "name": "walkable_1",
+      "name": "walkable_0",
       "points": [[50, 100], [250, 100], [250, 150], [50, 150]]
+    },
+    {
+      "name": "walkable_1",
+      "points": [[120, 110], [180, 110], [180, 140], [120, 140]]
     }
   ],
   "hotspots": [
     {
-      "name": "hotspot_1",
-      "points": [[100, 80], [150, 80], [150, 95], [100, 95]],
+      "name": "door",
       "interaction_distance": 20.0,
-      "enabled": true
+      "target_position": [150, 120],
+      "points": [[100, 80], [150, 80], [150, 95], [100, 95]]
     }
   ]
 }
 ```
+
+**Note:** The `name` field is auto-generated (e.g., `hotspot_0`). Edit the JSON manually to give hotspots meaningful names for callback registration.
 
 ## Tips
 

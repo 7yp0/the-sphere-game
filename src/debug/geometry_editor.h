@@ -10,13 +10,15 @@ namespace GeometryEditor {
 enum class EditorMode {
     NONE,               // Not editing
     CREATING_WALKABLE,  // Adding vertices to new walkable area
-    CREATING_HOTSPOT    // Adding vertices to new hotspot
+    CREATING_HOTSPOT,   // Adding vertices to new hotspot
+    CREATING_OBSTACLE   // Adding vertices to new obstacle
 };
 
 enum class SelectionType {
     NONE,
     WALKABLE_AREA,
-    HOTSPOT
+    HOTSPOT,
+    OBSTACLE
 };
 
 struct EditorState {

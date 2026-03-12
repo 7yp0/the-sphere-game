@@ -15,6 +15,10 @@ struct Polygon {
     size_t vertex_count() const { return points.size(); }
 };
 
+// Check if a polygon is convex (required for walkable_areas and obstacles!)
+// Concave polygons will cause incorrect collision behavior.
+bool is_polygon_convex(const Polygon& polygon);
+
 // Point-in-polygon test using ray casting algorithm
 // Returns true if point is inside the polygon (including boundary)
 bool point_in_polygon(Vec2 point, const Polygon& polygon);
@@ -43,6 +47,10 @@ bool point_in_any_polygon(Vec2 point, const std::vector<Polygon>& polygons);
 // Utility: Check if point is in walkable area (handles holes)
 // A polygon completely inside another acts as a hole/obstacle
 bool point_in_walkable_area(Vec2 point, const std::vector<Polygon>& polygons);
+
+// Utility: Check if point is walkable (in walkable area AND not in any obstacle)
+bool point_is_walkable(Vec2 point, const std::vector<Polygon>& walkable_areas, 
+                       const std::vector<Polygon>& obstacles);
 
 // Check if polygon A is completely inside polygon B
 bool polygon_inside_polygon(const Polygon& inner, const Polygon& outer);

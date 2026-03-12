@@ -3,6 +3,7 @@
 #include "renderer/renderer.h"
 #include "renderer/texture_loader.h"
 #include "debug/debug_log.h"
+#include "debug/geometry_editor.h"
 #include "config.h"
 #include "ecs/ecs.h"
 #include "ecs/entity_factory.h"
@@ -31,34 +32,22 @@ void init_scene_test() {
     Renderer::TextureID tree_texture = Renderer::load_texture("scenes/test/props/prop_tree.png");
     Renderer::TextureID stone_texture = Renderer::load_texture("scenes/test/props/prop_stone.png");
     
-    // Setup scene geometry (walkable areas and hotspots)
-    Collision::Polygon main_walkable;
-    main_walkable.points = {
-        Vec2(25.0f, 25.0f),
-        Vec2(295.0f, 25.0f),
-        Vec2(295.0f, 162.5f),
-        Vec2(25.0f, 162.5f)
-    };
-    scene.geometry.walkable_areas.push_back(main_walkable);
-
-    Hotspot box_hotspot;
-    box_hotspot.name = "box_hotspot";
-    box_hotspot.enabled = true;
-    box_hotspot.interaction_distance = 0.25f;
-    box_hotspot.bounds.points = {
-        Vec2(62.5f, 105.0f),
-        Vec2(87.5f, 105.0f),
-        Vec2(87.5f, 155.0f),
-        Vec2(62.5f, 155.0f)
-    };
-    box_hotspot.callback = []() {
-        DEBUG_LOG("Player interacted with box!");
-    };
-    scene.geometry.hotspots.push_back(box_hotspot);
-    
-    // Assign scene to global state BEFORE creating entities
-    // (factory functions access g_state.scene for depth map)
+    // Assign scene to global state BEFORE loading geometry
+    // (so load_geometry can access g_state.scene)
     g_state.scene = scene;
+    
+    // Load geometry from JSON (walkable areas + hotspots)
+    GeometryEditor::load_geometry(scene.name.c_str());
+    
+    // Register hotspot callbacks by name
+    // (geometry comes from JSON, callbacks are defined here in code)
+    register_hotspot_callback("box_hotspot", []() {
+        DEBUG_LOG("Player interacted with box!");
+    });
+    
+    // NOTE: Add more callback registrations here as you create hotspots in the editor:
+    // register_hotspot_callback("door", []() { /* door interaction */ });
+    // register_hotspot_callback("tree", []() { /* tree interaction */ });
     
     // Setup depth map data in renderer for shader sampling
     if (g_state.scene.depth_map.is_valid()) {
@@ -172,6 +161,39 @@ void init_scene_test() {
     );
     g_state.scene.projector_light_entities.push_back(window_light);
     printf("[ECS] Created window light: Entity=%u\n", window_light);
+}
+
+bool register_hotspot_callback(const std::string& hotspot_name, std::function<void()> callback) {
+    for (auto& hotspot : g_state.scene.geometry.hotspots) {
+        if (hotspot.name == hotspot_name) {
+            hotspot.callback = callback;
+            DEBUG_INFO("[Scene] Registered callback for hotspot '%s'", hotspot_name.c_str());
+            return true;
+        }
+    }
+    DEBUG_LOG("[Scene] Hotspot '%s' not found - callback not registered", hotspot_name.c_str());
+    return false;
+}
+
+bool set_hotspot_enabled(const std::string& hotspot_name, bool enabled) {
+    for (auto& hotspot : g_state.scene.geometry.hotspots) {
+        if (hotspot.name == hotspot_name) {
+            hotspot.enabled = enabled;
+            DEBUG_INFO("[Scene] Hotspot '%s' %s", hotspot_name.c_str(), enabled ? "enabled" : "disabled");
+            return true;
+        }
+    }
+    DEBUG_LOG("[Scene] Hotspot '%s' not found", hotspot_name.c_str());
+    return false;
+}
+
+Hotspot* get_hotspot(const std::string& hotspot_name) {
+    for (auto& hotspot : g_state.scene.geometry.hotspots) {
+        if (hotspot.name == hotspot_name) {
+            return &hotspot;
+        }
+    }
+    return nullptr;
 }
 
 }

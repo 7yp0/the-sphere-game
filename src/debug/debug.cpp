@@ -110,16 +110,31 @@ static void render_geometry_debug() {
     float scale_x = (float)Config::VIEWPORT_WIDTH / (float)Config::BASE_WIDTH;
     float scale_y = (float)Config::VIEWPORT_HEIGHT / (float)Config::BASE_HEIGHT;
     
-    // Draw walkable areas (green, lighter when selected)
+    // Track non-convex polygons for warning
+    static int non_convex_walkable_count = 0;
+    static int non_convex_obstacle_count = 0;
+    non_convex_walkable_count = 0;
+    non_convex_obstacle_count = 0;
+    
+    // Draw walkable areas (green if convex, RED if concave!)
     float ui_z = Layers::get_z_depth(Layer::UI);
     for (size_t wi = 0; wi < scene.geometry.walkable_areas.size(); wi++) {
         const auto& walkable = scene.geometry.walkable_areas[wi];
+        bool is_convex = Collision::is_polygon_convex(walkable);
+        if (!is_convex) non_convex_walkable_count++;
         
         // Highlight selected polygon
         bool is_selected = (editor_state.selection_type == GeometryEditor::SelectionType::WALKABLE_AREA && 
                            editor_state.selected_polygon_index == (int)wi);
-        Vec4 color = is_selected ? Vec4(0.4f, 1.0f, 0.4f, 0.9f) : Vec4(0.0f, 1.0f, 0.0f, 0.7f);
-        float line_width = is_selected ? 3.0f : 2.0f;
+        
+        // RED for non-convex, green for convex
+        Vec4 color;
+        if (!is_convex) {
+            color = is_selected ? Vec4(1.0f, 0.3f, 0.3f, 0.95f) : Vec4(1.0f, 0.0f, 0.0f, 0.85f);
+        } else {
+            color = is_selected ? Vec4(0.4f, 1.0f, 0.4f, 0.9f) : Vec4(0.0f, 1.0f, 0.0f, 0.7f);
+        }
+        float line_width = is_selected ? 3.0f : (is_convex ? 2.0f : 3.0f);
         
         size_t n = walkable.points.size();
         for (size_t i = 0; i < n; i++) {
@@ -135,13 +150,41 @@ static void render_geometry_debug() {
         }
     }
     
-    // Draw hotspots (red, lighter when selected)
+    // Draw obstacles (orange if convex, RED if concave!)
+    for (size_t oi = 0; oi < scene.geometry.obstacles.size(); oi++) {
+        const auto& obstacle = scene.geometry.obstacles[oi];
+        bool is_convex = Collision::is_polygon_convex(obstacle);
+        if (!is_convex) non_convex_obstacle_count++;
+        
+        bool is_selected = (editor_state.selection_type == GeometryEditor::SelectionType::OBSTACLE && 
+                           editor_state.selected_polygon_index == (int)oi);
+        
+        // RED for non-convex, orange for convex
+        Vec4 color;
+        if (!is_convex) {
+            color = is_selected ? Vec4(1.0f, 0.3f, 0.3f, 0.95f) : Vec4(1.0f, 0.0f, 0.0f, 0.85f);
+        } else {
+            color = is_selected ? Vec4(1.0f, 0.7f, 0.3f, 0.9f) : Vec4(1.0f, 0.5f, 0.0f, 0.7f);
+        }
+        float line_width = is_selected ? 3.0f : (is_convex ? 2.0f : 3.0f);
+        
+        size_t n = obstacle.points.size();
+        for (size_t i = 0; i < n; i++) {
+            Vec3 p1 = Vec3(obstacle.points[i].x * scale_x, obstacle.points[i].y * scale_y, ui_z);
+            Vec3 p2 = Vec3(obstacle.points[(i + 1) % n].x * scale_x, obstacle.points[(i + 1) % n].y * scale_y, ui_z);
+            
+            Renderer::render_line(p1, p2, color, line_width);
+            Renderer::render_rect(p1, Vec2(6.0f, 6.0f), color);
+        }
+    }
+    
+    // Draw hotspots (BLUE - convexity doesn't matter for hotspots)
     for (size_t hi = 0; hi < scene.geometry.hotspots.size(); hi++) {
         const auto& hotspot = scene.geometry.hotspots[hi];
         
         bool is_selected = (editor_state.selection_type == GeometryEditor::SelectionType::HOTSPOT && 
                            editor_state.selected_polygon_index == (int)hi);
-        Vec4 color = is_selected ? Vec4(1.0f, 0.4f, 0.4f, 0.9f) : Vec4(1.0f, 0.0f, 0.0f, 0.7f);
+        Vec4 color = is_selected ? Vec4(0.4f, 0.6f, 1.0f, 0.9f) : Vec4(0.2f, 0.4f, 1.0f, 0.7f);
         float line_width = is_selected ? 3.0f : 2.0f;
         
         size_t n = hotspot.bounds.points.size();
@@ -153,6 +196,23 @@ static void render_geometry_debug() {
             Renderer::render_line(p1, p2, color, line_width);
             Renderer::render_rect(p1, Vec2(6.0f, 6.0f), color);
         }
+    }
+    
+    // Render warning if there are non-convex collision polygons
+    if (non_convex_walkable_count > 0 || non_convex_obstacle_count > 0) {
+        char warning[128];
+        snprintf(warning, sizeof(warning), "!!! %d NON-CONVEX POLYGONS - COLLISION BROKEN !!!", 
+                 non_convex_walkable_count + non_convex_obstacle_count);
+        
+        // Black semi-transparent background for warning (above [SELECT] box)
+        float warning_y = Config::VIEWPORT_HEIGHT - 60.0f;
+        Vec3 warn_bg_pos = Vec3(0.0f, warning_y - 5.0f, Layers::get_z_depth(Layer::UI));
+        Vec2 warn_bg_size = Vec2(650.0f, 30.0f);
+        Vec4 warn_bg_color = Vec4(0.0f, 0.0f, 0.0f, 0.7f);
+        Renderer::render_rect(warn_bg_pos, warn_bg_size, warn_bg_color);
+        
+        // Warning text
+        Renderer::render_text(warning, Vec2(10.0f, warning_y), 1.0f);
     }
 }
 

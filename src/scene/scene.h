@@ -42,6 +42,7 @@ struct Hotspot {
 
 struct SceneGeometry {
     std::vector<Collision::Polygon> walkable_areas;
+    std::vector<Collision::Polygon> obstacles;  // Blocked areas within walkable areas
     std::vector<Hotspot> hotspots;
 };
 
@@ -124,6 +125,17 @@ inline float get_depth_scaling(const Scene& scene, float world_x, float world_y)
         return 0.6f + (t * 0.8f);
     }
 }
+
+// Register a callback for a hotspot by name (called after loading geometry from JSON)
+// Returns true if hotspot found and callback registered
+bool register_hotspot_callback(const std::string& hotspot_name, std::function<void()> callback);
+
+// Enable or disable a hotspot by name (disabled hotspots don't respond to clicks)
+// Returns true if hotspot found
+bool set_hotspot_enabled(const std::string& hotspot_name, bool enabled);
+
+// Get a hotspot by name (returns nullptr if not found)
+Hotspot* get_hotspot(const std::string& hotspot_name);
 
 void init_scene_test();
 

@@ -150,8 +150,9 @@ static void handle_hotspot_click(Player& player, ECS::WalkerComponent& walker,
                         hotspot.callback();
                     }
                     float current_z = Scene::get_z_from_depth_map(g_state.scene, player_pos.x, player_pos.y);
-                    walker_set_target(walker, Vec3(player_pos.x, player_pos.y, current_z),
-                                      g_state.scene.geometry.walkable_areas);
+                    walker_set_target(walker, player_pos, Vec3(player_pos.x, player_pos.y, current_z),
+                                      g_state.scene.geometry.walkable_areas,
+                                      g_state.scene.geometry.obstacles);
                     player.hotspot_state = HotspotInteractionState::InRange;
                     return;
                 }
@@ -163,8 +164,9 @@ static void handle_hotspot_click(Player& player, ECS::WalkerComponent& walker,
                         hotspot.callback();
                     }
                     float current_z = Scene::get_z_from_depth_map(g_state.scene, player_pos.x, player_pos.y);
-                    walker_set_target(walker, Vec3(player_pos.x, player_pos.y, current_z),
-                                      g_state.scene.geometry.walkable_areas);
+                    walker_set_target(walker, player_pos, Vec3(player_pos.x, player_pos.y, current_z),
+                                      g_state.scene.geometry.walkable_areas,
+                                      g_state.scene.geometry.obstacles);
                     player.hotspot_state = HotspotInteractionState::InRange;
                     return;
                 }
@@ -196,8 +198,9 @@ static void handle_hotspot_click(Player& player, ECS::WalkerComponent& walker,
             
             // Sample Z from depth map based on world position
             float target_z = Scene::get_z_from_depth_map(g_state.scene, approach_point_2d.x, approach_point_2d.y);
-            walker_set_target(walker, Vec3(approach_point_2d.x, approach_point_2d.y, target_z),
-                              g_state.scene.geometry.walkable_areas);
+            walker_set_target(walker, player_pos, Vec3(approach_point_2d.x, approach_point_2d.y, target_z),
+                              g_state.scene.geometry.walkable_areas,
+                              g_state.scene.geometry.obstacles);
             player.hotspot_state = HotspotInteractionState::Approaching;
             return;
         }
@@ -205,10 +208,11 @@ static void handle_hotspot_click(Player& player, ECS::WalkerComponent& walker,
 }
 
 // Helper function: Handle regular movement click
-static void handle_movement_click(ECS::WalkerComponent& walker, Vec2 mouse_pos) {
+static void handle_movement_click(ECS::WalkerComponent& walker, Vec2 current_pos, Vec2 mouse_pos) {
     float target_z = Scene::get_z_from_depth_map(g_state.scene, mouse_pos.x, mouse_pos.y);
-    walker_set_target(walker, Vec3(mouse_pos.x, mouse_pos.y, target_z), 
-                      g_state.scene.geometry.walkable_areas);
+    walker_set_target(walker, current_pos, Vec3(mouse_pos.x, mouse_pos.y, target_z), 
+                      g_state.scene.geometry.walkable_areas,
+                      g_state.scene.geometry.obstacles);
 }
 
 void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_height, 
@@ -314,8 +318,9 @@ void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_heig
     transform.z_depth = Scene::get_z_from_depth_map(g_state.scene, transform.position.x, transform.position.y);
     
     // Initialize walker target to current position
-    walker_set_target(walker, Vec3(transform.position.x, transform.position.y, transform.z_depth),
-                      g_state.scene.geometry.walkable_areas);
+    walker_set_target(walker, transform.position, Vec3(transform.position.x, transform.position.y, transform.z_depth),
+                      g_state.scene.geometry.walkable_areas,
+                      g_state.scene.geometry.obstacles);
     
     player.animation_state = AnimationState::Idle;
     player.walk_direction = WalkDirection::Down;
@@ -358,7 +363,7 @@ void player_handle_input(Player& player, ECS::Transform2_5DComponent& transform,
         
         // If no hotspot was clicked, handle regular movement
         if (player.active_hotspot_index == -1) {
-            handle_movement_click(walker, mouse_pos);
+            handle_movement_click(walker, transform.position, mouse_pos);
         }
     }
     
@@ -384,7 +389,8 @@ void player_update(Player& player, ECS::Transform2_5DComponent& transform,
                    uint32_t viewport_width, uint32_t viewport_height, float delta_time) {
     
     // Use walker system for movement
-    bool moving = walker_update(walker, transform, g_state.scene.geometry.walkable_areas, delta_time);
+    bool moving = walker_update(walker, transform, g_state.scene.geometry.walkable_areas, 
+                                g_state.scene.geometry.obstacles, delta_time);
     
     // Update Z from depth map after movement
     transform.z_depth = Scene::get_z_from_depth_map(g_state.scene, transform.position.x, transform.position.y);

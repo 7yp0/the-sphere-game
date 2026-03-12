@@ -7,8 +7,10 @@
 #include "config.h"
 #include <cstdio>
 #include <cmath>
+#include <cfloat>
 #include <fstream>
 #include <sstream>
+#include <unordered_map>
 #include <unistd.h>
 
 // For finding executable path on macOS
@@ -25,13 +27,17 @@ static Vec2 g_mouse_pos;
 #ifdef __APPLE__
     static constexpr int KEY_W = 13;
     static constexpr int KEY_H = 4;
+    static constexpr int KEY_O = 31;
     static constexpr int KEY_F = 3;
+    static constexpr int KEY_R = 15;
     static constexpr int KEY_ESC = 53;
     static constexpr int KEY_DELETE = 51;
 #else
     static constexpr int KEY_W = 0x57;
     static constexpr int KEY_H = 0x48;
+    static constexpr int KEY_O = 0x4F;
     static constexpr int KEY_F = 0x46;
+    static constexpr int KEY_R = 0x52;
     static constexpr int KEY_ESC = 0x1B;
     static constexpr int KEY_DELETE = 0x2E;
 #endif
@@ -39,7 +45,9 @@ static Vec2 g_mouse_pos;
 // Previous key states for edge detection
 static bool s_prev_w = false;
 static bool s_prev_h = false;
+static bool s_prev_o = false;
 static bool s_prev_f = false;
+static bool s_prev_r = false;
 static bool s_prev_esc = false;
 static bool s_prev_del = false;
 
@@ -122,42 +130,120 @@ const char* get_mode_string() {
     switch (g_state.mode) {
         case EditorMode::CREATING_WALKABLE: return "CREATING WALKABLE";
         case EditorMode::CREATING_HOTSPOT: return "CREATING HOTSPOT";
+        case EditorMode::CREATING_OBSTACLE: return "CREATING OBSTACLE";
         default: return "SELECT";
     }
 }
 
-// Find vertex near position, returns {polygon_index, vertex_index, is_hotspot}
-static bool find_vertex_at(Vec2 pos, int& out_poly_idx, int& out_vert_idx, bool& out_is_hotspot) {
-    const auto& scene = Game::g_state.scene;
-    float radius_sq = VERTEX_SELECT_RADIUS * VERTEX_SELECT_RADIUS;
+// Calculate polygon area using Shoelace formula (returns absolute value)
+static float polygon_area(const Collision::Polygon& poly) {
+    float area = 0.0f;
+    size_t n = poly.points.size();
+    if (n < 3) return 0.0f;
     
-    // Check walkable areas first
-    for (size_t pi = 0; pi < scene.geometry.walkable_areas.size(); pi++) {
-        const auto& poly = scene.geometry.walkable_areas[pi];
-        for (size_t vi = 0; vi < poly.points.size(); vi++) {
-            float dx = pos.x - poly.points[vi].x;
-            float dy = pos.y - poly.points[vi].y;
-            if (dx*dx + dy*dy <= radius_sq) {
-                out_poly_idx = (int)pi;
-                out_vert_idx = (int)vi;
-                out_is_hotspot = false;
-                return true;
+    for (size_t i = 0; i < n; i++) {
+        size_t j = (i + 1) % n;
+        area += poly.points[i].x * poly.points[j].y;
+        area -= poly.points[j].x * poly.points[i].y;
+    }
+    return fabsf(area) * 0.5f;
+}
+
+// Find the smallest polygon containing the point (for selection)
+static bool find_polygon_containing_point(Vec2 pos, int& out_poly_idx, SelectionType& out_type) {
+    const auto& scene = Game::g_state.scene;
+    
+    float smallest_area = FLT_MAX;
+    int best_idx = -1;
+    SelectionType best_type = SelectionType::NONE;
+    
+    // Check walkable areas
+    for (size_t i = 0; i < scene.geometry.walkable_areas.size(); i++) {
+        const auto& poly = scene.geometry.walkable_areas[i];
+        if (Collision::point_in_polygon(pos, poly)) {
+            float area = polygon_area(poly);
+            if (area < smallest_area) {
+                smallest_area = area;
+                best_idx = (int)i;
+                best_type = SelectionType::WALKABLE_AREA;
+            }
+        }
+    }
+    
+    // Check obstacles
+    for (size_t i = 0; i < scene.geometry.obstacles.size(); i++) {
+        const auto& poly = scene.geometry.obstacles[i];
+        if (Collision::point_in_polygon(pos, poly)) {
+            float area = polygon_area(poly);
+            if (area < smallest_area) {
+                smallest_area = area;
+                best_idx = (int)i;
+                best_type = SelectionType::OBSTACLE;
             }
         }
     }
     
     // Check hotspots
-    for (size_t pi = 0; pi < scene.geometry.hotspots.size(); pi++) {
-        const auto& hotspot = scene.geometry.hotspots[pi];
-        for (size_t vi = 0; vi < hotspot.bounds.points.size(); vi++) {
-            float dx = pos.x - hotspot.bounds.points[vi].x;
-            float dy = pos.y - hotspot.bounds.points[vi].y;
-            if (dx*dx + dy*dy <= radius_sq) {
-                out_poly_idx = (int)pi;
-                out_vert_idx = (int)vi;
-                out_is_hotspot = true;
-                return true;
+    for (size_t i = 0; i < scene.geometry.hotspots.size(); i++) {
+        const auto& poly = scene.geometry.hotspots[i].bounds;
+        if (Collision::point_in_polygon(pos, poly)) {
+            float area = polygon_area(poly);
+            if (area < smallest_area) {
+                smallest_area = area;
+                best_idx = (int)i;
+                best_type = SelectionType::HOTSPOT;
             }
+        }
+    }
+    
+    if (best_idx >= 0) {
+        out_poly_idx = best_idx;
+        out_type = best_type;
+        return true;
+    }
+    return false;
+}
+
+// Find vertex near position - ONLY searches the currently selected polygon
+static bool find_vertex_at(Vec2 pos, int& out_vert_idx) {
+    // Only search if a polygon is selected
+    if (g_state.selected_polygon_index < 0 || g_state.selection_type == SelectionType::NONE) {
+        return false;
+    }
+    
+    const auto& scene = Game::g_state.scene;
+    float radius_sq = VERTEX_SELECT_RADIUS * VERTEX_SELECT_RADIUS;
+    
+    const Collision::Polygon* poly = nullptr;
+    
+    switch (g_state.selection_type) {
+        case SelectionType::WALKABLE_AREA:
+            if (g_state.selected_polygon_index < (int)scene.geometry.walkable_areas.size()) {
+                poly = &scene.geometry.walkable_areas[g_state.selected_polygon_index];
+            }
+            break;
+        case SelectionType::OBSTACLE:
+            if (g_state.selected_polygon_index < (int)scene.geometry.obstacles.size()) {
+                poly = &scene.geometry.obstacles[g_state.selected_polygon_index];
+            }
+            break;
+        case SelectionType::HOTSPOT:
+            if (g_state.selected_polygon_index < (int)scene.geometry.hotspots.size()) {
+                poly = &scene.geometry.hotspots[g_state.selected_polygon_index].bounds;
+            }
+            break;
+        default:
+            return false;
+    }
+    
+    if (!poly) return false;
+    
+    for (size_t vi = 0; vi < poly->points.size(); vi++) {
+        float dx = pos.x - poly->points[vi].x;
+        float dy = pos.y - poly->points[vi].y;
+        if (dx*dx + dy*dy <= radius_sq) {
+            out_vert_idx = (int)vi;
+            return true;
         }
     }
     
@@ -186,41 +272,46 @@ static float point_to_segment_distance(Vec2 p, Vec2 a, Vec2 b) {
     return sqrtf(dx * dx + dy * dy);
 }
 
-// Find edge near position, returns polygon index and edge index (edge between vertex edge_idx and edge_idx+1)
-static bool find_edge_at(Vec2 pos, int& out_poly_idx, int& out_edge_idx, bool& out_is_hotspot) {
-    const auto& scene = Game::g_state.scene;
-    
-    // Check walkable areas
-    for (size_t pi = 0; pi < scene.geometry.walkable_areas.size(); pi++) {
-        const auto& poly = scene.geometry.walkable_areas[pi];
-        size_t n = poly.points.size();
-        for (size_t ei = 0; ei < n; ei++) {
-            Vec2 a = poly.points[ei];
-            Vec2 b = poly.points[(ei + 1) % n];
-            float dist = point_to_segment_distance(pos, a, b);
-            if (dist <= EDGE_SELECT_DISTANCE) {
-                out_poly_idx = (int)pi;
-                out_edge_idx = (int)ei;
-                out_is_hotspot = false;
-                return true;
-            }
-        }
+// Find edge near position - ONLY searches the currently selected polygon
+static bool find_edge_at(Vec2 pos, int& out_edge_idx) {
+    // Only search if a polygon is selected
+    if (g_state.selected_polygon_index < 0 || g_state.selection_type == SelectionType::NONE) {
+        return false;
     }
     
-    // Check hotspots
-    for (size_t pi = 0; pi < scene.geometry.hotspots.size(); pi++) {
-        const auto& hotspot = scene.geometry.hotspots[pi];
-        size_t n = hotspot.bounds.points.size();
-        for (size_t ei = 0; ei < n; ei++) {
-            Vec2 a = hotspot.bounds.points[ei];
-            Vec2 b = hotspot.bounds.points[(ei + 1) % n];
-            float dist = point_to_segment_distance(pos, a, b);
-            if (dist <= EDGE_SELECT_DISTANCE) {
-                out_poly_idx = (int)pi;
-                out_edge_idx = (int)ei;
-                out_is_hotspot = true;
-                return true;
+    const auto& scene = Game::g_state.scene;
+    const Collision::Polygon* poly = nullptr;
+    
+    switch (g_state.selection_type) {
+        case SelectionType::WALKABLE_AREA:
+            if (g_state.selected_polygon_index < (int)scene.geometry.walkable_areas.size()) {
+                poly = &scene.geometry.walkable_areas[g_state.selected_polygon_index];
             }
+            break;
+        case SelectionType::OBSTACLE:
+            if (g_state.selected_polygon_index < (int)scene.geometry.obstacles.size()) {
+                poly = &scene.geometry.obstacles[g_state.selected_polygon_index];
+            }
+            break;
+        case SelectionType::HOTSPOT:
+            if (g_state.selected_polygon_index < (int)scene.geometry.hotspots.size()) {
+                poly = &scene.geometry.hotspots[g_state.selected_polygon_index].bounds;
+            }
+            break;
+        default:
+            return false;
+    }
+    
+    if (!poly) return false;
+    
+    size_t n = poly->points.size();
+    for (size_t ei = 0; ei < n; ei++) {
+        Vec2 a = poly->points[ei];
+        Vec2 b = poly->points[(ei + 1) % n];
+        float dist = point_to_segment_distance(pos, a, b);
+        if (dist <= EDGE_SELECT_DISTANCE) {
+            out_edge_idx = (int)ei;
+            return true;
         }
     }
     
@@ -250,8 +341,18 @@ static void finish_polygon() {
     
     if (g_state.mode == EditorMode::CREATING_WALKABLE) {
         Collision::Polygon poly(g_state.current_polygon_points);
+        if (!Collision::is_polygon_convex(poly)) {
+            DEBUG_ERROR("[GeoEditor] WARNING: Walkable area is NOT CONVEX! Collision may behave incorrectly.");
+        }
         scene.geometry.walkable_areas.push_back(poly);
         DEBUG_INFO("[GeoEditor] Created walkable area with %zu vertices", g_state.current_polygon_points.size());
+    } else if (g_state.mode == EditorMode::CREATING_OBSTACLE) {
+        Collision::Polygon poly(g_state.current_polygon_points);
+        if (!Collision::is_polygon_convex(poly)) {
+            DEBUG_ERROR("[GeoEditor] WARNING: Obstacle is NOT CONVEX! Sliding may behave incorrectly.");
+        }
+        scene.geometry.obstacles.push_back(poly);
+        DEBUG_INFO("[GeoEditor] Created obstacle with %zu vertices", g_state.current_polygon_points.size());
     } else if (g_state.mode == EditorMode::CREATING_HOTSPOT) {
         Scene::Hotspot hotspot;
         hotspot.name = g_state.current_polygon_name;
@@ -282,6 +383,12 @@ static void delete_selected() {
                 scene.geometry.walkable_areas.begin() + g_state.selected_polygon_index);
             DEBUG_INFO("[GeoEditor] Deleted walkable area %d", g_state.selected_polygon_index);
         }
+    } else if (g_state.selection_type == SelectionType::OBSTACLE) {
+        if (g_state.selected_polygon_index < (int)scene.geometry.obstacles.size()) {
+            scene.geometry.obstacles.erase(
+                scene.geometry.obstacles.begin() + g_state.selected_polygon_index);
+            DEBUG_INFO("[GeoEditor] Deleted obstacle %d", g_state.selected_polygon_index);
+        }
     } else if (g_state.selection_type == SelectionType::HOTSPOT) {
         if (g_state.selected_polygon_index < (int)scene.geometry.hotspots.size()) {
             DEBUG_INFO("[GeoEditor] Deleted hotspot '%s'", 
@@ -299,11 +406,12 @@ static void delete_selected() {
     save_geometry(scene.name.c_str());
 }
 
-// Insert vertex on edge at clicked position
-static void insert_vertex_on_edge(Vec2 click_pos, int poly_idx, int edge_idx, bool is_hotspot) {
+// Insert vertex on edge at clicked position (uses currently selected polygon)
+static void insert_vertex_on_edge(Vec2 click_pos, int edge_idx) {
     auto& scene = Game::g_state.scene;
+    int poly_idx = g_state.selected_polygon_index;
     
-    if (!is_hotspot) {
+    if (g_state.selection_type == SelectionType::WALKABLE_AREA) {
         if (poly_idx < (int)scene.geometry.walkable_areas.size()) {
             auto& poly = scene.geometry.walkable_areas[poly_idx];
             
@@ -313,13 +421,23 @@ static void insert_vertex_on_edge(Vec2 click_pos, int poly_idx, int edge_idx, bo
                    click_pos.x, click_pos.y, edge_idx, poly_idx);
             
             // Select the new vertex for immediate dragging
-            g_state.selected_polygon_index = poly_idx;
             g_state.selected_vertex_index = edge_idx + 1;
-            g_state.selection_type = SelectionType::WALKABLE_AREA;
             g_state.dragging = true;
             g_state.drag_start = click_pos;
         }
-    } else {
+    } else if (g_state.selection_type == SelectionType::OBSTACLE) {
+        if (poly_idx < (int)scene.geometry.obstacles.size()) {
+            auto& poly = scene.geometry.obstacles[poly_idx];
+            
+            poly.points.insert(poly.points.begin() + edge_idx + 1, click_pos);
+            DEBUG_INFO("[GeoEditor] Inserted vertex at (%.1f, %.1f) on edge %d of obstacle %d", 
+                   click_pos.x, click_pos.y, edge_idx, poly_idx);
+            
+            g_state.selected_vertex_index = edge_idx + 1;
+            g_state.dragging = true;
+            g_state.drag_start = click_pos;
+        }
+    } else if (g_state.selection_type == SelectionType::HOTSPOT) {
         if (poly_idx < (int)scene.geometry.hotspots.size()) {
             auto& hotspot = scene.geometry.hotspots[poly_idx];
             
@@ -327,9 +445,7 @@ static void insert_vertex_on_edge(Vec2 click_pos, int poly_idx, int edge_idx, bo
             DEBUG_INFO("[GeoEditor] Inserted vertex at (%.1f, %.1f) on edge %d of hotspot '%s'", 
                    click_pos.x, click_pos.y, edge_idx, hotspot.name.c_str());
             
-            g_state.selected_polygon_index = poly_idx;
             g_state.selected_vertex_index = edge_idx + 1;
-            g_state.selection_type = SelectionType::HOTSPOT;
             g_state.dragging = true;
             g_state.drag_start = click_pos;
         }
@@ -340,10 +456,10 @@ static void insert_vertex_on_edge(Vec2 click_pos, int poly_idx, int edge_idx, bo
 }
 
 // Delete a single vertex (right-click)
-static void delete_vertex(int poly_idx, int vert_idx, bool is_hotspot) {
+static void delete_vertex(int poly_idx, int vert_idx, SelectionType sel_type) {
     auto& scene = Game::g_state.scene;
     
-    if (!is_hotspot) {
+    if (sel_type == SelectionType::WALKABLE_AREA) {
         if (poly_idx < (int)scene.geometry.walkable_areas.size()) {
             auto& poly = scene.geometry.walkable_areas[poly_idx];
             if (poly.points.size() <= 3) {
@@ -355,7 +471,19 @@ static void delete_vertex(int poly_idx, int vert_idx, bool is_hotspot) {
                 DEBUG_INFO("[GeoEditor] Deleted vertex %d from walkable area %d", vert_idx, poly_idx);
             }
         }
-    } else {
+    } else if (sel_type == SelectionType::OBSTACLE) {
+        if (poly_idx < (int)scene.geometry.obstacles.size()) {
+            auto& poly = scene.geometry.obstacles[poly_idx];
+            if (poly.points.size() <= 3) {
+                DEBUG_ERROR("[GeoEditor] Cannot delete vertex: polygon needs at least 3 vertices");
+                return;
+            }
+            if (vert_idx < (int)poly.points.size()) {
+                poly.points.erase(poly.points.begin() + vert_idx);
+                DEBUG_INFO("[GeoEditor] Deleted vertex %d from obstacle %d", vert_idx, poly_idx);
+            }
+        }
+    } else if (sel_type == SelectionType::HOTSPOT) {
         if (poly_idx < (int)scene.geometry.hotspots.size()) {
             auto& hotspot = scene.geometry.hotspots[poly_idx];
             if (hotspot.bounds.points.size() <= 3) {
@@ -386,9 +514,16 @@ void update(Vec2 mouse_base_coords) {
     // Edge-detect key presses
     bool key_w = Platform::key_pressed(KEY_W);
     bool key_h = Platform::key_pressed(KEY_H);
+    bool key_o = Platform::key_pressed(KEY_O);
     bool key_f = Platform::key_pressed(KEY_F);
+    bool key_r = Platform::key_pressed(KEY_R);
     bool key_esc = Platform::key_pressed(KEY_ESC);
     bool key_del = Platform::key_pressed(KEY_DELETE);
+    
+    // R - Reload geometry from JSON (preserves callbacks)
+    if (key_r && !s_prev_r && g_state.mode == EditorMode::NONE) {
+        load_geometry(Game::g_state.scene.name.c_str());
+    }
     
     // W - Start creating walkable area
     if (key_w && !s_prev_w && g_state.mode == EditorMode::NONE) {
@@ -400,6 +535,18 @@ void update(Vec2 mouse_base_coords) {
         g_state.selected_vertex_index = -1;
         g_state.selection_type = SelectionType::NONE;
         DEBUG_INFO("[GeoEditor] Creating new walkable area");
+    }
+    
+    // O - Start creating obstacle
+    if (key_o && !s_prev_o && g_state.mode == EditorMode::NONE) {
+        g_state.mode = EditorMode::CREATING_OBSTACLE;
+        g_state.current_polygon_points.clear();
+        g_state.current_polygon_name = "obstacle_" + std::to_string(++s_polygon_counter);
+        // Deselect any selected polygon
+        g_state.selected_polygon_index = -1;
+        g_state.selected_vertex_index = -1;
+        g_state.selection_type = SelectionType::NONE;
+        DEBUG_INFO("[GeoEditor] Creating new obstacle");
     }
     
     // H - Start creating hotspot
@@ -449,6 +596,13 @@ void update(Vec2 mouse_base_coords) {
                     poly.points[g_state.selected_vertex_index] = new_pos;
                 }
             }
+        } else if (g_state.selection_type == SelectionType::OBSTACLE) {
+            if (g_state.selected_polygon_index < (int)scene.geometry.obstacles.size()) {
+                auto& poly = scene.geometry.obstacles[g_state.selected_polygon_index];
+                if (g_state.selected_vertex_index < (int)poly.points.size()) {
+                    poly.points[g_state.selected_vertex_index] = new_pos;
+                }
+            }
         } else if (g_state.selection_type == SelectionType::HOTSPOT) {
             if (g_state.selected_polygon_index < (int)scene.geometry.hotspots.size()) {
                 auto& hotspot = scene.geometry.hotspots[g_state.selected_polygon_index];
@@ -459,10 +613,9 @@ void update(Vec2 mouse_base_coords) {
         }
     }
     
-    // Find hovered vertex
-    int poly_idx, vert_idx;
-    bool is_hotspot;
-    if (find_vertex_at(mouse_base_coords, poly_idx, vert_idx, is_hotspot)) {
+    // Find hovered vertex (only on selected polygon)
+    int vert_idx;
+    if (find_vertex_at(mouse_base_coords, vert_idx)) {
         g_state.hovered_vertex_index = vert_idx;
     } else {
         g_state.hovered_vertex_index = -1;
@@ -470,7 +623,9 @@ void update(Vec2 mouse_base_coords) {
     
     s_prev_w = key_w;
     s_prev_h = key_h;
+    s_prev_o = key_o;
     s_prev_f = key_f;
+    s_prev_r = key_r;
     s_prev_esc = key_esc;
     s_prev_del = key_del;
 }
@@ -509,38 +664,47 @@ void on_mouse_click(Vec2 pos) {
         return;
     }
     
-    // Try to select vertex first
-    int poly_idx, vert_idx;
-    bool is_hotspot;
-    if (find_vertex_at(pos, poly_idx, vert_idx, is_hotspot)) {
-        g_state.selected_polygon_index = poly_idx;
-        g_state.selected_vertex_index = vert_idx;
-        g_state.selection_type = is_hotspot ? SelectionType::HOTSPOT : SelectionType::WALKABLE_AREA;
-        g_state.dragging = true;
-        g_state.drag_start = pos;
-        DEBUG_INFO("[GeoEditor] Selected %s %d, vertex %d", 
-               is_hotspot ? "hotspot" : "walkable", poly_idx, vert_idx);
-        return;
-    }
-    
-    // Try to click on edge to insert vertex
-    int edge_idx;
-    if (find_edge_at(pos, poly_idx, edge_idx, is_hotspot)) {
-        insert_vertex_on_edge(pos, poly_idx, edge_idx, is_hotspot);
-        return;
-    }
-    
-    // Try to click inside a hotspot to select it
-    const auto& scene = Game::g_state.scene;
-    for (size_t i = 0; i < scene.geometry.hotspots.size(); i++) {
-        if (Collision::point_in_polygon(pos, scene.geometry.hotspots[i].bounds)) {
-            g_state.selected_polygon_index = (int)i;
-            g_state.selected_vertex_index = -1;  // No vertex selected
-            g_state.selection_type = SelectionType::HOTSPOT;
-            DEBUG_INFO("[GeoEditor] Selected hotspot '%s' (clicked inside)", 
-                   scene.geometry.hotspots[i].name.c_str());
+    // If a polygon is already selected, try to interact with its vertices/edges
+    if (g_state.selected_polygon_index >= 0 && g_state.selection_type != SelectionType::NONE) {
+        // Try to select vertex of the selected polygon
+        int vert_idx;
+        if (find_vertex_at(pos, vert_idx)) {
+            g_state.selected_vertex_index = vert_idx;
+            g_state.dragging = true;
+            g_state.drag_start = pos;
+            const char* type_name = (g_state.selection_type == SelectionType::HOTSPOT) ? "hotspot" :
+                                    (g_state.selection_type == SelectionType::OBSTACLE) ? "obstacle" : "walkable";
+            DEBUG_INFO("[GeoEditor] Started dragging %s %d, vertex %d", 
+                   type_name, g_state.selected_polygon_index, vert_idx);
             return;
         }
+        
+        // Try to click on edge to insert vertex
+        int edge_idx;
+        if (find_edge_at(pos, edge_idx)) {
+            insert_vertex_on_edge(pos, edge_idx);
+            return;
+        }
+    }
+    
+    // Try to select a polygon (smallest area wins if overlapping)
+    int poly_idx;
+    SelectionType sel_type;
+    if (find_polygon_containing_point(pos, poly_idx, sel_type)) {
+        g_state.selected_polygon_index = poly_idx;
+        g_state.selected_vertex_index = -1;  // No vertex selected yet
+        g_state.selection_type = sel_type;
+        
+        const char* type_name = (sel_type == SelectionType::HOTSPOT) ? "hotspot" :
+                                (sel_type == SelectionType::OBSTACLE) ? "obstacle" : "walkable area";
+        if (sel_type == SelectionType::HOTSPOT) {
+            const auto& scene = Game::g_state.scene;
+            DEBUG_INFO("[GeoEditor] Selected %s '%s' (clicked inside)", 
+                   type_name, scene.geometry.hotspots[poly_idx].name.c_str());
+        } else {
+            DEBUG_INFO("[GeoEditor] Selected %s %d (clicked inside)", type_name, poly_idx);
+        }
+        return;
     }
     
     // Deselect
@@ -577,11 +741,10 @@ void on_mouse_right_click(Vec2 pos) {
         }
     }
     
-    // Try to find vertex at position
-    int poly_idx, vert_idx;
-    bool is_hotspot;
-    if (find_vertex_at(pos, poly_idx, vert_idx, is_hotspot)) {
-        delete_vertex(poly_idx, vert_idx, is_hotspot);
+    // Try to find vertex at position (only on selected polygon)
+    int vert_idx;
+    if (find_vertex_at(pos, vert_idx)) {
+        delete_vertex(g_state.selected_polygon_index, vert_idx, g_state.selection_type);
     }
 }
 
@@ -651,6 +814,14 @@ void render() {
                     found = true;
                 }
             }
+        } else if (g_state.selection_type == SelectionType::OBSTACLE) {
+            if (g_state.selected_polygon_index < (int)scene.geometry.obstacles.size()) {
+                const auto& poly = scene.geometry.obstacles[g_state.selected_polygon_index];
+                if (g_state.selected_vertex_index < (int)poly.points.size()) {
+                    vert_pos = poly.points[g_state.selected_vertex_index];
+                    found = true;
+                }
+            }
         } else if (g_state.selection_type == SelectionType::HOTSPOT) {
             if (g_state.selected_polygon_index < (int)scene.geometry.hotspots.size()) {
                 const auto& hotspot = scene.geometry.hotspots[g_state.selected_polygon_index];
@@ -690,7 +861,7 @@ void render() {
         }
     }
     
-    // Draw mode indicator
+    // Draw mode indicator with black background
     char mode_text[128];
     if (g_state.selection_type == SelectionType::HOTSPOT && g_state.selected_polygon_index >= 0) {
         const auto& hotspot = scene.geometry.hotspots[g_state.selected_polygon_index];
@@ -699,7 +870,15 @@ void render() {
     } else {
         snprintf(mode_text, sizeof(mode_text), "[%s]", get_mode_string());
     }
-    Renderer::render_text(mode_text, Vec2(10.0f, Config::VIEWPORT_HEIGHT - 30.0f), 1.0f);
+    
+    // Black semi-transparent background for mode indicator
+    float mode_y = Config::VIEWPORT_HEIGHT - 25.0f;
+    Vec3 mode_bg_pos = Vec3(0.0f, mode_y - 5.0f, ui_z);
+    Vec2 mode_bg_size = Vec2(Config::VIEWPORT_WIDTH, 28.0f);
+    Vec4 mode_bg_color = Vec4(0.0f, 0.0f, 0.0f, 0.7f);
+    Renderer::render_rect(mode_bg_pos, mode_bg_size, mode_bg_color);
+    
+    Renderer::render_text(mode_text, Vec2(10.0f, mode_y), 1.0f);
 }
 
 // Simple JSON writer (no external library needed)
@@ -741,6 +920,24 @@ bool save_geometry(const char* scene_name) {
         file << "]\n";
         file << "    }";
         if (i + 1 < scene.geometry.walkable_areas.size()) file << ",";
+        file << "\n";
+    }
+    file << "  ],\n";
+    
+    // Obstacles
+    file << "  \"obstacles\": [\n";
+    for (size_t i = 0; i < scene.geometry.obstacles.size(); i++) {
+        const auto& poly = scene.geometry.obstacles[i];
+        file << "    {\n";
+        file << "      \"name\": \"obstacle_" << i << "\",\n";
+        file << "      \"points\": [";
+        for (size_t j = 0; j < poly.points.size(); j++) {
+            file << "[" << poly.points[j].x << ", " << poly.points[j].y << "]";
+            if (j + 1 < poly.points.size()) file << ", ";
+        }
+        file << "]\n";
+        file << "    }";
+        if (i + 1 < scene.geometry.obstacles.size()) file << ",";
         file << "\n";
     }
     file << "  ],\n";
@@ -802,11 +999,22 @@ bool load_geometry(const char* scene_name) {
     file.close();
     
     auto& scene = Game::g_state.scene;
+    
+    // Store existing callbacks before clearing (so reload preserves them)
+    std::unordered_map<std::string, std::function<void()>> saved_callbacks;
+    for (const auto& hotspot : scene.geometry.hotspots) {
+        if (hotspot.callback) {
+            saved_callbacks[hotspot.name] = hotspot.callback;
+        }
+    }
+    
     scene.geometry.walkable_areas.clear();
+    scene.geometry.obstacles.clear();
     scene.geometry.hotspots.clear();
     
     // Parse walkable_areas section
     size_t walkable_start = content.find("\"walkable_areas\"");
+    size_t obstacles_start = content.find("\"obstacles\"");
     size_t hotspots_start = content.find("\"hotspots\"");
     
     if (walkable_start != std::string::npos) {
@@ -863,7 +1071,74 @@ bool load_geometry(const char* scene_name) {
                 }
                 
                 if (poly.is_valid()) {
+                    if (!Collision::is_polygon_convex(poly)) {
+                        DEBUG_ERROR("[GeoEditor] WARNING: Loaded walkable area #%zu is NOT CONVEX!", 
+                                   scene.geometry.walkable_areas.size());
+                    }
                     scene.geometry.walkable_areas.push_back(poly);
+                }
+            }
+            
+            pos = obj_end + 1;
+        }
+    }
+    
+    // Parse obstacles section
+    if (obstacles_start != std::string::npos) {
+        size_t arr_start = content.find('[', obstacles_start);
+        size_t arr_end = arr_start;
+        int bracket_count = 1;
+        for (size_t i = arr_start + 1; i < content.size() && bracket_count > 0; i++) {
+            if (content[i] == '[') bracket_count++;
+            else if (content[i] == ']') bracket_count--;
+            if (bracket_count == 0) arr_end = i;
+        }
+        
+        size_t pos = arr_start;
+        while (pos < arr_end) {
+            size_t obj_start = content.find('{', pos);
+            if (obj_start >= arr_end || obj_start == std::string::npos) break;
+            
+            size_t obj_end = content.find('}', obj_start);
+            if (obj_end >= content.size()) break;
+            
+            // Find points array within this object
+            size_t points_key = content.find("\"points\"", obj_start);
+            if (points_key < obj_end) {
+                size_t pts_start = content.find('[', points_key);
+                size_t pts_end = pts_start;
+                int pts_bracket_count = 1;
+                for (size_t i = pts_start + 1; i < content.size() && pts_bracket_count > 0; i++) {
+                    if (content[i] == '[') pts_bracket_count++;
+                    else if (content[i] == ']') pts_bracket_count--;
+                    if (pts_bracket_count == 0) pts_end = i;
+                }
+                
+                Collision::Polygon poly;
+                size_t p = pts_start + 1;
+                while (p < pts_end) {
+                    size_t inner_start = content.find('[', p);
+                    if (inner_start >= pts_end || inner_start == std::string::npos) break;
+                    
+                    size_t inner_end = content.find(']', inner_start);
+                    if (inner_end >= content.size()) break;
+                    
+                    std::string coords = content.substr(inner_start + 1, inner_end - inner_start - 1);
+                    float x = 0, y = 0;
+                    if (sscanf(coords.c_str(), "%f, %f", &x, &y) == 2 ||
+                        sscanf(coords.c_str(), "%f,%f", &x, &y) == 2) {
+                        poly.points.push_back(Vec2(x, y));
+                    }
+                    
+                    p = inner_end + 1;
+                }
+                
+                if (poly.is_valid()) {
+                    if (!Collision::is_polygon_convex(poly)) {
+                        DEBUG_ERROR("[GeoEditor] WARNING: Loaded obstacle #%zu is NOT CONVEX!", 
+                                   scene.geometry.obstacles.size());
+                    }
+                    scene.geometry.obstacles.push_back(poly);
                 }
             }
             
@@ -958,8 +1233,18 @@ bool load_geometry(const char* scene_name) {
         }
     }
     
-    DEBUG_INFO("[GeoEditor] Loaded geometry from %s: %zu walkable areas, %zu hotspots",
-           path.c_str(), scene.geometry.walkable_areas.size(), scene.geometry.hotspots.size());
+    // Restore saved callbacks by matching hotspot names
+    for (auto& hotspot : scene.geometry.hotspots) {
+        auto it = saved_callbacks.find(hotspot.name);
+        if (it != saved_callbacks.end()) {
+            hotspot.callback = it->second;
+            DEBUG_LOG("[GeoEditor] Restored callback for hotspot '%s'", hotspot.name.c_str());
+        }
+    }
+    
+    DEBUG_INFO("[GeoEditor] Loaded geometry from %s: %zu walkable areas, %zu obstacles, %zu hotspots",
+           path.c_str(), scene.geometry.walkable_areas.size(), 
+           scene.geometry.obstacles.size(), scene.geometry.hotspots.size());
     
     return true;
 }
