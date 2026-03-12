@@ -9,6 +9,7 @@
 #include "sprite.h"         // SpriteComponent, EmissiveComponent
 #include "light.h"          // LightComponent
 #include "shadow_caster.h"  // ShadowCasterComponent
+#include "walker.h"         // WalkerComponent
 
 namespace ECS {
 

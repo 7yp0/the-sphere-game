@@ -271,10 +271,15 @@
 
 *All changes auto-save to `assets/scenes/<scene>/geometry.json`*
 
-### 4.5.5 how to configure hotspot callbacks
+### 4.5.5 walkable component
 
+- [x] player isn't the only objekt that can move/walk (but only one which is controllable) + the code is maybe a bit zu umständlich geschrieben? think about it!
+
+### 4.5.6 how to configure hotspot callbacks
+
+- [ ] hotspots are clickable areas for objects in the 2.5D room. So when I click on a hotspot, I expect that the player is moving to the object (x y Z) it belongs to
 - [ ] hotspots polygon geometry is now saved in the geometry json. but how do we define the callbacks? (same for enabled and distance)
-- [ ] scene.cpp still defines polygons like wlakable areas and hotspots, while they are not used and come from the geometry.json
+- [ ] scene.cpp still defines polygons like walkable areas and hotspots, while they are not used and come from the geometry.json
 
 ---
 

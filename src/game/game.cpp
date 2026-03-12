@@ -26,6 +26,12 @@ static ECS::Transform2_5DComponent* get_player_transform() {
     return g_state.ecs_world.get_component<ECS::Transform2_5DComponent>(g_state.player_entity);
 }
 
+// Helper: Get player walker component  
+static ECS::WalkerComponent* get_player_walker() {
+    if (g_state.player_entity == ECS::INVALID_ENTITY) return nullptr;
+    return g_state.ecs_world.get_component<ECS::WalkerComponent>(g_state.player_entity);
+}
+
 // Helper: Update sprite animation from player state
 static void update_player_sprite_animation() {
     if (g_state.player_entity == ECS::INVALID_ENTITY) return;
@@ -126,11 +132,13 @@ void update(float delta_time) {
     Debug::handle_debug_keys();
 #endif
     
-    // Get player transform from ECS
+    // Get player transform and walker from ECS
     ECS::Transform2_5DComponent* player_transform = get_player_transform();
-    if (player_transform) {
-        player_handle_input(g_state.player, *player_transform);
-        player_update(g_state.player, *player_transform, g_state.base_width, g_state.base_height, delta_time);
+    ECS::WalkerComponent* player_walker = get_player_walker();
+    if (player_transform && player_walker) {
+        player_handle_input(g_state.player, *player_transform, *player_walker);
+        player_update(g_state.player, *player_transform, *player_walker, 
+                      g_state.base_width, g_state.base_height, delta_time);
         
         // Update sprite animation based on player state
         update_player_sprite_animation();
