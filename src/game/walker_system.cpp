@@ -16,6 +16,7 @@
 
 #include "walker_system.h"
 #include "../navigation/navigation.h"
+#include "../ecs/components/transform.h"
 #include "../debug/debug_log.h"
 #include <cmath>
 
@@ -105,8 +106,13 @@ bool walker_update(ECS::WalkerComponent& walker,
     Vec2 direction = normalize(to_waypoint);
     walker.movement_direction = direction;
     
+    // Calculate depth-based speed scaling
+    // Objects further away (higher Z) move slower to match perspective
+    float depth_scale = ECS::TransformHelpers::compute_depth_scale(transform.z_depth);
+    float effective_speed = walker.speed * depth_scale;
+    
     // Calculate movement for this frame
-    float move_distance = walker.speed * delta_time;
+    float move_distance = effective_speed * delta_time;
     
     // Don't overshoot the waypoint
     if (move_distance > distance_to_waypoint) {

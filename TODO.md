@@ -286,7 +286,7 @@
 - [ ] move/positon player and objects player
 - [ ] move/position light sources (also on Z axis, but how? and choose direction for projector lights and the other stuff, but how?)
 
-- [ ] walk speed muss sich abhängig von der z position ändern
+- [x] walk speed muss sich abhängig von der z position ändern
 
 ---
 
