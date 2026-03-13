@@ -1280,19 +1280,19 @@ void render() {
             Renderer::render_line(Vec3(pos.x + size, pos.y, ui_z), Vec3(pos.x, pos.y + size, ui_z), color, 2.0f);
             Renderer::render_line(Vec3(pos.x, pos.y + size, ui_z), Vec3(pos.x - size, pos.y, ui_z), color, 2.0f);
             
-            // For selected light, show if elevated with a subtle ring
+            // For selected light, show line to floor (2.5D projection)
             if (is_selected && scene.depth_map.is_valid()) {
-                float ground_z = ECS::TransformHelpers::get_z_from_depth_map(
-                    scene.depth_map, pixel_x, pixel_y, scene.width, scene.height);
+                // Find floor Y: search DOWNWARD from light, find first Y where Z >= light.Z
+                float floor_y = ECS::TransformHelpers::find_floor_y_below(
+                    scene.depth_map, pixel_x, pixel_y, transform->position.z,
+                    scene.width, scene.height);
                 
-                float z_diff = transform->position.z - ground_z;
-                // Show line and ring if light is significantly elevated
-                if (fabsf(z_diff) > 0.05f) {
-                    // Draw vertical line from light to ground position
-                    float visual_offset = z_diff * 100.0f * scale_y;  // Visual representation of Z difference
-                    Vec4 line_color(0.5f, 1.0f, 1.0f, 0.5f);  // Faded cyan
-                    Vec3 ground_pos(pos.x, pos.y + visual_offset, ui_z);
-                    Renderer::render_line(pos, ground_pos, line_color, 1.0f);
+                // Draw line if floor found and there's meaningful distance
+                if (floor_y >= 0.0f && floor_y > pixel_y + 1.0f) {
+                    // Draw vertical line from light DOWN to floor position
+                    Vec4 line_color(0.5f, 1.0f, 1.0f, 1.0f);  // Bright cyan
+                    Vec3 floor_pos(pos.x, floor_y * scale_y, ui_z);  // Floor in scaled pixel coords
+                    Renderer::render_line(pos, floor_pos, line_color, 1.0f);
                     
                     // Subtle ring around light marker
                     Vec4 ring_color(0.5f, 1.0f, 1.0f, 0.3f);  // Faded cyan
@@ -1330,19 +1330,19 @@ void render() {
             Renderer::render_line(Vec3(pos.x - size, pos.y + size, ui_z), Vec3(pos.x + size, pos.y + size, ui_z), color, 2.0f);
             Renderer::render_line(Vec3(pos.x + size, pos.y + size, ui_z), Vec3(pos.x, pos.y - size, ui_z), color, 2.0f);
             
-            // For selected projector, show if elevated with a subtle ring
+            // For selected projector, show line to floor (2.5D projection)
             if (is_selected && scene.depth_map.is_valid()) {
-                float ground_z = ECS::TransformHelpers::get_z_from_depth_map(
-                    scene.depth_map, pixel_x, pixel_y, scene.width, scene.height);
+                // Find floor Y: search DOWNWARD from projector, find first Y where Z >= projector.Z
+                float floor_y = ECS::TransformHelpers::find_floor_y_below(
+                    scene.depth_map, pixel_x, pixel_y, transform->position.z,
+                    scene.width, scene.height);
                 
-                float z_diff = transform->position.z - ground_z;
-                // Show line and ring if light is significantly elevated
-                if (fabsf(z_diff) > 0.05f) {
-                    // Draw vertical line from projector to ground position
-                    float visual_offset = z_diff * 100.0f * scale_y;
-                    Vec4 line_color(1.0f, 0.7f, 0.5f, 0.5f);  // Faded light orange
-                    Vec3 ground_pos(pos.x, pos.y + visual_offset, ui_z);
-                    Renderer::render_line(pos, ground_pos, line_color, 1.0f);
+                // Draw line if floor found and there's meaningful distance
+                if (floor_y >= 0.0f && floor_y > pixel_y + 1.0f) {
+                    // Draw vertical line from projector DOWN to floor position
+                    Vec4 line_color(1.0f, 0.7f, 0.5f, 1.0f);  // Bright orange
+                    Vec3 floor_pos(pos.x, floor_y * scale_y, ui_z);  // Floor in scaled pixel coords
+                    Renderer::render_line(pos, floor_pos, line_color, 1.0f);
                     
                     // Subtle ring around projector marker
                     Vec4 ring_color(1.0f, 0.7f, 0.5f, 0.3f);  // Faded light orange

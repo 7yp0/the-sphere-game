@@ -104,6 +104,52 @@ inline float get_z_from_depth_map(const Renderer::DepthMapData& depth_map,
     return z;
 }
 
+// Find ground Y for given X and Z (inverse depth map lookup)
+// Returns pixel Y where get_z_from_depth_map(depth_map, x, y, scene_width, scene_height) ~= z
+inline float find_ground_y_for_z(const Renderer::DepthMapData& depth_map, float pixel_x, float target_z, uint32_t scene_width, uint32_t scene_height, float tolerance = 0.01f) {
+    if (!depth_map.is_valid()) return 0.0f;
+    float best_y = 0.0f;
+    float min_diff = 100.0f;
+    for (int y = 0; y < (int)scene_height; ++y) {
+        float z = get_z_from_depth_map(depth_map, pixel_x, (float)y, scene_width, scene_height);
+        float diff = fabsf(z - target_z);
+        if (diff < min_diff) {
+            min_diff = diff;
+            best_y = (float)y;
+        }
+        if (diff < tolerance) {
+            return (float)y;
+        }
+    }
+    // If not found within tolerance, return best match
+    return best_y;
+}
+
+// Find floor Y below a light position (searches DOWNWARD only)
+// Returns pixel Y where depth_map Z <= light_z (surface at or in front of light's depth)
+// This represents "where would this light cast its shadow on the floor"
+inline float find_floor_y_below(const Renderer::DepthMapData& depth_map, 
+                                 float pixel_x, float start_pixel_y, float light_z,
+                                 uint32_t scene_width, uint32_t scene_height) {
+    if (!depth_map.is_valid()) return -1.0f;
+    
+    int start_y = (int)(start_pixel_y + 0.5f);
+    if (start_y < 0) start_y = 0;
+    
+    // Search downward (increasing Y in pixel coords)
+    for (int y = start_y; y < (int)scene_height; ++y) {
+        float z = get_z_from_depth_map(depth_map, pixel_x, (float)y, scene_width, scene_height);
+        // Floor found: surface Z is at or in front of the light's Z
+        // (lower Z = closer to camera, so z <= light_z means "at or closer")
+        if (z <= light_z) {
+            return (float)y;
+        }
+    }
+    
+    // No floor found below (light might be in front of entire scene)
+    return -1.0f;
+}
+
 // Update Transform2_5D z_depth from depth map
 inline void update_z_from_depth_map(Transform2_5DComponent& transform,
                                      const Renderer::DepthMapData& depth_map,

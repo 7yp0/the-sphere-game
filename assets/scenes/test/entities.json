@@ -19,7 +19,7 @@
   "point_lights": [
     {
       "index": 0,
-      "position": [-0.547926, 0.6, 0.6],
+      "position": [0.547975, 0.6, -0.6],
       "color": [1, 0.9, 0.7],
       "intensity": 1.5,
       "radius": 2,
@@ -27,7 +27,7 @@
     },
     {
       "index": 1,
-      "position": [0.399396, 0.146777, 0.829425],
+      "position": [0.387347, -0.218598, 0.214485],
       "color": [0.4, 0.5, 0.8],
       "intensity": 0.8,
       "radius": 1.5,
@@ -37,7 +37,7 @@
   "projector_lights": [
   ],
   "player": {
-    "position": [169.465, 91.1641],
-    "elevation": -0.000365265
+    "position": [173.001, 102.353],
+    "elevation": 0
   }
 }
