@@ -41,6 +41,11 @@ namespace Platform {
 }
 
 - (void)keyDown:(NSEvent *)event {
+    // Option+Enter (Return) toggles fullscreen
+    if (event.keyCode == 36 && ([event modifierFlags] & NSEventModifierFlagOption)) {
+        Platform::toggle_fullscreen();
+        return;
+    }
     Platform::set_key_pressed(event.keyCode, true);
 }
 
@@ -114,6 +119,10 @@ static float g_scrollDelta = 0.0f;
 static bool g_keys[256] = {};
 static uint32_t g_window_width = 0;
 static uint32_t g_window_height = 0;
+static bool g_fullscreen = false;
+
+// Forward declaration
+void toggle_fullscreen();
 
 void set_key_pressed(int key_code, bool pressed) {
     if (key_code < 256) {
@@ -334,6 +343,61 @@ void show_system_cursor(bool show)
     } else {
         [NSCursor hide];
     }
+}
+
+void toggle_fullscreen()
+{
+    @autoreleasepool {
+        if (!g_fullscreen) {
+            // Borderless fullscreen: cover the ENTIRE screen
+            // The renderer will upscale from 320x180 FBO to this size
+            NSScreen* screen = [g_window screen] ?: [NSScreen mainScreen];
+            NSRect screenFrame = [screen frame];
+            
+            // Remove window decorations and cover full screen
+            [g_window setStyleMask:NSWindowStyleMaskBorderless];
+            [g_window setFrame:screenFrame display:YES animate:NO];
+            [g_window setLevel:NSFloatingWindowLevel];  // Keep on top
+            
+            g_window_width = (uint32_t)screenFrame.size.width;
+            g_window_height = (uint32_t)screenFrame.size.height;
+            g_fullscreen = true;
+            
+            printf("[MAC] Fullscreen: ON, Size: %u x %u\n", g_window_width, g_window_height);
+            fflush(stdout);
+        } else {
+            // Restore windowed mode with decorations
+            NSUInteger style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
+            [g_window setStyleMask:style];
+            [g_window setLevel:NSNormalWindowLevel];
+            
+            // Restore to a reasonable windowed size/position
+            NSScreen* screen = [g_window screen] ?: [NSScreen mainScreen];
+            NSRect screenFrame = [screen frame];
+            CGFloat window_x = screenFrame.origin.x + (screenFrame.size.width - Config::VIEWPORT_WIDTH) / 2;
+            CGFloat window_y = screenFrame.origin.y + (screenFrame.size.height - Config::VIEWPORT_HEIGHT) / 2;
+            NSRect windowedFrame = NSMakeRect(window_x, window_y, Config::VIEWPORT_WIDTH, Config::VIEWPORT_HEIGHT);
+            [g_window setFrame:windowedFrame display:YES animate:NO];
+            
+            g_window_width = Config::VIEWPORT_WIDTH;
+            g_window_height = Config::VIEWPORT_HEIGHT;
+            g_fullscreen = false;
+            
+            printf("[MAC] Fullscreen: OFF, Size: %u x %u\n", g_window_width, g_window_height);
+            fflush(stdout);
+        }
+    }
+}
+
+bool is_fullscreen()
+{
+    return g_fullscreen;
+}
+
+bool alt_down()
+{
+    // On Mac, Option key is ALT equivalent
+    return ([NSEvent modifierFlags] & NSEventModifierFlagOption) != 0;
 }
 
 }

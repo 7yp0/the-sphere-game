@@ -29,6 +29,8 @@ int engine_run(int argc, char** argv)
     // Use actual client rect dimensions, not requested window size
     uint32_t actual_width = Platform::get_window_width();
     uint32_t actual_height = Platform::get_window_height();
+    uint32_t last_width = actual_width;
+    uint32_t last_height = actual_height;
     
     Renderer::init_renderer(actual_width, actual_height);
     Game::set_viewport(actual_width, actual_height);
@@ -41,6 +43,16 @@ int engine_run(int argc, char** argv)
         auto now = std::chrono::high_resolution_clock::now();
         float deltaTime = std::chrono::duration<float>(now - lastFrameTime).count();
         lastFrameTime = now;
+        
+        // Check for window resize (e.g., fullscreen toggle)
+        uint32_t current_width = Platform::get_window_width();
+        uint32_t current_height = Platform::get_window_height();
+        if (current_width != last_width || current_height != last_height) {
+            Renderer::set_viewport(current_width, current_height);
+            Game::set_viewport(current_width, current_height);
+            last_width = current_width;
+            last_height = current_height;
+        }
         
         Core::update_delta_time(deltaTime);
         Game::update(deltaTime);

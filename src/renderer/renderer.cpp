@@ -98,6 +98,13 @@ void init_renderer(uint32_t width, uint32_t height)
     }
 }
 
+void set_viewport(uint32_t width, uint32_t height)
+{
+    g_viewport_width = width;
+    g_viewport_height = height;
+    glViewport(0, 0, width, height);
+}
+
 void set_depth_map_data(TextureID depthMapTexture, uint32_t sceneWidth, uint32_t sceneHeight)
 {
     g_depth_map_texture = depthMapTexture;

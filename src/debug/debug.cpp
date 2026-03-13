@@ -46,9 +46,11 @@ void handle_debug_keys() {
 }
 
 static void render_lights_debug() {
-    // Scale factor from base (320x180) to viewport (1280x720)
-    float scale_x = (float)Config::VIEWPORT_WIDTH / (float)Config::BASE_WIDTH;
-    float scale_y = (float)Config::VIEWPORT_HEIGHT / (float)Config::BASE_HEIGHT;
+    // Scale factor from base (320x180) to current window size
+    uint32_t window_w = Platform::get_window_width();
+    uint32_t window_h = Platform::get_window_height();
+    float scale_x = (float)window_w / (float)Config::BASE_WIDTH;
+    float scale_y = (float)window_h / (float)Config::BASE_HEIGHT;
     float ui_z = ZDepth::GAME_HUD;
     
     // Yellow color for point lights
@@ -61,10 +63,10 @@ static void render_lights_debug() {
         
         if (!transform || !light) continue;
         
-        // Convert OpenGL coords (-1 to +1) to viewport pixels
+        // Convert OpenGL coords (-1 to +1) to window pixels
         // OpenGL: X=-1 is left, X=+1 is right, Y=-1 is bottom, Y=+1 is top
-        float pixel_x = (transform->position.x + 1.0f) * 0.5f * Config::VIEWPORT_WIDTH;
-        float pixel_y = (1.0f - transform->position.y) * 0.5f * Config::VIEWPORT_HEIGHT;
+        float pixel_x = (transform->position.x + 1.0f) * 0.5f * window_w;
+        float pixel_y = (1.0f - transform->position.y) * 0.5f * window_h;
         
         // Draw cross at light position
         Vec3 pos = Vec3(pixel_x, pixel_y, ui_z);
@@ -106,9 +108,11 @@ static void render_geometry_debug() {
     const Scene::Scene& scene = Game::g_state.scene;
     const auto& editor_state = GeometryEditor::get_state();
     
-    // Scale factor from base (320x180) to viewport (1280x720)
-    float scale_x = (float)Config::VIEWPORT_WIDTH / (float)Config::BASE_WIDTH;
-    float scale_y = (float)Config::VIEWPORT_HEIGHT / (float)Config::BASE_HEIGHT;
+    // Scale factor from base (320x180) to current window size
+    uint32_t window_w = Platform::get_window_width();
+    uint32_t window_h = Platform::get_window_height();
+    float scale_x = (float)window_w / (float)Config::BASE_WIDTH;
+    float scale_y = (float)window_h / (float)Config::BASE_HEIGHT;
     
     // Track non-convex polygons for warning
     static int non_convex_walkable_count = 0;
@@ -205,7 +209,7 @@ static void render_geometry_debug() {
                  non_convex_walkable_count + non_convex_obstacle_count);
         
         // Black semi-transparent background for warning (above [SELECT] box)
-        float warning_y = Config::VIEWPORT_HEIGHT - 60.0f;
+        float warning_y = (float)Platform::get_window_height() - 60.0f;
         Vec3 warn_bg_pos = Vec3(0.0f, warning_y - 5.0f, ZDepth::GAME_HUD);
         Vec2 warn_bg_size = Vec2(650.0f, 30.0f);
         Vec4 warn_bg_color = Vec4(0.0f, 0.0f, 0.0f, 0.7f);
@@ -219,8 +223,8 @@ static void render_geometry_debug() {
 void render_overlay(Vec2 mouse_pixel) {
     if (overlay_enabled) {
         // Convert mouse to base resolution for editor
-        float scale_x = (float)Config::BASE_WIDTH / (float)Config::VIEWPORT_WIDTH;
-        float scale_y = (float)Config::BASE_HEIGHT / (float)Config::VIEWPORT_HEIGHT;
+        float scale_x = (float)Config::BASE_WIDTH / (float)Platform::get_window_width();
+        float scale_y = (float)Config::BASE_HEIGHT / (float)Platform::get_window_height();
         Vec2 mouse_base = Vec2(mouse_pixel.x * scale_x, mouse_pixel.y * scale_y);
         
         // Update geometry editor
@@ -256,7 +260,7 @@ void render_overlay(Vec2 mouse_pixel) {
         
         // Black semi-transparent background - pixel coordinates, top-left
         Vec3 bg_pos = Vec3(0.0f, 0.0f, ZDepth::GAME_HUD);
-        Vec2 bg_size = Vec2(500.0f, 50.0f);
+        Vec2 bg_size = Vec2(950.0f, 90.0f);
         Vec4 bg_color = Vec4(0.0f, 0.0f, 0.0f, 0.7f);
         Renderer::render_rect(bg_pos, bg_size, bg_color);
         
@@ -270,8 +274,8 @@ bool handle_mouse_click(Vec2 mouse_pixel) {
     if (!overlay_enabled || !GeometryEditor::is_active()) return false;
     
     // Convert to base resolution
-    float scale_x = (float)Config::BASE_WIDTH / (float)Config::VIEWPORT_WIDTH;
-    float scale_y = (float)Config::BASE_HEIGHT / (float)Config::VIEWPORT_HEIGHT;
+    float scale_x = (float)Config::BASE_WIDTH / (float)Platform::get_window_width();
+    float scale_y = (float)Config::BASE_HEIGHT / (float)Platform::get_window_height();
     Vec2 mouse_base = Vec2(mouse_pixel.x * scale_x, mouse_pixel.y * scale_y);
     
     GeometryEditor::on_mouse_click(mouse_base);
@@ -282,8 +286,8 @@ bool handle_mouse_right_click(Vec2 mouse_pixel) {
     if (!overlay_enabled || !GeometryEditor::is_active()) return false;
     
     // Convert to base resolution
-    float scale_x = (float)Config::BASE_WIDTH / (float)Config::VIEWPORT_WIDTH;
-    float scale_y = (float)Config::BASE_HEIGHT / (float)Config::VIEWPORT_HEIGHT;
+    float scale_x = (float)Config::BASE_WIDTH / (float)Platform::get_window_width();
+    float scale_y = (float)Config::BASE_HEIGHT / (float)Platform::get_window_height();
     Vec2 mouse_base = Vec2(mouse_pixel.x * scale_x, mouse_pixel.y * scale_y);
     
     GeometryEditor::on_mouse_right_click(mouse_base);

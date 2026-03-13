@@ -1199,8 +1199,10 @@ void on_mouse_release() {
 void render() {
     if (!g_state.is_active) return;
     
-    float scale_x = (float)Config::VIEWPORT_WIDTH / (float)Config::BASE_WIDTH;
-    float scale_y = (float)Config::VIEWPORT_HEIGHT / (float)Config::BASE_HEIGHT;
+    uint32_t window_w = Platform::get_window_width();
+    uint32_t window_h = Platform::get_window_height();
+    float scale_x = (float)window_w / (float)Config::BASE_WIDTH;
+    float scale_y = (float)window_h / (float)Config::BASE_HEIGHT;
     float ui_z = ZDepth::GAME_HUD;
     
     // Draw current polygon being created (yellow preview)
@@ -1522,13 +1524,13 @@ void render() {
         snprintf(mode_text, sizeof(mode_text), "[HOTSPOT: %s] Shift+Click to set target", 
                  hotspot.name.c_str());
     } else {
-        snprintf(mode_text, sizeof(mode_text), "[%s] W=walkable O=obstacle H=hotspot E=entity", get_mode_string());
+        snprintf(mode_text, sizeof(mode_text), "[%s] W=walkable O=obstacle H=hotspot E=entity R=reload", get_mode_string());
     }
     
     // Black semi-transparent background for mode indicator
-    float mode_y = Config::VIEWPORT_HEIGHT - 25.0f;
+    float mode_y = (float)window_h - 25.0f;
     Vec3 mode_bg_pos = Vec3(0.0f, mode_y - 5.0f, ui_z);
-    Vec2 mode_bg_size = Vec2(Config::VIEWPORT_WIDTH, 28.0f);
+    Vec2 mode_bg_size = Vec2((float)window_w, 28.0f);
     Vec4 mode_bg_color = Vec4(0.0f, 0.0f, 0.0f, 0.7f);
     Renderer::render_rect(mode_bg_pos, mode_bg_size, mode_bg_color);
     

@@ -42,9 +42,9 @@ void shutdown_cursor() {
 void update_cursor(Vec2 mouse_pos) {
     if (!g_cursor.initialized) return;
     
-    // Convert viewport mouse position to base resolution for hotspot detection
-    float scale_x = (float)Config::BASE_WIDTH / (float)Config::VIEWPORT_WIDTH;
-    float scale_y = (float)Config::BASE_HEIGHT / (float)Config::VIEWPORT_HEIGHT;
+    // Convert window mouse position to base resolution for hotspot detection
+    float scale_x = (float)Config::BASE_WIDTH / (float)Platform::get_window_width();
+    float scale_y = (float)Config::BASE_HEIGHT / (float)Platform::get_window_height();
     Vec2 mouse_base = Vec2(mouse_pos.x * scale_x, mouse_pos.y * scale_y);
     
     // Check hotspots for hover
@@ -68,7 +68,7 @@ void update_cursor(Vec2 mouse_pos) {
 static float calculate_text_width(const char* text, float scale) {
     if (!text) return 0.0f;
     
-    float glyph_width = 12.0f * scale;   // From text.cpp
+    float glyph_width = 24.0f * scale;   // From text.cpp (updated for larger font)
     float spacing = glyph_width * 1.1f;
     
     int char_count = 0;
@@ -103,7 +103,7 @@ static void render_tooltip(Vec2 mouse_pos, const char* text) {
     
     float scale = 1.0f;
     float text_width = calculate_text_width(text, scale);
-    float text_height = 16.0f * scale;  // Single line height
+    float text_height = 32.0f * scale;  // Single line height (matches font glyph height)
     float padding = g_cursor.tooltip_padding;
     
     // Calculate tooltip position (smart positioning)
@@ -118,12 +118,12 @@ static void render_tooltip(Vec2 mouse_pos, const char* text) {
     float bottom_edge = tooltip_y + bg_height;
     
     // If tooltip would go off right edge, flip to left of cursor
-    if (right_edge > Config::VIEWPORT_WIDTH) {
+    if (right_edge > (float)Platform::get_window_width()) {
         tooltip_x = mouse_pos.x - g_cursor.tooltip_offset.x - bg_width;
     }
     
     // If tooltip would go off bottom edge, flip to above cursor
-    if (bottom_edge > Config::VIEWPORT_HEIGHT) {
+    if (bottom_edge > (float)Platform::get_window_height()) {
         tooltip_y = mouse_pos.y - g_cursor.tooltip_offset.y - bg_height;
     }
     

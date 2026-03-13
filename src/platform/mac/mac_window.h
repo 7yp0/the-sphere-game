@@ -38,4 +38,9 @@ void set_key_pressed(int key_code, bool pressed);
 // Show/hide the system cursor (for custom cursor rendering)
 void show_system_cursor(bool show);
 
+// Toggle fullscreen mode (Option+Enter on Mac)
+void toggle_fullscreen();
+bool is_fullscreen();
+bool alt_down();  // Returns true while Option key is held (Mac equivalent of ALT)
+
 }

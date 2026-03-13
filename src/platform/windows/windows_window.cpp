@@ -35,6 +35,14 @@ static uint32_t g_window_width = 0;
 static uint32_t g_window_height = 0;
 static float g_scroll_delta = 0.0f;
 
+// Fullscreen state
+static bool g_fullscreen = false;
+static WINDOWPLACEMENT g_windowed_placement = { sizeof(g_windowed_placement) };
+static LONG g_windowed_style = 0;
+
+// Forward declarations
+void toggle_fullscreen();
+
 // Windows message callback
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -45,6 +53,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
             g_shouldClose = true;
             PostQuitMessage(0);
             return 0;
+
+        case WM_SYSKEYDOWN:
+            // Handle ALT+ENTER for fullscreen toggle
+            if (wparam == VK_RETURN && (lparam & (1 << 29)))  // ALT is held (bit 29)
+            {
+                toggle_fullscreen();
+                return 0;
+            }
+            return DefWindowProcW(hwnd, msg, wparam, lparam);
 
         case WM_KEYDOWN:
             set_key_pressed((int)wparam, true);
@@ -412,6 +429,69 @@ void set_mouse_right_clicked(bool clicked)
 void show_system_cursor(bool show)
 {
     ShowCursor(show ? TRUE : FALSE);
+}
+
+void toggle_fullscreen()
+{
+    if (!g_fullscreen)
+    {
+        // Save current window state before going fullscreen
+        g_windowed_style = GetWindowLong(g_hwnd, GWL_STYLE);
+        GetWindowPlacement(g_hwnd, &g_windowed_placement);
+        
+        // Get monitor info for the monitor the window is on
+        HMONITOR hmon = MonitorFromWindow(g_hwnd, MONITOR_DEFAULTTONEAREST);
+        MONITORINFO mi = { sizeof(mi) };
+        GetMonitorInfo(hmon, &mi);
+        
+        // Borderless fullscreen: cover the ENTIRE monitor
+        // The renderer will upscale from 320x180 FBO to this size
+        int monitor_width = mi.rcMonitor.right - mi.rcMonitor.left;
+        int monitor_height = mi.rcMonitor.bottom - mi.rcMonitor.top;
+        
+        // Remove window decorations and cover full monitor
+        SetWindowLong(g_hwnd, GWL_STYLE, g_windowed_style & ~(WS_CAPTION | WS_THICKFRAME));
+        SetWindowPos(g_hwnd, HWND_TOP,
+                     mi.rcMonitor.left, mi.rcMonitor.top,
+                     monitor_width, monitor_height,
+                     SWP_FRAMECHANGED | SWP_NOOWNERZORDER);
+        
+        // Update to full monitor size - renderer handles scaling
+        g_window_width = monitor_width;
+        g_window_height = monitor_height;
+        
+        g_fullscreen = true;
+    }
+    else
+    {
+        // Restore windowed mode
+        SetWindowLong(g_hwnd, GWL_STYLE, g_windowed_style);
+        SetWindowPlacement(g_hwnd, &g_windowed_placement);
+        SetWindowPos(g_hwnd, nullptr, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED | SWP_NOOWNERZORDER);
+        
+        // Update window dimensions from restored window
+        RECT clientRect = {};
+        GetClientRect(g_hwnd, &clientRect);
+        g_window_width = clientRect.right - clientRect.left;
+        g_window_height = clientRect.bottom - clientRect.top;
+        
+        g_fullscreen = false;
+    }
+    
+    printf("[WINDOWS] Fullscreen: %s, Size: %u x %u\n", 
+           g_fullscreen ? "ON" : "OFF", g_window_width, g_window_height);
+    fflush(stdout);
+}
+
+bool is_fullscreen()
+{
+    return g_fullscreen;
+}
+
+bool alt_down()
+{
+    return (GetKeyState(VK_MENU) & 0x8000) != 0;
 }
 
 }  // namespace Platform

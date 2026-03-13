@@ -26,7 +26,7 @@ struct CursorSystem {
     
     // Tooltip settings
     Vec2 tooltip_offset = Vec2(20.0f, 28.0f);  // Offset from cursor position
-    float tooltip_padding = 4.0f;              // Background padding around text
+    float tooltip_padding = 6.0f;              // Background padding around text
 };
 
 // Initialize cursor system (loads textures)

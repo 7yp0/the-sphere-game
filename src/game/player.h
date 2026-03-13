@@ -1,7 +1,7 @@
 #pragma once
 
 #include "types.h"
-#include "core/animation_bank.h"
+#include "animation_bank.h"
 #include "ecs/components/transform.h"
 #include "ecs/components/sprite.h"
 #include "ecs/components/walker.h"

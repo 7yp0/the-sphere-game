@@ -2,7 +2,7 @@
 
 #include "types.h"
 #include "renderer/renderer.h"
-#include "core/animation_bank.h"
+#include "animation_bank.h"
 #include "scene/scene.h"
 #include "config.h"
 #include "player.h"

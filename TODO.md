@@ -10,16 +10,6 @@
 
 ---
 
-## Interaction & UI
-
-### Input Feedback (One-Click System)
-- [ ] Default cursor (classic Lucas Arts style cursor look)
-- [ ] Hover cursor (when over interactive hotspot)
-- [ ] Tooltip text near cursor (Return to Monkey Island style)
-- [ ] Smart tooltip positioning (always readable, edge-aware)
-
----
-
 ## Inventory System
 
 ### Inventory UI

@@ -11,6 +11,7 @@ using GLuint = uint32_t;
 using TextureID = uint32_t;
 
 void init_renderer(uint32_t width, uint32_t height);
+void set_viewport(uint32_t width, uint32_t height);  // Update viewport size (for fullscreen toggle)
 void clear_screen();
 void set_depth_map_data(TextureID depthMapTexture, uint32_t sceneWidth, uint32_t sceneHeight);
 void render_sprite(TextureID tex, Vec3 pos, Vec2 size, PivotPoint pivot = PivotPoint::TOP_LEFT);

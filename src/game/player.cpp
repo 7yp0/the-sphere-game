@@ -349,10 +349,10 @@ void player_handle_input(Player& player, ECS::Transform2_5DComponent& transform,
             return;
         }
         
-        // Scale mouse position from viewport to base resolution
+        // Scale mouse position from window to base resolution
         Vec2 mouse_pos = Vec2(
-            mouse_viewport.x * (float)Config::BASE_WIDTH / (float)Config::VIEWPORT_WIDTH,
-            mouse_viewport.y * (float)Config::BASE_HEIGHT / (float)Config::VIEWPORT_HEIGHT
+            mouse_viewport.x * (float)Config::BASE_WIDTH / (float)Platform::get_window_width(),
+            mouse_viewport.y * (float)Config::BASE_HEIGHT / (float)Platform::get_window_height()
         );
         
         // Clear previous hotspot state for new click

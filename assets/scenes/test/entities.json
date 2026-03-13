@@ -7,19 +7,19 @@
     },
     {
       "index": 1,
-      "position": [225.752, 83.7715],
+      "position": [226.125, 84.5],
       "elevation": 0.430858
     },
     {
       "index": 2,
-      "position": [171, 75.75],
+      "position": [171.375, 76.75],
       "elevation": 0.565
     }
   ],
   "point_lights": [
     {
       "index": 0,
-      "position": [-0.197836, 0.6, 0.6],
+      "position": [0.243108, 0.6, -0.6],
       "color": [1, 0.9, 0.7],
       "intensity": 1.5,
       "radius": 2,
@@ -27,7 +27,7 @@
     },
     {
       "index": 1,
-      "position": [0.065625, -0.286111, 0.0859781],
+      "position": [0.0664062, -0.308333, 0.0777282],
       "color": [0.4, 0.5, 0.8],
       "intensity": 0.8,
       "radius": 1.5,
@@ -37,15 +37,15 @@
   "projector_lights": [
     {
       "index": 0,
-      "position": [-0.803125, 0.577778, 0.592036],
-      "direction": [0.736219, -0.673827, 0.0627568],
-      "target_distance": 1.00174,
+      "position": [-0.800781, 0.625, 0.603625],
+      "direction": [0.706725, -0.705705, 0.0502006],
+      "target_distance": 1.02144,
       "color": [1, 0.95, 0.85],
       "intensity": 2.5
     }
   ],
   "player": {
-    "position": [94.1484, 129.085],
+    "position": [86.9035, 134.188],
     "elevation": 0
   }
 }

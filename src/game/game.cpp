@@ -1,6 +1,6 @@
 #include "game.h"
 #include "player.h"
-#include "core/animation_bank.h"
+#include "animation_bank.h"
 #include "core/timing.h"
 #include "renderer/renderer.h"
 #include "renderer/texture_loader.h"
