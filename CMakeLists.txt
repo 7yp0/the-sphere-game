@@ -42,7 +42,7 @@ add_executable(the_sphere_game ${ENGINE_SOURCES})
 add_custom_command(TARGET the_sphere_game POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/assets
-        ${CMAKE_BINARY_DIR}/assets
+        $<TARGET_FILE_DIR:the_sphere_game>/assets
     COMMENT "Copying assets to build directory"
 )
 
@@ -54,10 +54,10 @@ file(GLOB SHADER_FILES
 
 # Copy shaders on every build (POST_BUILD ensures they're always fresh)
 add_custom_command(TARGET the_sphere_game POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/shaders
+    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:the_sphere_game>/shaders
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/src/renderer/shaders
-        ${CMAKE_BINARY_DIR}/shaders
+        $<TARGET_FILE_DIR:the_sphere_game>/shaders
     COMMENT "Copying shaders to build directory"
 )
 

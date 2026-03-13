@@ -12,7 +12,12 @@
 #include <fstream>
 #include <sstream>
 #include <unordered_map>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 // For finding executable path on macOS
 #ifdef __APPLE__
@@ -107,8 +112,27 @@ static std::string get_project_root() {
     // Last resort: current directory (will likely fail gracefully)
     DEBUG_LOG("[GeoEditor] Warning: Could not determine project root");
     return "./";
+#elif defined(_WIN32)
+    // Windows: Get executable path and find project root
+    char path[MAX_PATH];
+    if (GetModuleFileNameA(nullptr, path, MAX_PATH)) {
+        std::string exe_path(path);
+        // Normalize backslashes to forward slashes
+        for (auto& c : exe_path) {
+            if (c == '\\') c = '/';
+        }
+        // Find "build" in path and go to parent
+        // e.g. C:/Users/user/project/build/Debug/game.exe -> C:/Users/user/project/
+        size_t pos = exe_path.find("/build/");
+        if (pos != std::string::npos) {
+            return exe_path.substr(0, pos) + "/";
+        }
+    }
+    // Fallback: relative path (less reliable)
+    DEBUG_LOG("[GeoEditor] Warning: Could not determine project root from exe path");
+    return "../../";
 #else
-    // Windows: use relative path as before
+    // Linux or other: use relative path
     return "../../";
 #endif
 }

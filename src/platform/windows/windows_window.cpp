@@ -125,14 +125,22 @@ bool init_window(const WindowConfig& config)
         return false;
     }
 
-    // Create window
+    // Calculate window size needed to get desired client area
+    // AdjustWindowRectEx accounts for title bar, borders, etc.
+    DWORD windowStyle = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
+    RECT windowRect = { 0, 0, (LONG)config.width, (LONG)config.height };
+    AdjustWindowRectEx(&windowRect, windowStyle, FALSE, 0);
+    int adjustedWidth = windowRect.right - windowRect.left;
+    int adjustedHeight = windowRect.bottom - windowRect.top;
+
+    // Create window with adjusted size
     g_hwnd = CreateWindowExW(
         0,
         CLASS_NAME,
         wideTitle,
-        WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+        windowStyle,
         CW_USEDEFAULT, CW_USEDEFAULT,
-        config.width, config.height,
+        adjustedWidth, adjustedHeight,
         nullptr, nullptr,
         GetModuleHandleW(nullptr),
         nullptr
