@@ -39,13 +39,6 @@ struct Color {
     Color(float r, float g, float b, float a = 1.0f) : r(r), g(g), b(b), a(a) {}
 };
 
-enum class Layer : int {
-    BACKGROUND = 0,
-    MIDGROUND  = 25,
-    FOREGROUND = 50,
-    UI         = 100
-};
-
 enum class PivotPoint : int {
     TOP_LEFT = 0,
     TOP_CENTER = 1,
@@ -98,23 +91,47 @@ inline Vec2 opengl_to_pixel(Vec2 opengl_pos, uint32_t viewport_width, uint32_t v
 
 }
 
-namespace Layers {
-    inline float get_parallax(Layer layer) {
-        switch (layer) {
-            case Layer::BACKGROUND:  return 0.1f;   // Parallax effect
-            case Layer::MIDGROUND:   return 1.0f;   // No parallax (default)
-            case Layer::FOREGROUND:  return 1.2f;   // Inverse parallax
-            case Layer::UI:          return 0.0f;   // Static UI
-            default:                 return 1.0f;
-        }
-    }
+// =============================================================================
+// Z-Depth Constants
+// =============================================================================
+// With GL_LESS: smaller z = closer to camera (rendered on top)
+// Range: -1.0 (nearest) to +1.0 (farthest)
+//
+// Game world objects (props, player) use DEPTH MAP for z-ordering.
+// These constants are for elements that don't use depth maps.
+// =============================================================================
+
+namespace ZDepth {
+    // Scene layers (rendered to FBO at base resolution)
+    constexpr float BACKGROUND = 0.99f;     // Scene background (farthest)
     
-    inline float get_z_depth(Layer layer) {
-        // With GL_LESS: smaller z = closer to camera (rendered on top)
-        // Map layers from 0-100 to range 0.999 to -0.999 (slightly inside frustum)
-        // layer 0 (BACKGROUND) → z ≈ 0.999 (far, but not exactly 1.0)
-        // layer 100 (UI) → z ≈ -0.999 (near)
-        float normalized = static_cast<float>(layer) / 100.0f;  // 0.0 to 1.0
-        return 0.999f - normalized * 1.998f;  // Maps to ~0.999 to ~-0.999
-    }
+    // Game world: -1.0 to +1.0 range controlled by depth map
+    // Props and player z-depth calculated from depth_map sampling
+    
+    // UI layers (rendered after upscale at viewport resolution)
+    // Ordered from back to front:
+    constexpr float GAME_HUD   = -0.90f;    // HUD elements, inventory icon
+    constexpr float PANELS     = -0.93f;    // Inventory panel, close-up overlays
+    constexpr float DIALOGUE   = -0.95f;    // Speech bubbles, text boxes
+    constexpr float TOOLTIP    = -0.97f;    // Hover tooltips
+    constexpr float CURSOR     = -0.99f;    // Mouse cursor (always on top)
+}
+
+// =============================================================================
+// Parallax Factors (for future parallax scrolling system)
+// =============================================================================
+// Factor determines how layer moves relative to camera:
+// < 1.0 = moves slower (appears distant)
+// = 1.0 = moves with camera (game world)
+// > 1.0 = moves faster (appears close, inverse parallax)
+// = 0.0 = static (doesn't move with camera)
+// =============================================================================
+
+namespace Parallax {
+    constexpr float FAR        = 0.3f;      // Distant elements (sky, mountains)
+    constexpr float MID        = 0.6f;      // Mid-distance scenery  
+    constexpr float NEAR       = 0.85f;     // Close background details
+    constexpr float WORLD      = 1.0f;      // Game world (props, player)
+    constexpr float FOREGROUND = 1.15f;     // Decorative foreground elements
+    constexpr float STATIC     = 0.0f;      // UI, fixed elements
 }

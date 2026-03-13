@@ -8,6 +8,7 @@
 #include "platform.h"
 #include "scene/scene.h"
 #include "debug/debug.h"
+#include "ui/cursor.h"
 #include "types.h"
 #include "ecs/ecs.h"
 #include "ecs/entity_factory.h"
@@ -107,6 +108,9 @@ void init() {
     
     // Initialize framebuffer for offscreen rendering at base resolution
     Renderer::init_framebuffer(Config::BASE_WIDTH, Config::BASE_HEIGHT);
+    
+    // Initialize cursor system
+    UI::init_cursor();
 }
 
 void set_viewport(uint32_t width, uint32_t height) {
@@ -362,9 +366,9 @@ void render() {
     Renderer::begin_render_to_framebuffer();
     Renderer::clear_screen();
     
-    // Background - use BACKGROUND layer for depth (lit rendering WITH shadows)
+    // Background - use BACKGROUND depth (lit rendering WITH shadows)
     Renderer::render_sprite_lit_shadowed(g_state.scene.background, 
-                           Vec3(0.0f, 0.0f, Layers::get_z_depth(Layer::BACKGROUND)),
+                           Vec3(0.0f, 0.0f, ZDepth::BACKGROUND),
                            Vec2((float)g_state.scene.width, (float)g_state.scene.height),
                            light_data, num_lights,
                            shadow_data, num_shadow_casters,
@@ -487,9 +491,16 @@ void render() {
 #ifndef NDEBUG
     Debug::render_overlay(mouse_pixel);
 #endif
+    
+    // Update and render cursor (always on top)
+    UI::update_cursor(mouse_pixel);
+    UI::render_cursor(mouse_pixel);
 }
 
 void shutdown() {
+    // Shutdown cursor system (restores system cursor)
+    UI::shutdown_cursor();
+    
     // Cleanup happens in Renderer::shutdown() and asset cleanup
     // Player animations cleaned up through Core::AnimationBank destructor
 }

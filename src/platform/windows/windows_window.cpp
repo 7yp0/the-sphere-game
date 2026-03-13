@@ -409,4 +409,9 @@ void set_mouse_right_clicked(bool clicked)
     g_mouseRightClicked = clicked;
 }
 
+void show_system_cursor(bool show)
+{
+    ShowCursor(show ? TRUE : FALSE);
+}
+
 }  // namespace Platform

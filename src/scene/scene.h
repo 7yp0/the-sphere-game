@@ -28,7 +28,8 @@ struct Prop {
 };
 
 struct Hotspot {
-    std::string name;
+    std::string name;           // Internal identifier
+    std::string tooltip_key;    // Localization key for tooltip (displayed as-is until localization system exists)
     Collision::Polygon bounds;
     float interaction_distance = 0.0f;
     bool enabled = true;

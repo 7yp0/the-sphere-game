@@ -49,7 +49,7 @@ static void render_lights_debug() {
     // Scale factor from base (320x180) to viewport (1280x720)
     float scale_x = (float)Config::VIEWPORT_WIDTH / (float)Config::BASE_WIDTH;
     float scale_y = (float)Config::VIEWPORT_HEIGHT / (float)Config::BASE_HEIGHT;
-    float ui_z = Layers::get_z_depth(Layer::UI);
+    float ui_z = ZDepth::GAME_HUD;
     
     // Yellow color for point lights
     Vec4 light_color = Vec4(1.0f, 1.0f, 0.0f, 0.8f);
@@ -117,7 +117,7 @@ static void render_geometry_debug() {
     non_convex_obstacle_count = 0;
     
     // Draw walkable areas (green if convex, RED if concave!)
-    float ui_z = Layers::get_z_depth(Layer::UI);
+    float ui_z = ZDepth::GAME_HUD;
     for (size_t wi = 0; wi < scene.geometry.walkable_areas.size(); wi++) {
         const auto& walkable = scene.geometry.walkable_areas[wi];
         bool is_convex = Collision::is_polygon_convex(walkable);
@@ -206,7 +206,7 @@ static void render_geometry_debug() {
         
         // Black semi-transparent background for warning (above [SELECT] box)
         float warning_y = Config::VIEWPORT_HEIGHT - 60.0f;
-        Vec3 warn_bg_pos = Vec3(0.0f, warning_y - 5.0f, Layers::get_z_depth(Layer::UI));
+        Vec3 warn_bg_pos = Vec3(0.0f, warning_y - 5.0f, ZDepth::GAME_HUD);
         Vec2 warn_bg_size = Vec2(650.0f, 30.0f);
         Vec4 warn_bg_color = Vec4(0.0f, 0.0f, 0.0f, 0.7f);
         Renderer::render_rect(warn_bg_pos, warn_bg_size, warn_bg_color);
@@ -255,7 +255,7 @@ void render_overlay(Vec2 mouse_pixel) {
                  sc_count, Renderer::MAX_SHADOW_CASTERS);
         
         // Black semi-transparent background - pixel coordinates, top-left
-        Vec3 bg_pos = Vec3(0.0f, 0.0f, Layers::get_z_depth(Layer::UI));
+        Vec3 bg_pos = Vec3(0.0f, 0.0f, ZDepth::GAME_HUD);
         Vec2 bg_size = Vec2(500.0f, 50.0f);
         Vec4 bg_color = Vec4(0.0f, 0.0f, 0.0f, 0.7f);
         Renderer::render_rect(bg_pos, bg_size, bg_color);

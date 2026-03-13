@@ -1201,7 +1201,7 @@ void render() {
     
     float scale_x = (float)Config::VIEWPORT_WIDTH / (float)Config::BASE_WIDTH;
     float scale_y = (float)Config::VIEWPORT_HEIGHT / (float)Config::BASE_HEIGHT;
-    float ui_z = Layers::get_z_depth(Layer::UI);
+    float ui_z = ZDepth::GAME_HUD;
     
     // Draw current polygon being created (yellow preview)
     if (g_state.mode != EditorMode::NONE && !g_state.current_polygon_points.empty()) {
@@ -1522,7 +1522,7 @@ void render() {
         snprintf(mode_text, sizeof(mode_text), "[HOTSPOT: %s] Shift+Click to set target", 
                  hotspot.name.c_str());
     } else {
-        snprintf(mode_text, sizeof(mode_text), "[%s] E=entity mode", get_mode_string());
+        snprintf(mode_text, sizeof(mode_text), "[%s] W=walkable O=obstacle H=hotspot E=entity", get_mode_string());
     }
     
     // Black semi-transparent background for mode indicator
@@ -1602,6 +1602,9 @@ bool save_geometry(const char* scene_name) {
         const auto& hotspot = scene.geometry.hotspots[i];
         file << "    {\n";
         file << "      \"name\": \"" << hotspot.name << "\",\n";
+        if (!hotspot.tooltip_key.empty()) {
+            file << "      \"tooltip_key\": \"" << hotspot.tooltip_key << "\",\n";
+        }
         file << "      \"interaction_distance\": " << hotspot.interaction_distance << ",\n";
         if (hotspot.has_target_position) {
             file << "      \"target_position\": [" << hotspot.target_position.x << ", " << hotspot.target_position.y << "],\n";
@@ -1822,6 +1825,14 @@ bool load_geometry(const char* scene_name) {
                 size_t name_start = content.find('\"', name_key + 6);
                 size_t name_end = content.find('\"', name_start + 1);
                 hotspot.name = content.substr(name_start + 1, name_end - name_start - 1);
+            }
+            
+            // Parse tooltip_key (optional)
+            size_t tooltip_key = content.find("\"tooltip_key\"", obj_start);
+            if (tooltip_key < obj_end && tooltip_key != std::string::npos) {
+                size_t tt_start = content.find('\"', tooltip_key + 13);
+                size_t tt_end = content.find('\"', tt_start + 1);
+                hotspot.tooltip_key = content.substr(tt_start + 1, tt_end - tt_start - 1);
             }
             
             // Parse interaction_distance

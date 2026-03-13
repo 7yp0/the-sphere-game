@@ -327,4 +327,13 @@ void set_scroll_delta(float delta)
     g_scrollDelta += delta;  // Accumulate in case of multiple events per frame
 }
 
+void show_system_cursor(bool show)
+{
+    if (show) {
+        [NSCursor unhide];
+    } else {
+        [NSCursor hide];
+    }
+}
+
 }

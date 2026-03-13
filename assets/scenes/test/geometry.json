@@ -18,9 +18,16 @@
   "hotspots": [
     {
       "name": "box_hotspot",
+      "tooltip_key": "box_hotspot_tooltip",
       "interaction_distance": 0.25,
       "target_position": [89.9043, 131.604],
       "points": [[62.5, 105], [84.6152, 104.781], [85.0342, 128.663], [61.8291, 128.134]]
+    },
+    {
+      "name": "hotspot_1",
+      "tooltip_key": "hotspot_1_tooltip",
+      "interaction_distance": 20,
+      "points": [[219, 34], [218.25, 64.5], [239.25, 63.5], [236.75, 33.75]]
     }
   ]
 }

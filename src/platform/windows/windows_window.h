@@ -35,4 +35,7 @@ void set_mouse_down(bool down);
 void set_scroll_delta(float delta);
 void set_key_pressed(int key_code, bool pressed);
 
+// Show/hide the system cursor (for custom cursor rendering)
+void show_system_cursor(bool show);
+
 }
