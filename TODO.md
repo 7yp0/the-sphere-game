@@ -1,606 +1,457 @@
-# The Sphere Game - TODO
+# TODO
 
-## Phase 1: Sprite Loading & Rendering (COMPLETE)
+## Game Modes
 
-- [x] **Texture & Asset System**
-  - [x] PNG loader with Zlib decompression + all 5 filter types
-  - [x] `Renderer::load_texture(const char* path)` → returns TextureID
-  - [x] `Renderer::bind_texture(TextureID)` - optional utility
-  - [x] Texture caching (don't load same texture twice)
-  - [x] Handle PNG loading with build/assets/ layout
-
-- [x] **Sprite Renderer**
-  - [x] `Renderer::render_sprite(TextureID tex, Vec2 pos, Vec2 size)` - variable position/size
-  - [x] OpenGL shaders in src/renderer/shaders/
-  - [x] Shaders support texture sampling
-  - [x] Test PNG rendering (blue quad)
-
-- [x] **Animation System (Phase 1.5)**
-  - [x] `SpriteAnimation` struct (frames, timing, current_frame)
-  - [x] `Renderer::create_animation(TextureID[])` - from texture array
-  - [x] `Renderer::animate(SpriteAnimation*, delta_time)` - update frame
-  - [x] `Renderer::render_sprite_animated(SpriteAnimation*, Vec2 pos, Vec2 size)` - draw current frame
-  - [x] Test animated sprite (cycle through red/green/blue frames)
-  - [x] Layer system with z_depth and parallax factors
-  - [x] Separate visual_update() from game logic update()
-  - [x] Z-depth implementation with GL_DEPTH_TEST enabled
-  - [x] `Layers::get_z_depth()` conversion from Layer enum to OpenGL range [-1, 1]
-
-- [x] **Sprite Maps / Spritesheets (Phase 1.6)**
-  - [x] UV mapping system for sprite frames within single texture
-  - [x] `SpriteFrame` struct with UV coordinates (u0, v0, u1, v1)
-  - [x] Updated `SpriteAnimation` to use sprite map texture + UV coords instead of separate TextureIDs
-  - [x] Created test sprite map (player_spritesheet.png with 4 frames: idle + 3 walk)
-  - [x] `Renderer::render_sprite_animated()` updated to use UV mapping from sprite map
-  - [x] Updated `create_animation()` API to take texture + SpriteFrame array
-  - [x] Reduces texture bindings (1 binde pro animation statt 1 binde pro frame), improves memory layout
-
-- [x] **Test Assets**
-  - [x] test.png (64x64 blue)
-  - [x] Verify loading and rendering works
+- GAMEPLAY
+- CUTSCENE
+- DIALOGUE
+- INVENTORY
+- CLOSE_UP
 
 ---
 
-## Phase 2: Core Input & Movement (COMPLETE)
+## Interaction & UI
 
-- [x] **Input System**
-  - [x] Platform abstraction for mouse input - `Platform::get_mouse_pos()`, `Platform::mouse_clicked()`
-  - [x] macOS implementation with NSTrackingArea for mouseMoved events
-  - [x] Mouse click detection on mouseDown
-
-- [x] **Player Entity**
-  - [x] Create `Game::Player` struct (position, target_position, speed, texture)
-  - [x] Point-and-click movement to target position
-  - [x] Simple linear walking movement with distance check
-
-- [x] **Basic Game Loop**
-  - [x] Load test sprite for player (uses blue texture)
-  - [x] Render player at Layer::PLAYER
-  - [x] Test movement on click - player walks towards clicked position
-
-**Known limitations (for Phase 6+):**
-
-- Mouse coordinates are in window space (pixels), not normalized world space
-- Need coordinate conversion: screen pixels → normalized [-1, 1] range for rendering
-- Window dimensions must be tracked for proper conversion
-- Will fix in Phase 6 when implementing camera system
+### Input Feedback (One-Click System)
+- [ ] Default cursor (classic Lucas Arts style cursor look)
+- [ ] Hover cursor (when over interactive hotspot)
+- [ ] Tooltip text near cursor (Return to Monkey Island style)
+- [ ] Smart tooltip positioning (always readable, edge-aware)
 
 ---
 
-## Phase 3: Scene & Game World (COMPLETE)
+## Inventory System
 
-- [x] **Scene System**
-  - [x] `Game::Scene` struct with Props array
-  - [x] `Game::Prop` struct with pixel coordinates
-  - [x] Render background texture
-  - [x] Render all props in scene with correct z-depth
+### Inventory UI
+- [ ] UI icon on screen to open inventory
+- [ ] Popup/overlay inventory panel
+- [ ] Fixed size: 16 slots (configurable)
+- [ ] Item icons in grid
+- [ ] Tooltip on item hover (same system as hotspots)
 
-- [x] **Pixel Coordinate System**
-  - [x] Central `Coords::pixel_to_opengl()` helper
-  - [x] All Props use pixel coordinates (not normalized)
-  - [x] Automatic conversion in render pipeline
+### Inventory Logic
+- [ ] Inventory data structure
+- [ ] Add item
+- [ ] Remove item
 
-- [x] **Debug Overlay**
-  - [x] F1 toggle for debug display
-  - [x] Show mouse position in pixel coordinates
-  - [x] Platform::key_pressed() for input handling
+### Item Combination
+- [ ] Drag item onto another item
+- [ ] Combination callback system (scriptable)
+- [ ] Invalid combination feedback
 
-- [x] **Test Scene**
-  - [x] Load background (bg_field.png)
-  - [x] Place test props (tree, stone, chest)
-  - [x] Pixel-based placement system
-
----
-
-## Phase 3.5: Pixel-Perfect Rendering & 2.5D Depth Scaling (COMPLETE)
-
-- [x] **Pixel-Perfect Rendering & Scaling**
-  - [x] Define base resolution (336x189) where game logic lives
-  - [x] Support any window resolution (672x378 viewport)
-  - [x] Float-based scaling: `scale_factor = viewport_height / BASE_HEIGHT` (GPU handles upscaling smoothly)
-  - [x] No integer-scaling requirement: allows flexible window sizes
-  - [x] Scene stores `HorizonLine` structs with y_position and scale_gradient per horizon
-
-- [x] **Depth-Based Character Scaling** (2.5D effect)
-  - [x] Calculate character scale based on Y position relative to horizon
-  - [x] Formula: `scale = 1.0 + (sprite_y - horizon_y) * scale_gradient`
-  - [x] Above horizon (smaller Y) → scale down (away from camera)
-  - [x] Below horizon (larger Y) → scale up (closer to camera)
-  - [x] Character scale range: `0.01` (minimum) to `2.0` (maximum when scaled up)
-  - [x] Multi-horizon zones: Between horizons = no scaling (scale = 1.0)
-  - [x] Configurable `scale_gradient` per horizon line for flexible scaling rates
-  - [x] Inverted mode support for isometric/top-down perspectives
-  - [x] Applied in render pipeline via `render_sprite_animated_with_depth()`
+### Item on Hotspot
+- [ ] Select item from inventory (click selects and closes inventory)
+- [ ] Use selected item on world hotspot (hover with item -> ui feedback)
+- [ ] Interaction callback (scriptable)
 
 ---
 
-## Phase 4: Collision & Interaction
+## Camera & World Navigation
 
-### 4.1 Polygon-Based Collision System (Foundation)
+### Camera System
+- [ ] Camera follow player with deadzone
+- [ ] Smooth camera movement (lerp)
+- [ ] Camera bounds (scene limits, no overscroll)
+- [ ] Scrollable scenes (larger than viewport)
+- [ ] Smooth camera zoom (cinematic, bilinear interpolation)
 
-- [x] **Generic Polygon Utilities**
-  - [x] `Polygon` struct: array of 2D points (Vec2), closed path
-  - [x] `point_in_polygon()` - point-in-polygon test (used for: click within hotspot, point within walkable area)
-  - [x] `closest_point_on_polygon()` - find nearest point on polygon boundary (used for: clamp target to walkable area edge)
-  - [x] `line_intersects_polygon()` - path validation (used for: check if walk path crosses obstacle)
-  - [x] `polygon_collision()` - polygon-vs-polygon (used for: obstacle detection)
-  - [x] Location: `src/collision/polygon_utils.h/cpp` or `src/renderer/polygon_utils.h/cpp`
-
-- [x] **Scene Geometry**
-  - [x] `Game::SceneGeometry` struct contains:
-    - `Polygon[] walkable_areas` - player can walk here (outer boundary + inner holes as separate polygons)
-    - `Hotspot[] hotspots` - interactive regions (also polygons with callbacks)
-  - [x] All stored in Scene
-  - [x] Serialization: JSON format with polygon vertex arrays
-  - [x] Render all polygons (walkable/hotspots) with different colors (D toggle)
-  - [x] Display polygon vertices
-  - [x] Show closest point on boundary when hovering/clicking
-
-### 4.2 Walkable Areas & Pathfinding
-
-- [x] **Player Movement with Collision**
-  - [x] On click: validate target point with `point_in_walkable_areas(target, walkable_areas[])`
-  - [x] If outside all walkable areas: use `closest_point_on_any_polygon(target, walkable_areas[])` as actual destination
-  - [x] Use `line_intersects_walkable(path_start, path_end, walkable_areas[])` to validate walk path
-  - [x] On collision: slide along polygon edge (smooth wall following)
-
-- [x] **Pathfinding System** (Ron Gilbert approach)
-  - [x] When target is outside walkable areas: find closest valid point on any area boundary
-  - [x] When target is inside any walkable area: move directly to target
-  - [x] Player slides along polygon edges when path clips boundary
-  - [x] Implementation: project target→closest-point, walk there, continue
-  - [x] Holes in walkable area = separate negative polygons in walkable_areas[] array
-
-- [x] **No Separate Obstacle System**
-  - [x] Holes in walkable area = separate negative polygons in walkable_areas[] array
-  - [x] "Not walkable" = "not in any walkable_areas polygon" (simplifies logic)
-  - [x] pathfinding validates all moves against all walkable_areas polygons
-
-### 4.3 Hotspot System (Point-and-Click Interaction)
-
-- [x] **Hotspot Definition**
-  - [x] `Game::Hotspot` struct with: polygon (bounds), interaction_distance, enabled flag, callback
-  - [x] Hotspots are polygons stored in SceneGeometry
-  - [x] Each hotspot has a callback function pointer
-  - [x] Interaction distance configurable per hotspot (0 = on boundary, N = range in pixels)
-
-- [x] **Hotspot Click Detection**
-  - [x] On mouse click: use `point_in_polygon(click_pos, hotspot.polygon)` for all hotspots
-  - [x] For each hotspot hit: check if player can reach its interaction distance
-  - [x] If reachable: player walks to closest walkable point within `interaction_distance` of hotspot, then triggers callback
-  - [x] If unreachable: don't walk, trigger callback immediately to show feedback ("Can't reach")
-  - [x] If player already within interaction distance: trigger action immediately (no walk needed)
-
-- [x] **Interaction Flow**
-  - [x] Player clicks hotspot → validate against walkable_areas[] to find reachable destination
-  - [x] Player walks there (pathfinding against walkable_areas) → trigger hotspot callback
-  - [x] Hotspot callback handles game logic (dialogue, item pickup, state change, etc.)
-  - [x] Multiple hotspots per prop allowed (e.g., "look at tree", "climb tree")
-
-### 4.4 Player State & Depth
-
-- [x] **Y-Sorting for Z-Depth**
-  - [x] Collect all entities (Player + Props) with visual base Y position
-  - [x] Sort by visual base Y (account for Pivot Points: TOP_LEFT, BOTTOM_CENTER, etc.)
-  - [x] Dynamic z-depth assignment based on sort order (-1 to +1 range)
-  - [x] Correct rendering order: behind/in-front based on screen depth ✅
-  - [x] Props don't interfere with correct layering
-  - [x] Hotspots don't affect rendering (invisible, only interactive)
-
-- [x] **Alpha-Test Depth Correction (Pixel-Perfect Layering)**
-  - [x] Modified GLSL fragment shader with alpha discard
-  - [x] If alpha < 0.5: discard pixel (transparent parts don't write depth)
-  - [x] Enables proper depth testing with transparent pixels
-  - [x] Player can now render behind semi-transparent prop areas
-  - [x] No more visual glitches at transparent asset boundaries ✅
+### Parallax Scrolling
+- [ ] Parallax layer system (horizontal + vertical)
+- [ ] Multiple background layers at different speeds
+- [ ] Depth factor per layer
 
 ---
 
-## Phase 4.5: Polygon Editor (Debug Geometry Tool) ✅
+## Close-Up System
 
-### 4.5.1 Debug Polygon Visualization & Editing
+### Close-Up Scenes
+- [ ] Special game mode for puzzle close-ups
+- [ ] Separate input handling per close-up
+- [ ] Enter close-up via cutscene action `enterCloseUp(scene)`
+- [ ] Return to main game after completion
+- [ ] Pass/fail state back to main game (set flags)
 
-- [x] **D-Key Toggle Debug Mode**
-  - [x] Show all walkable_areas polygons (green with alpha 0.7)
-  - [x] Show all hotspots polygons (red with alpha 0.7)
-  - [x] Show polygon vertices (small rectangles at each point, clickable)
-  - [x] Show polygon edges (lines connecting vertices)
-  - [x] Highlight selected polygon (brighter color + thicker lines)
-  - [x] Highlight selected vertex (cyan rectangle, larger size)
+### Cable Physics (Wrap-Point System)
+- [ ] Kabel-Ende folgt Mausposition
+- [ ] Wrap-Point-Tracking um Säule/Objekt
+- [ ] Umrundung tracken (Maus kreist um Objekt → Kabel wickelt sich)
+- [ ] Richtungswechsel = Wickeln/Abwickeln
+- [ ] Z-Order pro Segment (vor/hinter Säule alternierend)
+- [ ] Connect cable to socket
 
-- [x] **Polygon Creation (In Debug Mode)**
-  - [x] Press 'W' to start creating new walkable_area
-  - [x] Press 'H' to start creating new hotspot
-  - [x] Click to add vertices to current polygon (LMB)
-  - [x] Polygon auto-closes when clicking first vertex again (visual: green highlight)
-  - [x] OR press 'F' to manually finish/close polygon
-  - [x] Visual feedback: yellow preview line from last vertex to mouse cursor
-
-- [x] **Polygon Editing (Drag & Select)**
-  - [x] Click vertex to select it + polygon (highlighted)
-  - [x] Drag selected vertex to move it (real-time update)
-  - [x] Click on edge to insert new vertex at click position (immediately draggable)
-  - [x] Right-click vertex to delete it (minimum 3 vertices maintained)
-  - [x] Press 'DEL' to delete entire selected polygon
-  - [x] ESC to deselect current polygon/cancel creation
-  - [x] W/H keys deselect current polygon when starting new creation
-
-- [x] **Polygon Mode Display**
-  - [x] Shows current mode: "[SELECT]", "[CREATING WALKABLE]", or "[CREATING HOTSPOT]"
-
-### 4.5.2 Scene Geometry JSON Format
-
-- [x] **Per-Scene Geometry File**
-  - [x] Location: `assets/scenes/<scene_name>/geometry.json`
-  - [x] Example: `assets/scenes/test/geometry.json`
-  - [x] Load on scene startup via `Debug::load_scene_geometry()`
-
-- [x] **Automatic Geometry Saving**
-  - [x] Every change auto-saves to geometry.json immediately
-  - [x] No manual save command needed
-  - [x] Pretty-printed JSON format
-
-- [x] **Load Geometry from JSON**
-  - [x] Parse walkable_areas[] with points array
-  - [x] Parse hotspots[] with points, name, interaction_distance, enabled
-  - [x] Populate Scene::geometry on load
-
-### 4.5.3 Hole/Obstacle System
-
-- [x] **Nested Walkable Areas as Obstacles**
-  - [x] Walkable area completely inside another = hole/obstacle
-  - [x] Uses odd/even rule: point in odd # of polygons = walkable
-  - [x] `point_in_walkable_area()` handles this automatically
-  - [x] Example: Large room polygon + smaller table polygon inside = player walks around table
-
-### 4.5.4 Keyboard & Mouse Reference
-
-| Input | Action |
-|-------|--------|
-| `D` | Toggle debug overlay & geometry editor |
-| `W` | Start creating new walkable_area polygon |
-| `H` | Start creating new hotspot polygon |
-| `F` | Finish/close current polygon |
-| `ESC` | Cancel creation / Deselect polygon |
-| `DEL` | Delete selected polygon |
-| Left-click vertex | Select vertex (enables dragging) |
-| Left-drag vertex | Move vertex position |
-| Left-click edge | Insert new vertex at click position |
-| Right-click vertex | Delete vertex (keeps min 3) |
-| Click first vertex | Close polygon (while creating) |
-
-*All changes auto-save to `assets/scenes/<scene>/geometry.json`*
-
-### 4.5.5 walkable component
-
-- [x] player isn't the only objekt that can move/walk (but only one which is controllable) + the code is maybe a bit zu umständlich geschrieben? think about it!
-
-### 4.5.6 how to configure hotspot callbacks
-
-- [x] hotspots are clickable areas for objects in the 2.5D room. So when I click on a hotspot, I expect that the player is moving to the object (x y Z) it belongs to
-- [x] hotspots polygon geometry is now saved in the geometry json. but how do we define the callbacks? (same for enabled and distance)
-- [x] scene.cpp still defines polygons like walkable areas and hotspots, while they are not used and come from the geometry.json
-
-### 4.5.7 Debug editor
-
-- [x] move/positon player and objects (props) - 2.5D: nur X/Y, Z automatisch aus Depth Map
-- [x] move/position light sources - 3D: X/Y via drag, Z via scroll wheel oder +/- keys
-- [x] elevation of objects does not work very good. shadows are not right!
-- [s] vertical line of lights reflects distance from light position to the 2.5D ground (accounts for depth scaling)
-- [x] direction für projector lights (shift click in 2.5D room to where it should shine?)
-
-**2.5D vs 3D Koordinatensystem:**
-
-- **Props/Player (2.5D)**: Nur X/Y verschiebbar, Z wird automatisch aus der Depth Map basierend auf Y-Position berechnet
-- **Lichter (3D)**: Frei in X/Y/Z bewegbar, Z manuell per Scroll/+/-
-
-**Neue Tasten im Entity-Modus:**
-
-| Input | Action |
-|-------|--------|
-| `E` | Toggle Entity-Modus (ein/aus) |
-| `Click` auf Entity | Selektieren + Drag starten |
-| `Drag` | X/Y Position verschieben |
-| `Scroll` | Z-Achse anpassen (nur Lichter!) |
-| `+` (Shift+=) | Z näher zur Kamera (nur Lichter!) |
-| `-` | Z weiter weg (nur Lichter!) |
-
-**Entity-Marker im Entity-Modus:**
-
-- **Props**: Grüne Quadrate (2.5D)
-- **Point Lights**: Gelbe Rauten (3D)
-- **Projector Lights**: Orange Dreiecke (3D)
-- **Player**: Cyan Kreis (2.5D)
-
-**Entities werden in `entities.json` gespeichert** (auto-save wie geometry.json)
-
-- [x] walk speed muss sich abhängig von der z position ändern
 
 ---
 
-## Phase 5: 2.5D Lighting (COMPLETE)
+## Cutscene System
 
-### 5.1 Foundation: Light & Shadow Data ✅
+### Cutscene Engine
+- [ ] Action queue system
+- [ ] Sequential execution (default)
+- [ ] Parallel execution blocks (all actions in block run simultaneously, block ends when all complete)
+- [ ] Fluent C++ API for scripting
 
-- [x] **ECS-Based Light System**
-  - [x] `PointLightComponent`: position (3D), radius, intensity, color (RGB), casts_shadows flag
-  - [x] Light falloff: quadratic with smooth attenuation in shader
-  - [x] Lights stored as ECS entities in scene
-  - [x] Max 8 lights per scene (MAX_LIGHTS in shader)
-  - [x] Light on/off via `casts_shadows` flag
+### Actions
+- [ ] `movePlayer(pos)` / `moveEntity(entity, pos)`
+- [ ] `wait(seconds)`
+- [ ] `panCamera(pos)`
+- [ ] `zoomCamera(level, duration)` - Smooth zoom (1.0 = normal, 2.0 = 2x zoom)
+- [ ] `enableEntity(entity)` / `disableEntity(entity)`
+- [ ] `playAnimation(entity, anim)`
+- [ ] `fade(type, duration)` - FadeIn/FadeOut
+- [ ] `changeScene(scene, spawnPoint)`
+- [ ] `setFlag(name, value)` / `setValue(name, value)`
+- [ ] `playSound(sound)` / `playMusic(track)`
+- [ ] `showText(text)` - Einblendung
+- [ ] `say(character, "string.key")` - Character spricht (via Localization)
 
-- [x] **Entity Factories for Lights**
-  - [x] `create_point_light()` - OpenGL coords
-  - [x] `create_point_light_at_pixel()` - pixel coords with auto-conversion
-  - [x] `create_lamp()` - composite: sprite + light together
-  - [x] `create_emissive_object()` - glowing objects
+### Input Blocking (Optional)
+- [ ] `blockInput()` / `unblockInput()` actions
+- [ ] Cutscenes do NOT block input by default
+- [ ] Explicit control when needed (e.g. scene transitions)
 
-### 5.2 Ray-Quad Shadow System ✅
-
-- [x] **Ray-Quad Intersection (NOT projection-based!)**
-  - [x] Cast ray from fragment towards light source
-  - [x] Test ray against all shadow caster quads (props)
-  - [x] If intersection: sample shadow caster texture at hit UV
-  - [x] Alpha test: if alpha > threshold → in shadow
-  - [x] Shadow intensity configurable per caster
-
-- [x] **Shadow Caster ECS Components**
-  - [x] `ShadowCasterComponent`: enabled, alpha_threshold, shadow_intensity
-  - [x] Entity factories: `create_shadow_casting_prop()` vs `create_static_prop()`
-  - [x] Self-shadow prevention via entity_index exclusion
-  - [x] Max 8 shadow casters (MAX_SHADOW_CASTERS in shader)
-
-- [x] **Shadow Receiving**
-  - [x] Background receives shadows from all props ✅
-  - [x] Props receive shadows from other props ✅
-  - [x] Player receives shadows from props ✅
-  - [x] `render_sprite_lit_shadowed()` for static sprites
-  - [x] `render_sprite_animated_lit_shadowed()` for animated sprites
-
-### 5.3 Lighting Shader & Normal Maps ✅
-
-- [x] **Normal Map Support**
-  - [x] Normal map texture per sprite (SpriteComponent.normal_map)
-  - [x] Background normal map for surface detail
-  - [x] Fragment shader samples normal, applies to N·L calculation
-  - [x] Normal decoding: `n * 2.0 - 1.0` with Z-flip for coordinate system
-
-- [x] **Depth Map for Background**
-  - [x] Depth map encodes Z-depth per pixel (white=near, black=far)
-  - [x] Shader reconstructs 3D position from depth map
-  - [x] Enables correct light distance calculation on 2.5D background
-  - [x] Props use their transform z_depth directly
-
-- [x] **GPU-Based Lighting (basic_lit.frag)**
-  - [x] All light calculations in fragment shader
-  - [x] Per-pixel diffuse lighting (N·L)
-  - [x] Quadratic falloff with smooth attenuation
-  - [x] Aspect ratio correction for circular light falloff
-  - [x] Light uniforms: position[], color[], intensity[], radius[]
-
-- [x] **Background vs Object Lighting**
-  - [x] Objects: `NdotL <= 0` → no light (backface culling)
-  - [x] Background: `abs(NdotL)` → no self-shadowing from normals
-  - [x] Both receive cast shadows from props correctly
-
-- [x] **Ambient Light**
-  - [x] Global ambient color/intensity (shader uniforms)
-  - [x] Configurable per scene
-  - [x] Ensures minimum visibility
-
-### 5.4 Rendering Pipeline ✅
-
-- [x] **Single-Pass Lit Rendering**
-  - [x] All lights processed in single fragment shader pass
-  - [x] Shadow casters uploaded as uniform arrays
-  - [x] Texture units: 0=diffuse, 1=normal, 2=depth, 3-6=shadow casters
-  - [x] Efficient: no multi-pass compositing needed
-
-- [x] **Offscreen Rendering (FBO)**
-  - [x] Render at base resolution (320x180)
-  - [x] Upscale to viewport (1280x720)
-  - [x] Pixel-perfect filtering
-
-### 5.5 Key Implementation Details
-
-**Shader Files:**
-
-- `basic_lit.frag` - main lighting + shadow shader
-- `basic_lit.vert` - vertex transformation
-
-**Critical Bug Fixes (documented):**
-
-1. Ray direction must be UNNORMALIZED for t∈(0,1) intersection
-2. Shadow UV needs Y-flip: `hitUV.y = 1.0 - hitUV.y`
-3. Use BASE resolution (320x180) for shadow caster coordinate conversion
-
----
-
-## Phase 6: Camera & Parallax
-
-- [ ] **Camera System**
-  - [ ] Camera follow player
-  - [ ] Smooth camera movement
-  - [ ] Camera bounds (scene limits)
-
-- [ ] **Parallax Scrolling**
-  - [ ] Parallax layer system
-  - [ ] Multiple background layers at different speeds
-  - [ ] Depth perception for 2D
-
----
-
-## Phase 7: Debug Tools (PARTIAL)
-
-- [x] **Debug Overlay**
-  - [x] Show mouse world position
-  - [x] Show player position
-  - [x] Toggle with `D` key
-  - [x] FPS counter
-  - [x] Frame time display
-  - [x] Entity counts (total, props, lights)
-
-- [ ] **Scene Editor Mode**
-  - [ ] Prop placement in debug mode
-  - [ ] Save props to file
-  - [ ] Load/reload scene in editor
-
-- [ ] **Quick Scene Loading**
-  - [ ] Command-line `--scene` flag
-  - [ ] Jump to specific scene
-  - [ ] Testing without full playthrough
-
----
-
-## Phase 8: Art & Content (PARTIAL)
-
-- [x] **Test Assets Created**
-  - [x] Player sprite (pixel art spritesheet)
-  - [x] Background texture with normal map + depth map
-  - [x] Props (box, tree, stone) with normal maps
-  - [x] Test lights (warm main + blue fill)
-
-- [ ] **Scene Data Files**
-  - [ ] Start scene
-  - [ ] Prop placements (JSON)
-  - [ ] Light placements (JSON)
-
----
-
-## Phase 9: Polish & Optimization
-
-- [ ] **Input Feedback**
-  - [ ] Cursor change in general (classic Lucas Arts crosshair)
-  - [ ] hover on hotspot shows text (basically look at text/gedanken bubble)
-
-- [ ] **Performance**
-  - [ ] Batch rendering if needed
-  - [ ] Optimize lighting calculations
-  - [ ] Profiling
-
-- [ ] **Asset Packing** (Release Build)
-  - [ ] Create `.pak` or `.bin` file format for asset bundling
-  - [ ] Pack all PNG textures into single archive
-  - [ ] Add optional compression (gzip/zstd)
-  - [ ] Modify asset loader to read from `.pak` instead of loose files
-  - [ ] Prevents asset tampering/modding in release builds
-
-- [ ] **Audio** (if time)
-  - [ ] Background music
-  - [ ] Interaction sounds
-  - [ ] atmo
-
----
-
-## Phase 10: Story & Content (Later)
-
-- [ ] **Dialogue System** (minimal)
-- [ ] **Cutscenes** (simple)
-- [ ] **Inventory System** (if needed)
-- [ ] **Puzzle System** (if needed)
-
----
-
-## Priority Order (Do This First)
-
-1. ✅ **Sprite Loading System** - Foundation for everything
-2. ✅ **Sprite Rendering** - See something on screen
-3. ✅ **Input System** - Receive player interaction
-4. ✅ **Player Movement** - See something move
-5. ✅ **Scene Loading** - Have a place to put things
-6. ✅ **Collision** - Objects interact with world
-7. ✅ **Lighting & Shadows** - The 2.5D magic
-8. ⏳ **Camera & Parallax** - Make it feel alive
-9. ⏳ **Debug Tools** - Make dev faster
-10. ⏳ **Content** - Fill the game world
-
----
-
-## Notes
-
-- Keep each step minimal
-- Test frequently
-- Don't add complexity until needed
-- Keep all code in `src/` (C++ where possible, Objective-C++ only for Platform)
-- Data before behavior (structs before functions)
-- Geometry Editor enables rapid iteration without code recompilation
-
----
-
-## Geometry Data Format (JSON)
-
-```json
-{
-  "scene_config": {
-    "horizon_y": 250,
-    "scale_min": 0.01,
-    "scale_max": 1.0
-  },
-  "walkable_areas": [
-    {
-      "name": "main_area",
-      "points": [[100, 100], [500, 100], [500, 400], [100, 400]]
-    },
-    {
-      "name": "hole_1",
-      "points": [[200, 150], [300, 150], [300, 250], [200, 250]]
-    }
-  ],
-  "hotspots": [
-    {
-      "name": "tree",
-      "interaction_distance": 30,
-      "points": [[250, 80], [280, 80], [290, 120], [260, 130], [230, 120]],
-      "callback": "interact_tree"
-    }
-  ]
-}
+```cpp
+// Example: Door exit cutscene
+Cutscene()
+    .parallel([](auto& p) {
+        p.movePlayer(door_pos);
+        p.panCamera(door_camera);
+    })
+    .wait(0.5f)
+    .playAnimation(door, "open")
+    .movePlayer(exit_pos)
+    .fade(FadeType::Out, 0.3f)
+    .changeScene("kitchen", "from_hallway")
+    .fade(FadeType::In, 0.3f);
 ```
 
 ---
 
-## Layer System (Established)
+## Scene Flow
 
-**Layers with Z-depth & Parallax:**
+### Hotspot Types
+- **Interactive Hotspot**: Reagiert auf Klick (bestehend)
+- **Trigger Hotspot**: Reagiert auf Player-Collision (für Events, Ambient, etc.)
+- [ ] Trigger hotspot type in Geometry Editor
+- [ ] Player collision detection with trigger hotspots
+- [ ] Trigger callback system
 
-- BACKGROUND (0) - parallax 0.1 (far, slow)
-- MIDGROUND (10) - parallax 1.0 (world background)
-- ENTITIES (20) - parallax 1.0 (props, NPCs)
-- PLAYER (30) - parallax 1.0 (player character) - FUTURE: use Y-sorting (z = player.y)
-- OCCLUSION (40) - parallax 1.0 (trees, cover the player in depth)
-- FOREGROUND (50) - parallax 1.2 (close obstacles)
-- UI (100) - parallax 0.0 (fixed screen HUD)
+### Scene Exits (via Cutscene)
+- Exit = normaler Interactive Hotspot
+- Player läuft zum Target Point → Cutscene triggert (Tür auf, durchgehen, Fade, Scene load)
+- [ ] Scene change action im Cutscene System
+- [ ] Transition effects (fade to black, cut, etc.)
 
-**Point-and-Click Depth Logic:**
-Player Y-position determines if they're in front of or behind occlusion objects (handled in Phase 4 with Y-Sorting)
-
----
-
-## ECS Architecture (NEW)
-
-**Entity-Component-System implemented in `src/ecs/`:**
-
-- `World` - manages entities and component pools
-- `EntityID` - unique entity identifier (uint32_t)
-- **Components:**
-  - `Transform2_5DComponent` - position, scale, z_depth
-  - `SpriteComponent` - texture, size, animation, normal_map
-  - `PointLightComponent` - 3D position, color, radius, intensity, casts_shadows
-  - `ShadowCasterComponent` - enabled, alpha_threshold, shadow_intensity
-
-**Entity Factories (`src/ecs/entity_factory.h`):**
-
-- `create_static_prop()` - prop without shadow casting
-- `create_shadow_casting_prop()` - prop that casts shadows
-- `create_point_light()` / `create_point_light_at_pixel()` - lights
-- `create_lamp()` - composite: sprite + attached light
-- `create_emissive_object()` - glowing object
+### Spawn Points
+- [ ] Spawn point definition per scene (in Editor)
+- [ ] Named spawn points (enter_from_kitchen, etc.)
+- [ ] Player spawn after scene load
 
 ---
 
-Last Updated: March 11, 2026
+## Game State
 
-- Phase 5 Complete: 2.5D Lighting with ray-quad shadows, normal maps, depth maps
-- ECS Architecture: Entity-Component-System for props, lights, shadow casters
-- Shadow system: Props/Player can cast AND receive shadows
-- Background lighting: Normal map support without self-shadowing
+### Global Game State
+- [ ] Persistent state system for the session
+- [ ] String-key based access
+- [ ] Flags (bool): `flags["sphere_taken"] = true`
+- [ ] Values (int): `values["battery_charge"] = 2`
+- [ ] Strings (string): `strings["current_chapter"] = "intro"`
+
+### Scene/Entity State (Auto-Persist)
+- [ ] Entity visibility state (enabled/disabled)
+- [ ] Serialize to scene JSON (like geometry)
+- [ ] Restore on scene reload
+- [ ] Reuse existing JSON serialization logic
+
+---
+
+## Save / Load
+
+### Auto-Save System
+- [ ] Single auto-save slot (JSON)
+- [ ] Auto-save on: item pickup, flag change, scene change
+- [ ] Optional: debounce (max 1x pro Sekunde)
+- [ ] Save: scene, player position, inventory, flags/values/strings, entity states
+
+### Load System
+- [ ] Restore full game state from auto-save
+- [ ] "Continue" from main menu loads auto-save
+
+---
+
+## Main Menu
+
+### Menu Options
+- [ ] **New Game** - Start fresh, clear auto-save
+- [ ] **Continue** - Load auto-save (disabled if no save exists)
+- [ ] **Settings** - Opens settings submenu
+- [ ] **Exit** - Quit game
+
+### Settings
+- [ ] Music volume
+- [ ] Sound effects volume
+- [ ] Voice volume
+- [ ] Language selection
+- [ ] Save settings to config file
+
+---
+
+## Localization
+
+### Text Localization
+- [ ] String-key based system: `say(player, "dialogue.sphere.what_is_this")`
+- [ ] JSON files per language: `localization/en.json`, `localization/de.json`
+- [ ] Key lookup at runtime based on language setting
+
+### Voice Localization
+- [ ] Voice files per language: `voice/en/`, `voice/de/`
+- [ ] File naming matches string keys: `dialogue.sphere.what_is_this.ogg`
+- [ ] Auto-load correct voice file based on language
+
+### Structure
+```
+localization/
+  en.json
+  de.json
+voice/
+  en/dialogue.sphere.what_is_this.ogg
+  de/dialogue.sphere.what_is_this.ogg
+```
+
+---
+
+## Dialogue System (Linear)
+
+### Dialogue via Cutscene
+- Keine Dialogue Trees für dieses Spiel
+- Lineare Dialoge über `say(character, "string.key")` Action
+- String-key wird über Localization System aufgelöst
+- Player, NPCs und Objekte können sprechen
+
+### Dialogue UI
+- [ ] Speech bubble / text box über Character
+- [ ] Click to advance / auto-advance nach Zeit
+- [ ] Optional: Typewriter effect
+
+---
+
+## Audio
+
+### Audio Format
+- OGG für alles (beste Qualität/Größe ratio)
+
+### Music System
+- [ ] Event/State-triggered music (nicht automatisch per scene)
+- [ ] `playMusic(track)` action in Cutscenes
+- [ ] Track metadata: BPM, time signature
+- [ ] Bar/beat tracking während playback
+- [ ] Transitions:
+  - [ ] Hard cut
+  - [ ] Crossfade (timed)
+  - [ ] Fade out / Fade in
+  - [ ] Beat-synced transition (wechsel auf Bar X)
+- [ ] `waitForBar(bar)` action für Cutscenes (wartet bis Bar erreicht)
+
+### Sound Effects
+- [ ] Interaction sounds
+- [ ] Item pickup sounds
+- [ ] UI sounds
+
+### Atmosphere
+- [ ] Ambient/Atmo loops per scene
+- [ ] Layered ambient (mehrere gleichzeitig)
+
+### Voice
+- [ ] Voice files via Localization System (`voice/{lang}/string.key.ogg`)
+- [ ] Auto-load matching voice for `say()` action
+- [ ] Voice spielt während Text angezeigt wird
+- [ ] Separate Voice volume control
+
+---
+
+## Debug & Development Tools
+
+### Act Loading
+- [ ] `--act 1/2/3` flag - Load specific act
+- [ ] Predefined start states per act (scene, flags, inventory)
+- [ ] Skip previous acts for testing
+
+### Close-Up Loading  
+- [ ] `--closeup <name>` flag - Load specific close-up puzzle
+- [ ] Isolated testing of puzzle mechanics
+
+---
+
+## Performance (falls nötig)
+
+### Optimization
+- [ ] Batch rendering if needed
+- [ ] Optimize lighting calculations
+- [ ] Profiling
+
+---
+
+## Asset Packaging (Optional)
+
+- [ ] Nicht zwingend nötig für Steam/GOG
+- [ ] Falls gewünscht: `.pak` archive mit Compression
+- [ ] Niedrige Priorität
+
+---
+
+## Content
+
+### Background Graphics
+- [ ] BACKYARD
+- [ ] CORRIDORANDKITCHEN
+- [ ] BASEMENT
+- [ ] CRASHSITE
+
+### Close-Up Graphics
+- [ ] NIGHTSKY-CU
+- [ ] CRASHSITESPHERE-CU
+- [ ] VISION (with animation)
+- [ ] DAY-CARDBOARDBOX-CU
+- [ ] PHYSICSBOOK-CU
+- [ ] MAGNETASSEMBLY-CU1
+- [ ] MAGNETASSEMBLY-CU2
+- [ ] SPHERE-CU
+- [ ] POLISHING-CU
+
+### Player Animations
+- [ ] idle
+- [ ] walking
+- [ ] walking drunk
+- [ ] looking up
+- [ ] kneeling
+- [ ] picking up/interacting on mid level
+- [ ] sitting in chair
+- [ ] drinking beer sitting
+- [ ] standing up from chair
+- [ ] looking right/left
+- [ ] sitting on ground
+- [ ] getting up from ground
+- [ ] falling into couch
+- [ ] sitting on couch
+- [ ] from laying to sitting on couch
+- [ ] from sitting on couch to standing
+- [ ] passed out on floor
+- [ ] getting up after passed out
+- [ ] head talking
+- [ ] picking up/interacting on low level
+- [ ] picking up/interacting on high level
+- [ ] startled
+- [ ] scratching with screwdriver into brick wall
+- [ ] grabbing his head
+- [ ] rubbing his temple while swaying
+
+### Agent Animations
+- [ ] idle
+- [ ] walking
+- [ ] looking up
+
+### Inventory Items
+- [ ] almost empty bottle of beer
+- [ ] closed bottle of beer
+- [ ] bottle opener
+- [ ] keys
+- [ ] screwdriver
+- [ ] long cable
+- [ ] knife
+- [ ] wire
+- [ ] physics book
+- [ ] radio
+- [ ] battery of radio
+- [ ] shovel
+- [ ] metal rod
+- [ ] coil
+- [ ] electromagnet
+- [ ] small key
+- [ ] singing bowl
+- [ ] toothpaste
+- [ ] telescope
+- [ ] metal scrap
+- [ ] oily rag
+- [ ] polishing rag
+- [ ] reflecting metal plate
+
+---
+
+## Act 1
+
+### Scenes
+- [ ] Build scenes (lighting, hotspots, props, walkable areas)
+
+### Cutscenes
+- [ ] Script cutscenes
+
+### Puzzles
+- [ ] Implement puzzles
+
+### Dialogue
+- [ ] Write dialogue text
+
+### Close-Ups
+- [ ] Program close-up mechanics
+
+---
+
+## Act 2
+
+### Scenes
+- [ ] Build scenes (lighting, hotspots, props, walkable areas)
+
+### Cutscenes
+- [ ] Script cutscenes
+
+### Puzzles
+- [ ] Implement puzzles
+
+### Dialogue
+- [ ] Write dialogue text
+
+### Close-Ups
+- [ ] Program close-up mechanics
+
+---
+
+## Act 3
+
+### Scenes
+- [ ] Build scenes (lighting, hotspots, props, walkable areas)
+
+### Cutscenes
+- [ ] Script cutscenes
+
+### Puzzles
+- [ ] Implement puzzles
+
+### Dialogue
+- [ ] Write dialogue text
+
+### Close-Ups
+- [ ] Program close-up mechanics
+
+---
+
+## Sound Effects
+
+- [ ] Asset list TBD
+
+---
+
+## Music
+
+- [ ] Track list TBD
+
+---
+
+## Voice Over
+
+- [ ] TBD
+
+---
+
+## Translations
+
+- [ ] TBD
