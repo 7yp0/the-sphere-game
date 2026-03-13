@@ -916,6 +916,44 @@ void on_mouse_click(Vec2 pos) {
     // ENTITY MODE: Select and drag entities
     // =========================================================================
     if (g_state.mode == EditorMode::SELECT_ENTITY) {
+        // Cmd/Ctrl+Click on selected projector light: set direction to clicked point
+        if (Platform::control_down() && 
+            g_state.entity_selection_type == EntitySelectionType::PROJECTOR_LIGHT &&
+            g_state.selected_entity != ECS::INVALID_ENTITY) {
+            
+            auto& ecs = Game::g_state.ecs_world;
+            auto& scene = Game::g_state.scene;
+            auto* projector = ecs.get_component<ECS::ProjectorLightComponent>(g_state.selected_entity);
+            auto* transform = ecs.get_component<ECS::Transform3DComponent>(g_state.selected_entity);
+            
+            if (projector && transform && scene.depth_map.is_valid()) {
+                // Get target Z from depth map at clicked position
+                float target_z = ECS::TransformHelpers::get_z_from_depth_map(
+                    scene.depth_map, pos.x, pos.y, scene.width, scene.height);
+                
+                // Convert click position to OpenGL coords for target
+                Vec2 target_gl = Coords::pixel_to_opengl(pos, Config::BASE_WIDTH, Config::BASE_HEIGHT);
+                
+                // Calculate direction from position to clicked target
+                Vec3 target(target_gl.x, target_gl.y, target_z);
+                Vec3 dir = Vec3(
+                    target.x - transform->position.x,
+                    target.y - transform->position.y,
+                    target.z - transform->position.z
+                );
+                float len = sqrtf(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
+                if (len > 0.001f) {
+                    projector->direction = Vec3(dir.x/len, dir.y/len, dir.z/len);
+                    projector->target_distance = len;  // Store actual distance for visualization
+                }
+                
+                DEBUG_INFO("[GeoEditor] Set projector direction at (%.1f, %.1f) → dir (%.2f, %.2f, %.2f)", 
+                       pos.x, pos.y, projector->direction.x, projector->direction.y, projector->direction.z);
+                save_entities(scene.name.c_str());
+                return;
+            }
+        }
+        
         // Check for double-click (same entity, same position, within ~18 frames = 0.3 seconds @ 60fps)
         const int DOUBLE_CLICK_FRAME_THRESHOLD = 18;
         const float DOUBLE_CLICK_DISTANCE = 15.0f;
@@ -1358,6 +1396,37 @@ void render() {
                     }
                 }
             }
+            
+            // Draw direction line (always show direction)
+            auto* projector = ecs.get_component<ECS::ProjectorLightComponent>(scene.projector_light_entities[i]);
+            if (projector) {
+                // Calculate endpoint in OpenGL 3D space: position + direction * target_distance
+                Vec2 target_gl(
+                    transform->position.x + projector->direction.x * projector->target_distance,
+                    transform->position.y + projector->direction.y * projector->target_distance
+                );
+                
+                // Convert OpenGL coords back to pixel coords
+                // Note: opengl_to_pixel has wrong Y formula, so we do inverse of pixel_to_opengl manually:
+                // gl_y = 1 - 2*pixel_y/height  =>  pixel_y = (1 - gl_y) * height / 2
+                float target_pixel_x = (target_gl.x + 1.0f) * 0.5f * Config::BASE_WIDTH;
+                float target_pixel_y = (1.0f - target_gl.y) * 0.5f * Config::BASE_HEIGHT;
+                
+                Vec3 target_pos(target_pixel_x * scale_x, target_pixel_y * scale_y, ui_z);
+                
+                // Draw line from projector to direction endpoint
+                Vec4 dir_color = is_selected ? Vec4(1.0f, 1.0f, 0.0f, 1.0f) : Vec4(1.0f, 0.8f, 0.3f, 0.5f);
+                Renderer::render_line(pos, target_pos, dir_color, is_selected ? 2.0f : 1.0f);
+                
+                // Draw arrow head at endpoint
+                float arrow_size = is_selected ? 6.0f : 4.0f;
+                Renderer::render_line(
+                    Vec3(target_pos.x - arrow_size, target_pos.y - arrow_size, ui_z),
+                    Vec3(target_pos.x + arrow_size, target_pos.y + arrow_size, ui_z), dir_color, 2.0f);
+                Renderer::render_line(
+                    Vec3(target_pos.x + arrow_size, target_pos.y - arrow_size, ui_z),
+                    Vec3(target_pos.x - arrow_size, target_pos.y + arrow_size, ui_z), dir_color, 2.0f);
+            }
         }
         
         // Draw player marker (cyan circle)
@@ -1412,9 +1481,15 @@ void render() {
             float z = transform ? transform->position.z : 0.0f;
             
             // 3D Lights: Show position and Z
-            snprintf(mode_text, sizeof(mode_text), "[%s #%d] Pos=(%.0f,%.0f) Z=%.2f | Drag(XY) Shift+Drag(Z) +/-", 
-                     get_entity_type_name(g_state.entity_selection_type), 
-                     g_state.selected_entity_index, px, py, z);
+            if (g_state.entity_selection_type == EntitySelectionType::PROJECTOR_LIGHT) {
+                // Projector light: Show Shift+Click hint for target
+                snprintf(mode_text, sizeof(mode_text), "[PROJECTOR #%d] Pos=(%.0f,%.0f) Z=%.2f | Shift+Click=set target, Drag=move", 
+                         g_state.selected_entity_index, px, py, z);
+            } else {
+                snprintf(mode_text, sizeof(mode_text), "[%s #%d] Pos=(%.0f,%.0f) Z=%.2f | Drag(XY) Shift+Drag(Z) +/-", 
+                         get_entity_type_name(g_state.entity_selection_type), 
+                         g_state.selected_entity_index, px, py, z);
+            }
         }
     } else if (g_state.mode == EditorMode::SELECT_ENTITY) {
         snprintf(mode_text, sizeof(mode_text), "[ENTITY MODE] Click to select, E=exit");
@@ -1885,6 +1960,7 @@ bool save_entities(const char* scene_name) {
         if (projector) {
             file << ",\n";
             file << "      \"direction\": [" << projector->direction.x << ", " << projector->direction.y << ", " << projector->direction.z << "],\n";
+            file << "      \"target_distance\": " << projector->target_distance << ",\n";
             file << "      \"color\": [" << projector->color.x << ", " << projector->color.y << ", " << projector->color.z << "],\n";
             file << "      \"intensity\": " << projector->intensity << "\n";
         } else {
@@ -2103,6 +2179,38 @@ bool load_entities(const char* scene_name) {
                     if (transform) {
                         transform->position = Vec3(x, y, z);
                     }
+                }
+            }
+            
+            // Parse direction
+            size_t dir_key = content.find("\"direction\"", obj_start);
+            if (dir_key < obj_end && index >= 0 && index < (int)scene.projector_light_entities.size()) {
+                size_t dir_arr_start = content.find('[', dir_key);
+                size_t dir_arr_end = content.find(']', dir_arr_start);
+                std::string coords = content.substr(dir_arr_start + 1, dir_arr_end - dir_arr_start - 1);
+                float x = 0, y = 0, z = 0;
+                if (sscanf(coords.c_str(), "%f, %f, %f", &x, &y, &z) == 3 ||
+                    sscanf(coords.c_str(), "%f,%f,%f", &x, &y, &z) == 3) {
+                    auto* projector = ecs.get_component<ECS::ProjectorLightComponent>(scene.projector_light_entities[index]);
+                    if (projector) {
+                        // Normalize direction
+                        float len = sqrtf(x*x + y*y + z*z);
+                        if (len > 0.001f) {
+                            projector->direction = Vec3(x/len, y/len, z/len);
+                        }
+                    }
+                }
+            }
+            
+            // Parse target_distance
+            size_t dist_key = content.find("\"target_distance\"", obj_start);
+            if (dist_key < obj_end && index >= 0 && index < (int)scene.projector_light_entities.size()) {
+                size_t colon = content.find(':', dist_key);
+                float dist = 0.5f;
+                sscanf(content.c_str() + colon + 1, "%f", &dist);
+                auto* projector = ecs.get_component<ECS::ProjectorLightComponent>(scene.projector_light_entities[index]);
+                if (projector) {
+                    projector->target_distance = dist;
                 }
             }
             

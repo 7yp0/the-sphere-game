@@ -269,9 +269,6 @@ static void upload_projector_light_uniforms()
     glUniform1i(glGetUniformLocation(litShaderProgram, "numProjectorLights"), g_num_projector_lights);
     
     if (g_num_projector_lights > 0) {
-        uint32_t render_width = get_render_width();
-        uint32_t render_height = get_render_height();
-        
         std::vector<Vec3> positions;
         std::vector<Vec3> directions;
         std::vector<Vec3> ups;
@@ -282,11 +279,8 @@ static void upload_projector_light_uniforms()
         std::vector<float> ranges;
         
         for (uint32_t i = 0; i < g_num_projector_lights; i++) {
-            // Convert position from pixel to OpenGL coords
-            Vec2 opengl_pos = Coords::pixel_to_opengl(
-                Vec2(g_projector_lights[i].position.x, g_projector_lights[i].position.y),
-                render_width, render_height);
-            positions.push_back(Vec3(opengl_pos.x, opengl_pos.y, g_projector_lights[i].position.z));
+            // Position is already in OpenGL coords (set from Transform3DComponent)
+            positions.push_back(g_projector_lights[i].position);
             
             // Direction and up are already normalized, pass through
             directions.push_back(g_projector_lights[i].direction);

@@ -26,6 +26,7 @@ bool mouse_down();     // Returns true while mouse button is held
 float scroll_delta();  // Returns scroll delta Y (positive = up, negative = down), consume-on-read
 bool key_pressed(int key_code);
 bool shift_down();     // Returns true while Shift key is held
+bool control_down();   // Returns true while Control/Cmd key is held
 
 void set_mouse_pos(Vec2 pos);
 void set_mouse_clicked(bool clicked);

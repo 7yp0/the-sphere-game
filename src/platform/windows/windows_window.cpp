@@ -357,6 +357,11 @@ bool shift_down()
     return (GetKeyState(VK_SHIFT) & 0x8000) != 0;
 }
 
+bool control_down()
+{
+    return (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+}
+
 float scroll_delta()
 {
     float delta = g_scroll_delta;

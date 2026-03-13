@@ -286,8 +286,8 @@
 - [x] move/positon player and objects (props) - 2.5D: nur X/Y, Z automatisch aus Depth Map
 - [x] move/position light sources - 3D: X/Y via drag, Z via scroll wheel oder +/- keys
 - [x] elevation of objects does not work very good. shadows are not right!
-- [ ] vertical line of lights reflects distance from light position to the 2.5D ground (accounts for depth scaling)
-- [ ] direction für projector lights (shift click in 2.5D room to where it should shine?)
+- [s] vertical line of lights reflects distance from light position to the 2.5D ground (accounts for depth scaling)
+- [x] direction für projector lights (shift click in 2.5D room to where it should shine?)
 
 **2.5D vs 3D Koordinatensystem:**
 

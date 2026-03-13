@@ -132,11 +132,12 @@ EntityID create_projector_light(
 ) {
     EntityID entity = g_state.ecs_world.create_entity();
     
-    // Store pixel position in Transform2_5D (will be converted to OpenGL in render)
-    auto& transform = g_state.ecs_world.add_component<Transform2_5DComponent>(entity);
-    transform.position = pixel_position;
-    transform.z_depth = z_depth;
-    transform.scale = Vec2(1.0f, 1.0f);
+    // Convert pixel position to OpenGL coords for 3D positioning (like point lights)
+    float gl_x = (pixel_position.x / Config::BASE_WIDTH) * 2.0f - 1.0f;
+    float gl_y = 1.0f - (pixel_position.y / Config::BASE_HEIGHT) * 2.0f;
+    
+    auto& transform = g_state.ecs_world.add_component<Transform3DComponent>(entity);
+    transform.position = Vec3(gl_x, gl_y, z_depth);
     
     // Add ProjectorLightComponent
     auto& projector = g_state.ecs_world.add_component<ProjectorLightComponent>(entity);
@@ -150,8 +151,8 @@ EntityID create_projector_light(
     projector.cookie = cookie;
     projector.enabled = true;
     
-    printf("[ECS] Created projector light entity %u at pixel(%.0f, %.0f) z=%.2f\n",
-           entity, pixel_position.x, pixel_position.y, z_depth);
+    printf("[ECS] Created projector light entity %u at pixel(%.0f, %.0f) → OpenGL(%.2f, %.2f, %.2f)\n",
+           entity, pixel_position.x, pixel_position.y, gl_x, gl_y, z_depth);
     
     return entity;
 }

@@ -277,6 +277,12 @@ bool shift_down()
     return ([NSEvent modifierFlags] & NSEventModifierFlagShift) != 0;
 }
 
+bool control_down()
+{
+    // On Mac, use Command key (more natural for Mac users)
+    return ([NSEvent modifierFlags] & NSEventModifierFlagCommand) != 0;
+}
+
 void set_mouse_pos(Vec2 pos)
 {
     g_mousePos = pos;

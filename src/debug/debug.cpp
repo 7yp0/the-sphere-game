@@ -78,14 +78,14 @@ static void render_lights_debug() {
     
     // Draw projector lights (Transform2_5D - pixel coords)
     for (ECS::EntityID proj_entity : Game::g_state.scene.projector_light_entities) {
-        auto* transform = Game::g_state.ecs_world.get_component<ECS::Transform2_5DComponent>(proj_entity);
+        auto* transform = Game::g_state.ecs_world.get_component<ECS::Transform3DComponent>(proj_entity);
         auto* projector = Game::g_state.ecs_world.get_component<ECS::ProjectorLightComponent>(proj_entity);
         
         if (!transform || !projector) continue;
         
-        // Scale from base to viewport coordinates
-        float pixel_x = transform->position.x * scale_x;
-        float pixel_y = transform->position.y * scale_y;
+        // Convert OpenGL coords to pixel coords, then scale to viewport
+        float pixel_x = ((transform->position.x + 1.0f) * 0.5f * Config::BASE_WIDTH) * scale_x;
+        float pixel_y = ((1.0f - transform->position.y) * 0.5f * Config::BASE_HEIGHT) * scale_y;
         
         // Draw square at projector position
         Vec3 pos = Vec3(pixel_x, pixel_y, ui_z);

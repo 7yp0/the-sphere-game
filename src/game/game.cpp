@@ -315,13 +315,13 @@ void render() {
     // =========================================================================
     std::vector<Renderer::ProjectorLightData> projector_lights;
     for (ECS::EntityID proj_entity : g_state.scene.projector_light_entities) {
-        auto* transform = g_state.ecs_world.get_component<ECS::Transform2_5DComponent>(proj_entity);
+        auto* transform = g_state.ecs_world.get_component<ECS::Transform3DComponent>(proj_entity);
         auto* projector = g_state.ecs_world.get_component<ECS::ProjectorLightComponent>(proj_entity);
         
         if (!transform || !projector || !projector->enabled) continue;
         
         Renderer::ProjectorLightData pd;
-        pd.position = Vec3(transform->position.x, transform->position.y, transform->z_depth);
+        pd.position = transform->position;  // Already in OpenGL 3D coords
         pd.direction = projector->direction;
         pd.up = projector->up;
         pd.color = projector->color;
