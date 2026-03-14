@@ -2,6 +2,7 @@
 
 #include "types.h"
 #include "renderer/renderer.h"
+#include "inventory_ui.h"  // For get_ui_scale()
 #include <string>
 
 namespace UI {
@@ -10,6 +11,22 @@ enum class CursorState {
     Default,    // Normal cursor
     Hover       // Over interactive hotspot
 };
+
+// Cursor configuration (BASE sizes at 1x scale)
+namespace CursorConfig {
+    constexpr float BASE_CURSOR_SIZE = 8.0f;        // Cursor size at 1x
+    constexpr float BASE_ITEM_CURSOR_SIZE = 12.0f;  // Item on cursor size at 1x
+    constexpr float BASE_TOOLTIP_OFFSET_X = 5.0f;   // Tooltip X offset at 1x
+    constexpr float BASE_TOOLTIP_OFFSET_Y = 7.0f;   // Tooltip Y offset at 1x
+    constexpr float BASE_TOOLTIP_PADDING = 1.5f;    // Tooltip padding at 1x
+    
+    // Scaled accessors
+    inline float cursor_size() { return BASE_CURSOR_SIZE * get_ui_scale(); }
+    inline float item_cursor_size() { return BASE_ITEM_CURSOR_SIZE * get_ui_scale(); }
+    inline float tooltip_offset_x() { return BASE_TOOLTIP_OFFSET_X * get_ui_scale(); }
+    inline float tooltip_offset_y() { return BASE_TOOLTIP_OFFSET_Y * get_ui_scale(); }
+    inline float tooltip_padding() { return BASE_TOOLTIP_PADDING * get_ui_scale(); }
+}
 
 struct CursorSystem {
     // Textures
@@ -20,13 +37,6 @@ struct CursorSystem {
     CursorState state = CursorState::Default;
     std::string tooltip_text;
     bool initialized = false;
-    
-    // Cursor dimensions (in viewport pixels)
-    Vec2 cursor_size = Vec2(32.0f, 32.0f);
-    
-    // Tooltip settings
-    Vec2 tooltip_offset = Vec2(20.0f, 28.0f);  // Offset from cursor position
-    float tooltip_padding = 6.0f;              // Background padding around text
 };
 
 // Initialize cursor system (loads textures)

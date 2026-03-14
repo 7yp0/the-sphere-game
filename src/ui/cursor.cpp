@@ -69,7 +69,8 @@ void update_cursor(Vec2 mouse_pos) {
 static float calculate_text_width(const char* text, float scale) {
     if (!text) return 0.0f;
     
-    float glyph_width = 24.0f * scale;   // From text.cpp (updated for larger font)
+    // Match text.cpp glyph size (24px at scale 1.0)
+    float glyph_width = 24.0f * scale;
     float spacing = glyph_width * 1.1f;
     
     int char_count = 0;
@@ -89,7 +90,7 @@ void render_cursor(Vec2 mouse_pos) {
         const auto* item_def = Inventory::get_item_def(item_id);
         if (item_def && item_def->icon_tex != 0) {
             // Render item texture at cursor position
-            float item_size = 48.0f;  // Slightly larger than cursor
+            float item_size = CursorConfig::item_cursor_size();
             Vec3 item_pos = Vec3(mouse_pos.x, mouse_pos.y, ZDepth::CURSOR);
             
             // If hovering a hotspot, render with outline
@@ -116,7 +117,8 @@ void render_cursor(Vec2 mouse_pos) {
     // Render cursor sprite at mouse position (centered on cursor)
     // Use CENTER pivot so cursor hotspot is at mouse position
     Vec3 cursor_pos = Vec3(mouse_pos.x, mouse_pos.y, ZDepth::CURSOR);
-    Renderer::render_sprite(cursor_tex, cursor_pos, g_cursor.cursor_size, PivotPoint::CENTER);
+    float cursor_size = CursorConfig::cursor_size();
+    Renderer::render_sprite(cursor_tex, cursor_pos, Vec2(cursor_size, cursor_size), PivotPoint::CENTER);
     
     // Render tooltip if we have text
     if (!g_cursor.tooltip_text.empty()) {
@@ -127,14 +129,14 @@ void render_cursor(Vec2 mouse_pos) {
 static void render_tooltip(Vec2 mouse_pos, const char* text) {
     if (!text || text[0] == '\0') return;
     
-    float scale = 1.0f;
+    float scale = 1.0f;  // Text scale stays fixed
     float text_width = calculate_text_width(text, scale);
-    float text_height = 32.0f * scale;  // Single line height (matches font glyph height)
-    float padding = g_cursor.tooltip_padding;
+    float text_height = 32.0f * scale;  // Match font glyph height
+    float padding = CursorConfig::tooltip_padding();
     
     // Calculate tooltip position (smart positioning)
-    float tooltip_x = mouse_pos.x + g_cursor.tooltip_offset.x;
-    float tooltip_y = mouse_pos.y + g_cursor.tooltip_offset.y;
+    float tooltip_x = mouse_pos.x + CursorConfig::tooltip_offset_x();
+    float tooltip_y = mouse_pos.y + CursorConfig::tooltip_offset_y();
     
     float bg_width = text_width + padding * 2;
     float bg_height = text_height + padding * 2;
@@ -145,12 +147,12 @@ static void render_tooltip(Vec2 mouse_pos, const char* text) {
     
     // If tooltip would go off right edge, flip to left of cursor
     if (right_edge > (float)Platform::get_window_width()) {
-        tooltip_x = mouse_pos.x - g_cursor.tooltip_offset.x - bg_width;
+        tooltip_x = mouse_pos.x - CursorConfig::tooltip_offset_x() - bg_width;
     }
     
     // If tooltip would go off bottom edge, flip to above cursor
     if (bottom_edge > (float)Platform::get_window_height()) {
-        tooltip_y = mouse_pos.y - g_cursor.tooltip_offset.y - bg_height;
+        tooltip_y = mouse_pos.y - CursorConfig::tooltip_offset_y() - bg_height;
     }
     
     // Clamp to screen bounds (failsafe)

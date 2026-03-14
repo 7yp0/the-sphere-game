@@ -12,13 +12,13 @@ static InventoryUI g_inv_ui;
 
 // Helper: Calculate panel dimensions
 static Vec2 get_panel_size() {
-    float grid_width = InventoryConfig::GRID_COLS * InventoryConfig::SLOT_SIZE 
-                     + (InventoryConfig::GRID_COLS - 1) * InventoryConfig::SLOT_PADDING;
-    float grid_height = InventoryConfig::GRID_ROWS * InventoryConfig::SLOT_SIZE 
-                      + (InventoryConfig::GRID_ROWS - 1) * InventoryConfig::SLOT_PADDING;
+    float grid_width = InventoryConfig::GRID_COLS * InventoryConfig::slot_size() 
+                     + (InventoryConfig::GRID_COLS - 1) * InventoryConfig::slot_padding();
+    float grid_height = InventoryConfig::GRID_ROWS * InventoryConfig::slot_size() 
+                      + (InventoryConfig::GRID_ROWS - 1) * InventoryConfig::slot_padding();
     return Vec2(
-        grid_width + InventoryConfig::PANEL_PADDING * 2,
-        grid_height + InventoryConfig::PANEL_PADDING * 2
+        grid_width + InventoryConfig::panel_padding() * 2,
+        grid_height + InventoryConfig::panel_padding() * 2
     );
 }
 
@@ -39,10 +39,10 @@ static Vec2 get_slot_position(int slot_index) {
     int col = slot_index % InventoryConfig::GRID_COLS;
     int row = slot_index / InventoryConfig::GRID_COLS;
     
-    float x = panel_pos.x + InventoryConfig::PANEL_PADDING 
-            + col * (InventoryConfig::SLOT_SIZE + InventoryConfig::SLOT_PADDING);
-    float y = panel_pos.y + InventoryConfig::PANEL_PADDING 
-            + row * (InventoryConfig::SLOT_SIZE + InventoryConfig::SLOT_PADDING);
+    float x = panel_pos.x + InventoryConfig::panel_padding() 
+            + col * (InventoryConfig::slot_size() + InventoryConfig::slot_padding());
+    float y = panel_pos.y + InventoryConfig::panel_padding() 
+            + row * (InventoryConfig::slot_size() + InventoryConfig::slot_padding());
     
     return Vec2(x, y);
 }
@@ -57,8 +57,8 @@ static bool point_in_rect(Vec2 point, Vec2 rect_pos, Vec2 rect_size) {
 static Vec2 get_icon_button_position() {
     float viewport_h = (float)Platform::get_window_height();
     return Vec2(
-        InventoryConfig::ICON_BUTTON_MARGIN,
-        viewport_h - InventoryConfig::ICON_BUTTON_SIZE - InventoryConfig::ICON_BUTTON_MARGIN
+        InventoryConfig::icon_button_margin(),
+        viewport_h - InventoryConfig::icon_button_size() - InventoryConfig::icon_button_margin()
     );
 }
 
@@ -95,7 +95,7 @@ bool update_inventory_ui(Vec2 mouse_pos) {
     
     // Check inventory icon button hover/click
     Vec2 btn_pos = get_icon_button_position();
-    Vec2 btn_size = Vec2(InventoryConfig::ICON_BUTTON_SIZE, InventoryConfig::ICON_BUTTON_SIZE);
+    Vec2 btn_size = Vec2(InventoryConfig::icon_button_size(), InventoryConfig::icon_button_size());
     bool hovering_button = point_in_rect(mouse_pos, btn_pos, btn_size);
     
     // Only consume mouse_clicked if we're actually hovering UI elements
@@ -108,7 +108,12 @@ bool update_inventory_ui(Vec2 mouse_pos) {
     g_inv_ui.hovering_button = hovering_button;
     
     if (hovering_button && mouse_clicked) {
-        toggle_inventory();
+        // If item is selected, deselect it instead of toggling inventory
+        if (has_selected_item()) {
+            clear_selected_item();
+        } else {
+            toggle_inventory();
+        }
         consumed = true;
     }
     
@@ -143,7 +148,7 @@ bool update_inventory_ui(Vec2 mouse_pos) {
         
         for (int i = 0; i < (int)Inventory::MAX_SLOTS; i++) {
             Vec2 slot_pos = get_slot_position(i);
-            Vec2 slot_size = Vec2(InventoryConfig::SLOT_SIZE, InventoryConfig::SLOT_SIZE);
+            Vec2 slot_size = Vec2(InventoryConfig::slot_size(), InventoryConfig::slot_size());
             
             if (point_in_rect(mouse_pos, slot_pos, slot_size)) {
                 g_inv_ui.hovered_slot = i;
@@ -208,7 +213,7 @@ void render_inventory_ui() {
     
     // Render inventory icon button
     Vec2 btn_pos = get_icon_button_position();
-    Vec2 btn_size = Vec2(InventoryConfig::ICON_BUTTON_SIZE, InventoryConfig::ICON_BUTTON_SIZE);
+    Vec2 btn_size = Vec2(InventoryConfig::icon_button_size(), InventoryConfig::icon_button_size());
     
     // Select texture based on hover state
     Renderer::TextureID btn_tex = g_inv_ui.hovering_button 
@@ -238,8 +243,8 @@ void render_inventory_ui() {
         
         Renderer::render_text(
             "INV",
-            Vec2(btn_pos.x + InventoryConfig::ICON_BUTTON_SIZE * 0.5f - 24.0f, 
-                 btn_pos.y + InventoryConfig::ICON_BUTTON_SIZE * 0.5f - 12.0f),
+            Vec2(btn_pos.x + InventoryConfig::icon_button_size() * 0.5f - 24.0f, 
+                 btn_pos.y + InventoryConfig::icon_button_size() * 0.5f - 12.0f),
             0.75f
         );
     }
@@ -271,7 +276,7 @@ void render_inventory_ui() {
     // Render slots
     for (int i = 0; i < (int)Inventory::MAX_SLOTS; i++) {
         Vec2 slot_pos = get_slot_position(i);
-        Vec2 slot_size = Vec2(InventoryConfig::SLOT_SIZE, InventoryConfig::SLOT_SIZE);
+        Vec2 slot_size = Vec2(InventoryConfig::slot_size(), InventoryConfig::slot_size());
         
         // Slot background
         if (g_inv_ui.slot_bg_tex != 0) {
@@ -299,10 +304,10 @@ void render_inventory_ui() {
         if (!slot.is_empty() && slot.item_id != g_inv_ui.selected_item_id) {
             const auto* item_def = Inventory::get_item_def(slot.item_id);
             if (item_def && item_def->icon_tex != 0) {
-                float icon_size = InventoryConfig::SLOT_SIZE - 8.0f;
+                float icon_size = InventoryConfig::slot_size() - 8.0f * get_ui_scale();
                 Vec2 icon_pos = Vec2(
-                    slot_pos.x + (InventoryConfig::SLOT_SIZE - icon_size) * 0.5f,
-                    slot_pos.y + (InventoryConfig::SLOT_SIZE - icon_size) * 0.5f
+                    slot_pos.x + (InventoryConfig::slot_size() - icon_size) * 0.5f,
+                    slot_pos.y + (InventoryConfig::slot_size() - icon_size) * 0.5f
                 );
                 Renderer::render_sprite(
                     item_def->icon_tex,
@@ -314,7 +319,7 @@ void render_inventory_ui() {
                 // No texture - render placeholder with item ID
                 Renderer::render_text(
                     slot.item_id.substr(0, 3).c_str(),
-                    Vec2(slot_pos.x + 8.0f, slot_pos.y + 20.0f),
+                    Vec2(slot_pos.x + 8.0f * get_ui_scale(), slot_pos.y + 20.0f * get_ui_scale()),
                     0.5f
                 );
             }

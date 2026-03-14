@@ -2,19 +2,39 @@
 
 #include "types.h"
 #include "renderer/renderer.h"
+#include "config.h"
+#include "platform.h"
 #include <string>
+#include <algorithm>
 
 namespace UI {
 
-// Inventory UI configuration
+// Get integer UI scale factor based on window size
+// Returns 1, 2, 3, 4, 5, 6... depending on how many times base res fits
+inline int get_ui_scale() {
+    int scale_x = Platform::get_window_width() / Config::BASE_WIDTH;
+    int scale_y = Platform::get_window_height() / Config::BASE_HEIGHT;
+    return std::max(1, std::min(scale_x, scale_y));
+}
+
+// Inventory UI configuration (BASE sizes at 1x scale)
 namespace InventoryConfig {
     constexpr int GRID_COLS = 4;                    // Columns in inventory grid
     constexpr int GRID_ROWS = 4;                    // Rows in inventory grid (4x4 = 16 slots)
-    constexpr float SLOT_SIZE = 80.0f;              // Size of each slot in viewport pixels
-    constexpr float SLOT_PADDING = 6.0f;            // Padding between slots
-    constexpr float PANEL_PADDING = 20.0f;          // Padding around the grid
-    constexpr float ICON_BUTTON_SIZE = 48.0f;       // Size of inventory icon button
-    constexpr float ICON_BUTTON_MARGIN = 16.0f;     // Margin from screen edge
+    
+    // Base sizes (at 1x scale = 320x180)
+    constexpr float BASE_SLOT_SIZE = 20.0f;         // Size of each slot
+    constexpr float BASE_SLOT_PADDING = 1.5f;       // Padding between slots
+    constexpr float BASE_PANEL_PADDING = 5.0f;      // Padding around the grid
+    constexpr float BASE_ICON_BUTTON_SIZE = 24.0f;  // Size of inventory icon button
+    constexpr float BASE_ICON_BUTTON_MARGIN = 4.0f; // Margin from screen edge
+    
+    // Scaled accessors
+    inline float slot_size() { return BASE_SLOT_SIZE * get_ui_scale(); }
+    inline float slot_padding() { return BASE_SLOT_PADDING * get_ui_scale(); }
+    inline float panel_padding() { return BASE_PANEL_PADDING * get_ui_scale(); }
+    inline float icon_button_size() { return BASE_ICON_BUTTON_SIZE * get_ui_scale(); }
+    inline float icon_button_margin() { return BASE_ICON_BUTTON_MARGIN * get_ui_scale(); }
 }
 
 // Inventory UI state
