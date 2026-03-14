@@ -123,7 +123,7 @@ void render_text(const char* text, Vec2 pos, float scale) {
         // render_sprite expects pixel coordinates and sizes, will convert internally
         render_sprite(g_font_texture, current_pos, Vec2(glyph_width_px, glyph_height_px), 
                      uv_range);
-        current_pos.x += glyph_width_px * 1.1f;
+        current_pos.x += glyph_width_px * Renderer::CHAR_SPACING;
         
         p += char_len;
     }

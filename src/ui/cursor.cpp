@@ -69,9 +69,9 @@ void update_cursor(Vec2 mouse_pos) {
 static float calculate_text_width(const char* text, float scale) {
     if (!text) return 0.0f;
     
-    // Match text.cpp glyph size (24px at scale 1.0)
+    // Match text.cpp glyph size
     float glyph_width = 24.0f * scale;
-    float spacing = glyph_width * 1.1f;
+    float spacing = glyph_width * Renderer::CHAR_SPACING;
     
     int char_count = 0;
     for (const char* p = text; *p; p++) {
