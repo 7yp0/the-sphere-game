@@ -1,4 +1,6 @@
 #include "cursor.h"
+#include "inventory_ui.h"
+#include "inventory/inventory.h"
 #include "renderer/texture_loader.h"
 #include "renderer/text.h"
 #include "collision/polygon_utils.h"
@@ -47,18 +49,17 @@ void update_cursor(Vec2 mouse_pos) {
     float scale_y = (float)Config::BASE_HEIGHT / (float)Platform::get_window_height();
     Vec2 mouse_base = Vec2(mouse_pos.x * scale_x, mouse_pos.y * scale_y);
     
-    // Check hotspots for hover
-    g_cursor.state = CursorState::Default;
-    g_cursor.tooltip_text.clear();
-    
+    // Check hotspots - set hover state if over a hotspot (don't reset, that's done by reset_cursor_state)
     const auto& hotspots = Game::g_state.scene.geometry.hotspots;
     for (const auto& hotspot : hotspots) {
         if (!hotspot.enabled) continue;
         
         if (Collision::point_in_polygon(mouse_base, hotspot.bounds)) {
             g_cursor.state = CursorState::Hover;
-            // Use tooltip_key if set, otherwise fall back to name
-            g_cursor.tooltip_text = hotspot.tooltip_key.empty() ? hotspot.name : hotspot.tooltip_key;
+            // Only set tooltip if not already set by UI (e.g., inventory)
+            if (g_cursor.tooltip_text.empty()) {
+                g_cursor.tooltip_text = hotspot.tooltip_key.empty() ? hotspot.name : hotspot.tooltip_key;
+            }
             break;  // First match wins
         }
     }
@@ -81,6 +82,31 @@ static float calculate_text_width(const char* text, float scale) {
 
 void render_cursor(Vec2 mouse_pos) {
     if (!g_cursor.initialized) return;
+    
+    // Check if we have a selected item to display on cursor
+    if (has_selected_item()) {
+        const std::string& item_id = get_selected_item();
+        const auto* item_def = Inventory::get_item_def(item_id);
+        if (item_def && item_def->icon_tex != 0) {
+            // Render item texture at cursor position
+            float item_size = 48.0f;  // Slightly larger than cursor
+            Vec3 item_pos = Vec3(mouse_pos.x, mouse_pos.y, ZDepth::CURSOR);
+            
+            // If hovering a hotspot, render with outline
+            if (g_cursor.state == CursorState::Hover) {
+                Vec4 outline_color = Vec4(1.0f, 1.0f, 1.0f, 1.0f);  // White outline
+                Renderer::render_sprite_outlined(item_def->icon_tex, item_pos, Vec2(item_size, item_size), outline_color, PivotPoint::CENTER);
+            } else {
+                Renderer::render_sprite(item_def->icon_tex, item_pos, Vec2(item_size, item_size), PivotPoint::CENTER);
+            }
+            
+            // Still render tooltip if hovering hotspot
+            if (!g_cursor.tooltip_text.empty()) {
+                render_tooltip(mouse_pos, g_cursor.tooltip_text.c_str());
+            }
+            return;  // Don't render normal cursor when item is selected
+        }
+    }
     
     // Select cursor texture based on state
     Renderer::TextureID cursor_tex = (g_cursor.state == CursorState::Hover) 
@@ -147,6 +173,11 @@ void set_cursor_state(CursorState state) {
 
 void set_tooltip(const std::string& text) {
     g_cursor.tooltip_text = text;
+}
+
+void reset_cursor_state() {
+    g_cursor.tooltip_text.clear();
+    g_cursor.state = CursorState::Default;
 }
 
 CursorState get_cursor_state() {

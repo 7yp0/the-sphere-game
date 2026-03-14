@@ -19,15 +19,27 @@
     {
       "name": "box_hotspot",
       "tooltip_key": "box_hotspot_tooltip",
-      "interaction_distance": 0.25,
+      "interaction_type": "walk_to_target",
       "target_position": [89.9043, 131.604],
       "points": [[62.5, 105], [84.6152, 104.781], [85.0342, 128.663], [61.8291, 128.134]]
     },
     {
+      "name": "stone_hotspot",
+      "tooltip_key": "A nice looking stone!",
+      "interaction_type": "walk_to_target",
+      "target_position": [171.667, 79.8333],
+      "points": [[176.667, 40.6667], [165.167, 40.6667], [164.833, 49.3333], [176.333, 48.3333]]
+    },
+    {
+      "name": "hotspot_tree",
+      "tooltip_key": "Tree!",
+      "interaction_type": "immediate",
+      "points": [[217.167, 35.1667], [216.167, 72.6667], [235, 70], [234.833, 34.3333]]
+    },
+    {
       "name": "hotspot_1",
-      "tooltip_key": "hotspot_1_tooltip",
-      "interaction_distance": 20,
-      "points": [[219, 34], [218.25, 64.5], [239.25, 63.5], [236.75, 33.75]]
+      "interaction_type": "walk_to_hotspot",
+      "points": [[53.8333, 51.5], [54.8333, 71.3333], [74.6667, 71], [68.5, 48.6667]]
     }
   ]
 }

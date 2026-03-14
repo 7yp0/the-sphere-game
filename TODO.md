@@ -10,32 +10,6 @@
 
 ---
 
-## Inventory System
-
-### Inventory UI
-- [ ] UI icon on screen to open inventory
-- [ ] Popup/overlay inventory panel
-- [ ] Fixed size: 16 slots (configurable)
-- [ ] Item icons in grid
-- [ ] Tooltip on item hover (same system as hotspots)
-
-### Inventory Logic
-- [ ] Inventory data structure
-- [ ] Add item
-- [ ] Remove item
-
-### Item Combination
-- [ ] Drag item onto another item
-- [ ] Combination callback system (scriptable)
-- [ ] Invalid combination feedback
-
-### Item on Hotspot
-- [ ] Select item from inventory (click selects and closes inventory)
-- [ ] Use selected item on world hotspot (hover with item -> ui feedback)
-- [ ] Interaction callback (scriptable)
-
----
-
 ## Camera & World Navigation
 
 ### Camera System

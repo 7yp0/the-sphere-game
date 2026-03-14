@@ -15,6 +15,7 @@ static GLuint shaderProgram = 0;
 static GLuint colorShaderProgram = 0;
 static GLuint litShaderProgram = 0;    // Shader for lit sprites with ECS lights
 static GLuint upscaleShaderProgram = 0;  // Shader for upscaling FBO to viewport
+static GLuint outlineShaderProgram = 0;  // Shader for sprite outlines (hover effect)
 static uint32_t g_viewport_width = 0;
 static uint32_t g_viewport_height = 0;
 static TextureID g_depth_map_texture = 0;
@@ -94,6 +95,20 @@ void init_renderer(uint32_t width, uint32_t height)
         glUniform1i(glGetUniformLocation(litShaderProgram, "texture0"), 0);    // Diffuse
         glUniform1i(glGetUniformLocation(litShaderProgram, "normalMap"), 1);   // Normal map
         glUniform1i(glGetUniformLocation(litShaderProgram, "depthMap"), 2);    // Depth map
+        glUseProgram(0);
+    }
+    
+    // Load outline shader for sprite hover effects
+    std::string outlineVertSrc = load_shader_source("outline.vert");
+    std::string outlineFragSrc = load_shader_source("outline.frag");
+    outlineShaderProgram = compile_and_link_shader(outlineVertSrc.c_str(), outlineFragSrc.c_str());
+    
+    if (outlineShaderProgram == 0) {
+        DEBUG_ERROR("Failed to compile outline shader program!");
+    } else {
+        DEBUG_INFO("Successfully loaded outline shader program (ID: %u)", outlineShaderProgram);
+        glUseProgram(outlineShaderProgram);
+        glUniform1i(glGetUniformLocation(outlineShaderProgram, "texture0"), 0);
         glUseProgram(0);
     }
 }
@@ -188,6 +203,64 @@ void render_sprite_animated(const SpriteAnimation* anim, Vec3 pos, Vec2 size, Pi
     
     // Render using sprite map texture with UV mapping
     render_sprite(anim->texture, pos, size, tex_coord_range, pivot);
+}
+
+void render_sprite_outlined(TextureID tex, Vec3 pos, Vec2 size, Vec4 outline_color, PivotPoint pivot)
+{
+    render_sprite_outlined(tex, pos, size, Vec4(0.0f, 0.0f, 1.0f, 1.0f), outline_color, pivot);
+}
+
+void render_sprite_outlined(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range, Vec4 outline_color, PivotPoint pivot)
+{
+    // Get current render target dimensions (FBO or viewport)
+    uint32_t render_width = get_render_width();
+    uint32_t render_height = get_render_height();
+    
+    // Convert pixel coordinates to OpenGL coordinates
+    Vec2 opengl_pos = Coords::pixel_to_opengl(Vec2(pos.x, pos.y), render_width, render_height);
+    Vec2 opengl_size = Vec2(
+        (size.x / (float)render_width) * 2.0f,
+        (size.y / (float)render_height) * 2.0f
+    );
+    
+    // Calculate offset from pivot point to center
+    Vec2 pivot_offset = Coords::get_pivot_offset(pivot, size.x, size.y);
+    Vec2 pivot_offset_opengl = Vec2(
+        (pivot_offset.x / (float)render_width) * 2.0f,
+        -(pivot_offset.y / (float)render_height) * 2.0f
+    );
+    
+    Vec2 opengl_center = Vec2(
+        opengl_pos.x + pivot_offset_opengl.x,
+        opengl_pos.y + pivot_offset_opengl.y
+    );
+    
+    // Get texture dimensions for texel size calculation
+    GLint tex_width = 0, tex_height = 0;
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &tex_width);
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &tex_height);
+    
+    float texel_x = (tex_width > 0) ? 1.0f / (float)tex_width : 0.0f;
+    float texel_y = (tex_height > 0) ? 1.0f / (float)tex_height : 0.0f;
+    
+    glUseProgram(outlineShaderProgram);
+    
+    glUniform2f(glGetUniformLocation(outlineShaderProgram, "spritePos"), opengl_center.x, opengl_center.y);
+    glUniform2f(glGetUniformLocation(outlineShaderProgram, "spriteSize"), opengl_size.x, opengl_size.y);
+    glUniform1f(glGetUniformLocation(outlineShaderProgram, "spriteZ"), pos.z);
+    glUniform4f(glGetUniformLocation(outlineShaderProgram, "texCoordRange"), 
+                tex_coord_range.x, tex_coord_range.y, tex_coord_range.z, tex_coord_range.w);
+    glUniform2f(glGetUniformLocation(outlineShaderProgram, "texelSize"), texel_x, texel_y);
+    glUniform4f(glGetUniformLocation(outlineShaderProgram, "outlineColor"), 
+                outline_color.x, outline_color.y, outline_color.z, outline_color.w);
+    
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
 }
 
 void render_rect(Vec3 pos, Vec2 size, Vec4 color, PivotPoint pivot)

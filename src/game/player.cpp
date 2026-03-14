@@ -9,7 +9,9 @@
 #include "collision/polygon_utils.h"
 #include "scene/scene.h"
 #include "debug/debug.h"
+#include "debug/debug_log.h"
 #include "ecs/ecs.h"
+#include "ui/inventory_ui.h"
 #include <cmath>
 #include <algorithm>
 #include <cstdio>
@@ -109,15 +111,40 @@ static void set_player_animation_state(Player& player, AnimationState new_state,
 
 // Helper function: Check if player is within interaction range of hotspot (squared distance to avoid sqrt)
 static bool is_player_in_hotspot_range(const Vec2& player_pos, const Player& player, const Scene::Hotspot& hotspot) {
-    Vec2 closest = Collision::closest_point_on_polygon(player_pos, hotspot.bounds);
-    Vec2 delta = Vec2(closest.x - player_pos.x, closest.y - player_pos.y);
+    // Calculate centroid of hotspot polygon
+    Vec2 centroid(0.0f, 0.0f);
+    for (const auto& p : hotspot.bounds.points) {
+        centroid.x += p.x;
+        centroid.y += p.y;
+    }
+    centroid.x /= hotspot.bounds.points.size();
+    centroid.y /= hotspot.bounds.points.size();
+    
+    Vec2 delta = Vec2(centroid.x - player_pos.x, centroid.y - player_pos.y);
     float dist_sq = delta.x * delta.x + delta.y * delta.y;
-    float threshold = hotspot.interaction_distance + player.hotspot_proximity_tolerance;
+    float threshold = player.hotspot_proximity_tolerance;
     return dist_sq <= (threshold * threshold);  // Compare squared to avoid sqrt()
 }
 
+// Helper function: Execute hotspot callback (handles item-on-hotspot)
+static void execute_hotspot_callback(const Scene::Hotspot& hotspot, const std::string& item_id) {
+    if (!item_id.empty()) {
+        // Using item on hotspot
+        auto it = hotspot.item_callbacks.find(item_id);
+        if (it != hotspot.item_callbacks.end() && it->second) {
+            it->second();
+        } else {
+            DEBUG_LOG("That doesn't work.");
+        }
+        UI::clear_selected_item();
+    } else if (hotspot.callback) {
+        hotspot.callback();
+    }
+}
+
 // Helper function: Handle hotspot click detection and approach
-static void handle_hotspot_click(Player& player, ECS::WalkerComponent& walker, 
+// Returns true if a hotspot was clicked (even IMMEDIATE which doesn't walk)
+static bool handle_hotspot_click(Player& player, ECS::WalkerComponent& walker, 
                                   const Vec2& player_pos, Vec2 mouse_pos) {
     player.active_hotspot_index = -1;
     player.hotspot_state = HotspotInteractionState::None;
@@ -130,81 +157,89 @@ static void handle_hotspot_click(Player& player, ECS::WalkerComponent& walker,
         if (Collision::point_in_polygon(mouse_pos, hotspot.bounds)) {
             // Found clicked hotspot
             player.active_hotspot_index = (int)i;
+            std::string selected_item = UI::get_selected_item();
             
-            // Determine target position for approach
-            Vec2 approach_point_2d;
-            
-            if (hotspot.has_target_position) {
-                // Use explicit target position defined in geometry
-                approach_point_2d = hotspot.target_position;
+            // Handle based on interaction type
+            switch (hotspot.interaction_type) {
+                case Scene::InteractionType::IMMEDIATE: {
+                    // Trigger callback immediately - no walking
+                    execute_hotspot_callback(hotspot, selected_item);
+                    player.pending_item_use.clear();
+                    player.hotspot_state = HotspotInteractionState::InRange;
+                    player.active_hotspot_index = -1;
+                    return true;  // Click was handled - don't walk
+                }
                 
-                // Check if player is already at target position
-                float dx = player_pos.x - approach_point_2d.x;
-                float dy = player_pos.y - approach_point_2d.y;
-                float dist_sq = dx*dx + dy*dy;
-                float threshold = hotspot.interaction_distance + player.hotspot_proximity_tolerance;
-                
-                if (dist_sq <= threshold * threshold) {
-                    // Already at target - trigger callback immediately
-                    if (hotspot.callback) {
-                        hotspot.callback();
+                case Scene::InteractionType::WALK_TO_TARGET: {
+                    // Walk to explicit target position
+                    Vec2 approach_point_2d = hotspot.target_position;
+                    
+                    // Check if player is already at target position
+                    float dx = player_pos.x - approach_point_2d.x;
+                    float dy = player_pos.y - approach_point_2d.y;
+                    float dist_sq = dx*dx + dy*dy;
+                    float threshold = player.hotspot_proximity_tolerance;
+                    
+                    if (dist_sq <= threshold * threshold) {
+                        // Already at target - trigger callback immediately
+                        execute_hotspot_callback(hotspot, selected_item);
+                        player.pending_item_use.clear();
+                        float current_z = Scene::get_z_from_depth_map(g_state.scene, player_pos.x, player_pos.y);
+                        walker_set_target(walker, player_pos, Vec3(player_pos.x, player_pos.y, current_z),
+                                          g_state.scene.geometry.walkable_areas,
+                                          g_state.scene.geometry.obstacles);
+                        player.hotspot_state = HotspotInteractionState::InRange;
+                        return true;
                     }
-                    float current_z = Scene::get_z_from_depth_map(g_state.scene, player_pos.x, player_pos.y);
-                    walker_set_target(walker, player_pos, Vec3(player_pos.x, player_pos.y, current_z),
+                    
+                    // Walk to target position
+                    player.pending_item_use = selected_item;
+                    float target_z = Scene::get_z_from_depth_map(g_state.scene, approach_point_2d.x, approach_point_2d.y);
+                    walker_set_target(walker, player_pos, Vec3(approach_point_2d.x, approach_point_2d.y, target_z),
                                       g_state.scene.geometry.walkable_areas,
                                       g_state.scene.geometry.obstacles);
-                    player.hotspot_state = HotspotInteractionState::InRange;
-                    return;
+                    player.hotspot_state = HotspotInteractionState::Approaching;
+                    return true;
                 }
-            } else {
-                // No explicit target - use old behavior with interaction_distance
-                if (is_player_in_hotspot_range(player_pos, player, hotspot)) {
-                    // Already in range - trigger callback immediately
-                    if (hotspot.callback) {
-                        hotspot.callback();
+                
+                case Scene::InteractionType::WALK_TO_HOTSPOT: {
+                    // Walk to hotspot centroid (pivot point)
+                    
+                    // Check if already in range
+                    if (is_player_in_hotspot_range(player_pos, player, hotspot)) {
+                        // Already in range - trigger callback immediately
+                        execute_hotspot_callback(hotspot, selected_item);
+                        player.pending_item_use.clear();
+                        float current_z = Scene::get_z_from_depth_map(g_state.scene, player_pos.x, player_pos.y);
+                        walker_set_target(walker, player_pos, Vec3(player_pos.x, player_pos.y, current_z),
+                                          g_state.scene.geometry.walkable_areas,
+                                          g_state.scene.geometry.obstacles);
+                        player.hotspot_state = HotspotInteractionState::InRange;
+                        return true;
                     }
-                    float current_z = Scene::get_z_from_depth_map(g_state.scene, player_pos.x, player_pos.y);
-                    walker_set_target(walker, player_pos, Vec3(player_pos.x, player_pos.y, current_z),
+                    
+                    // Calculate centroid of hotspot polygon
+                    Vec2 centroid(0.0f, 0.0f);
+                    for (const auto& p : hotspot.bounds.points) {
+                        centroid.x += p.x;
+                        centroid.y += p.y;
+                    }
+                    centroid.x /= hotspot.bounds.points.size();
+                    centroid.y /= hotspot.bounds.points.size();
+                    
+                    // Walk to centroid
+                    player.pending_item_use = selected_item;
+                    float target_z = Scene::get_z_from_depth_map(g_state.scene, centroid.x, centroid.y);
+                    walker_set_target(walker, player_pos, Vec3(centroid.x, centroid.y, target_z),
                                       g_state.scene.geometry.walkable_areas,
                                       g_state.scene.geometry.obstacles);
-                    player.hotspot_state = HotspotInteractionState::InRange;
-                    return;
+                    player.hotspot_state = HotspotInteractionState::Approaching;
+                    return true;
                 }
-                
-                // Calculate approach point: move from hotspot outward to interaction distance
-                Vec2 closest_on_hotspot = Collision::closest_point_on_polygon(player_pos, hotspot.bounds);
-                Vec2 to_player = Vec2(
-                    player_pos.x - closest_on_hotspot.x,
-                    player_pos.y - closest_on_hotspot.y
-                );
-                float dist_to_player_sq = to_player.x * to_player.x + to_player.y * to_player.y;
-                float direction_threshold_sq = player.direction_normalization_threshold * player.direction_normalization_threshold;
-                
-                // Normalize direction vector
-                if (dist_to_player_sq > direction_threshold_sq) {
-                    float dist_to_player = std::sqrt(dist_to_player_sq);
-                    to_player.x /= dist_to_player;
-                    to_player.y /= dist_to_player;
-                } else {
-                    to_player = Vec2(0.0f, 1.0f);  // Default: downward
-                }
-                
-                // Set target at interaction_distance away from hotspot boundary
-                approach_point_2d = Vec2(
-                    closest_on_hotspot.x + to_player.x * hotspot.interaction_distance,
-                    closest_on_hotspot.y + to_player.y * hotspot.interaction_distance
-                );
             }
-            
-            // Sample Z from depth map based on world position
-            float target_z = Scene::get_z_from_depth_map(g_state.scene, approach_point_2d.x, approach_point_2d.y);
-            walker_set_target(walker, player_pos, Vec3(approach_point_2d.x, approach_point_2d.y, target_z),
-                              g_state.scene.geometry.walkable_areas,
-                              g_state.scene.geometry.obstacles);
-            player.hotspot_state = HotspotInteractionState::Approaching;
-            return;
         }
     }
+    return false;  // No hotspot clicked
 }
 
 // Helper function: Handle regular movement click
@@ -358,11 +393,23 @@ void player_handle_input(Player& player, ECS::Transform2_5DComponent& transform,
         // Clear previous hotspot state for new click
         player.active_hotspot_index = -1;
         player.hotspot_state = HotspotInteractionState::None;
+        player.pending_item_use.clear();
         
-        handle_hotspot_click(player, walker, transform.position, mouse_pos);
+        // Check if we have a selected item for use on hotspot
+        std::string selected_item = UI::get_selected_item();
         
-        // If no hotspot was clicked, handle regular movement
-        if (player.active_hotspot_index == -1) {
+        bool hotspot_clicked = handle_hotspot_click(player, walker, transform.position, mouse_pos);
+        
+        // If a hotspot was clicked (any type)
+        if (hotspot_clicked) {
+            if (!selected_item.empty() && player.active_hotspot_index >= 0) {
+                // Store item for use when we arrive at hotspot (only if walking)
+                player.pending_item_use = selected_item;
+                // Keep item selected while walking (will be cleared after interaction)
+            }
+        } else {
+            // No hotspot clicked - clear selected item and handle movement
+            UI::clear_selected_item();
             handle_movement_click(walker, transform.position, mouse_pos);
         }
     }
@@ -435,21 +482,37 @@ void player_update(Player& player, ECS::Transform2_5DComponent& transform,
         if (player.hotspot_state == HotspotInteractionState::Approaching) {
             bool arrived = false;
             
-            if (hotspot.has_target_position) {
+            if (hotspot.interaction_type == Scene::InteractionType::WALK_TO_TARGET) {
                 // Check if arrived at explicit target position
                 float dx = transform.position.x - hotspot.target_position.x;
                 float dy = transform.position.y - hotspot.target_position.y;
                 float dist_sq = dx*dx + dy*dy;
-                float threshold = hotspot.interaction_distance + player.hotspot_proximity_tolerance;
+                float threshold = player.hotspot_proximity_tolerance;
                 arrived = (dist_sq <= threshold * threshold);
             } else {
-                // Check if arrived at hotspot (old behavior)
+                // WALK_TO_HOTSPOT: Check if arrived at hotspot polygon
                 arrived = is_player_in_hotspot_range(transform.position, player, hotspot);
             }
             
             if (arrived) {
-                if (hotspot.callback) {
-                    hotspot.callback();
+                // Check if we're using an item on this hotspot
+                if (!player.pending_item_use.empty()) {
+                    // Look for item-specific callback
+                    auto it = hotspot.item_callbacks.find(player.pending_item_use);
+                    if (it != hotspot.item_callbacks.end() && it->second) {
+                        it->second();  // Execute item callback
+                    } else {
+                        // No callback for this item - show default message
+                        DEBUG_LOG("That doesn't work.");
+                        // TODO: Show this as in-game text/speech bubble
+                    }
+                    UI::clear_selected_item();
+                    player.pending_item_use.clear();
+                } else {
+                    // Normal hotspot interaction (no item)
+                    if (hotspot.callback) {
+                        hotspot.callback();
+                    }
                 }
                 walker_stop(walker, transform.position);
                 player.active_hotspot_index = -1;

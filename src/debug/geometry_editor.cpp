@@ -6,6 +6,7 @@
 #include "platform.h"
 #include "config.h"
 #include "ecs/entity_factory.h"
+#include <algorithm>
 #include <cstdio>
 #include <cmath>
 #include <cfloat>
@@ -581,7 +582,6 @@ static void finish_polygon() {
         Scene::Hotspot hotspot;
         hotspot.name = g_state.current_polygon_name;
         hotspot.bounds = Collision::Polygon(g_state.current_polygon_points);
-        hotspot.interaction_distance = 20.0f;  // Default distance
         hotspot.enabled = true;
         scene.geometry.hotspots.push_back(hotspot);
         DEBUG_INFO("[GeoEditor] Created hotspot '%s' with %zu vertices", 
@@ -1074,7 +1074,7 @@ void on_mouse_click(Vec2 pos) {
         if (g_state.selected_polygon_index < (int)scene.geometry.hotspots.size()) {
             auto& hotspot = scene.geometry.hotspots[g_state.selected_polygon_index];
             hotspot.target_position = pos;
-            hotspot.has_target_position = true;
+            hotspot.interaction_type = Scene::InteractionType::WALK_TO_TARGET;
             DEBUG_INFO("[GeoEditor] Set target position for hotspot '%s' to (%.1f, %.1f)", 
                    hotspot.name.c_str(), pos.x, pos.y);
             save_geometry(scene.name.c_str());
@@ -1157,13 +1157,13 @@ void on_mouse_right_click(Vec2 pos) {
         if (g_state.selected_polygon_index < (int)scene.geometry.hotspots.size()) {
             auto& hotspot = scene.geometry.hotspots[g_state.selected_polygon_index];
             // Check if click is inside the hotspot or near target_position
-            if (hotspot.has_target_position) {
+            if (hotspot.interaction_type == Scene::InteractionType::WALK_TO_TARGET) {
                 float dx = pos.x - hotspot.target_position.x;
                 float dy = pos.y - hotspot.target_position.y;
                 float dist_sq = dx*dx + dy*dy;
                 // Delete if clicking near target marker or inside hotspot
                 if (dist_sq <= 100.0f || Collision::point_in_polygon(pos, hotspot.bounds)) {
-                    hotspot.has_target_position = false;
+                    hotspot.interaction_type = Scene::InteractionType::WALK_TO_HOTSPOT;
                     hotspot.target_position = Vec2(0.0f, 0.0f);
                     DEBUG_INFO("[GeoEditor] Deleted target position for hotspot '%s'", 
                            hotspot.name.c_str());
@@ -1284,7 +1284,7 @@ void render() {
     const auto& scene = Game::g_state.scene;
     for (size_t i = 0; i < scene.geometry.hotspots.size(); i++) {
         const auto& hotspot = scene.geometry.hotspots[i];
-        if (hotspot.has_target_position) {
+        if (hotspot.interaction_type == Scene::InteractionType::WALK_TO_TARGET) {
             Vec3 target_pos(hotspot.target_position.x * scale_x, 
                             hotspot.target_position.y * scale_y, ui_z);
             
@@ -1607,8 +1607,15 @@ bool save_geometry(const char* scene_name) {
         if (!hotspot.tooltip_key.empty()) {
             file << "      \"tooltip_key\": \"" << hotspot.tooltip_key << "\",\n";
         }
-        file << "      \"interaction_distance\": " << hotspot.interaction_distance << ",\n";
-        if (hotspot.has_target_position) {
+        // Save interaction_type
+        const char* type_str = "walk_to_hotspot";
+        if (hotspot.interaction_type == Scene::InteractionType::IMMEDIATE) {
+            type_str = "immediate";
+        } else if (hotspot.interaction_type == Scene::InteractionType::WALK_TO_TARGET) {
+            type_str = "walk_to_target";
+        }
+        file << "      \"interaction_type\": \"" << type_str << "\",\n";
+        if (hotspot.interaction_type == Scene::InteractionType::WALK_TO_TARGET) {
             file << "      \"target_position\": [" << hotspot.target_position.x << ", " << hotspot.target_position.y << "],\n";
         }
         file << "      \"points\": [";
@@ -1837,16 +1844,22 @@ bool load_geometry(const char* scene_name) {
                 hotspot.tooltip_key = content.substr(tt_start + 1, tt_end - tt_start - 1);
             }
             
-            // Parse interaction_distance
-            size_t dist_key = content.find("\"interaction_distance\"", obj_start);
-            if (dist_key < obj_end) {
-                size_t colon = content.find(':', dist_key);
-                float dist = 0;
-                sscanf(content.c_str() + colon + 1, "%f", &dist);
-                hotspot.interaction_distance = dist;
+            // Parse interaction_type (default: walk_to_hotspot)
+            size_t type_key = content.find("\"interaction_type\"", obj_start);
+            if (type_key < obj_end && type_key != std::string::npos) {
+                size_t type_start = content.find('\"', type_key + 18);
+                size_t type_end = content.find('\"', type_start + 1);
+                std::string type_str = content.substr(type_start + 1, type_end - type_start - 1);
+                if (type_str == "immediate") {
+                    hotspot.interaction_type = Scene::InteractionType::IMMEDIATE;
+                } else if (type_str == "walk_to_target") {
+                    hotspot.interaction_type = Scene::InteractionType::WALK_TO_TARGET;
+                } else {
+                    hotspot.interaction_type = Scene::InteractionType::WALK_TO_HOTSPOT;
+                }
             }
             
-            // Parse target_position (optional)
+            // Parse target_position (for WALK_TO_TARGET type)
             size_t target_key = content.find("\"target_position\"", obj_start);
             if (target_key < obj_end && target_key != std::string::npos) {
                 size_t arr_start = content.find('[', target_key);
@@ -1857,7 +1870,10 @@ bool load_geometry(const char* scene_name) {
                     if (sscanf(coords.c_str(), "%f, %f", &x, &y) == 2 ||
                         sscanf(coords.c_str(), "%f,%f", &x, &y) == 2) {
                         hotspot.target_position = Vec2(x, y);
-                        hotspot.has_target_position = true;
+                        // If target_position is set but interaction_type wasn't specified, assume walk_to_target
+                        if (type_key >= obj_end || type_key == std::string::npos) {
+                            hotspot.interaction_type = Scene::InteractionType::WALK_TO_TARGET;
+                        }
                     }
                 }
             }
@@ -1912,6 +1928,22 @@ bool load_geometry(const char* scene_name) {
     DEBUG_INFO("[GeoEditor] Loaded geometry from %s: %zu walkable areas, %zu obstacles, %zu hotspots",
            path.c_str(), scene.geometry.walkable_areas.size(), 
            scene.geometry.obstacles.size(), scene.geometry.hotspots.size());
+    
+    // Update polygon counter based on existing counts and hotspot names to avoid duplicates
+    // Walkable areas and obstacles use index-based names, so count them
+    // Hotspots have explicit names, so extract the number from those
+    s_polygon_counter = (int)scene.geometry.walkable_areas.size() + 
+                        (int)scene.geometry.obstacles.size();
+    
+    for (const auto& hs : scene.geometry.hotspots) {
+        size_t underscore = hs.name.rfind('_');
+        if (underscore != std::string::npos) {
+            try {
+                int num = std::stoi(hs.name.substr(underscore + 1));
+                if (num > s_polygon_counter) s_polygon_counter = num;
+            } catch (...) {}
+        }
+    }
     
     return true;
 }

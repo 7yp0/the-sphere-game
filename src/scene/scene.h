@@ -10,12 +10,20 @@
 #include <string>
 #include <algorithm>
 #include <functional>
+#include <unordered_map>
 
 // Undefine Windows macros that conflict with std::min/std::max
 #undef min
 #undef max
 
 namespace Scene {
+
+// How the player interacts with a hotspot
+enum class InteractionType {
+    IMMEDIATE,        // Trigger callback immediately on click (no walking)
+    WALK_TO_HOTSPOT,  // Walk to hotspot centroid (pivot point), then trigger
+    WALK_TO_TARGET    // Walk to specific target_position, then trigger
+};
 
 // Prop: 2.5D object - Z-depth derived from DEPTH MAP at X,Y position
 struct Prop {
@@ -31,14 +39,17 @@ struct Hotspot {
     std::string name;           // Internal identifier
     std::string tooltip_key;    // Localization key for tooltip (displayed as-is until localization system exists)
     Collision::Polygon bounds;
-    float interaction_distance = 0.0f;
     bool enabled = true;
-    std::function<void()> callback;
+    std::function<void()> callback;  // Default interaction (no item)
     
-    // Target position where player should stand when interacting
-    // If has_target_position is false, calculates approach point dynamically
+    // Item-on-hotspot callbacks: item_id -> callback
+    std::unordered_map<std::string, std::function<void()>> item_callbacks;
+    
+    // Interaction type determines how player triggers this hotspot
+    InteractionType interaction_type = InteractionType::WALK_TO_HOTSPOT;
+    
+    // Target position for WALK_TO_TARGET interaction type
     Vec2 target_position = Vec2(0.0f, 0.0f);
-    bool has_target_position = false;
 };
 
 struct SceneGeometry {
@@ -63,6 +74,9 @@ struct Scene {
     
     // ECS entity IDs for projector lights (window lights)
     std::vector<ECS::EntityID> projector_light_entities;
+    
+    // Named entity lookup (name -> entity ID) - works for all entity types
+    std::unordered_map<std::string, ECS::EntityID> named_entities;
     
     SceneGeometry geometry;
 };
@@ -131,12 +145,25 @@ inline float get_depth_scaling(const Scene& scene, float world_x, float world_y)
 // Returns true if hotspot found and callback registered
 bool register_hotspot_callback(const std::string& hotspot_name, std::function<void()> callback);
 
+// Register an item-on-hotspot callback (called when player uses item on hotspot)
+// Returns true if hotspot found and callback registered
+bool register_hotspot_item_callback(const std::string& hotspot_name, const std::string& item_id, std::function<void()> callback);
+
 // Enable or disable a hotspot by name (disabled hotspots don't respond to clicks)
 // Returns true if hotspot found
 bool set_hotspot_enabled(const std::string& hotspot_name, bool enabled);
 
 // Get a hotspot by name (returns nullptr if not found)
 Hotspot* get_hotspot(const std::string& hotspot_name);
+
+// Register an entity with a name for later lookup (works for any entity type)
+void register_entity(const std::string& name, ECS::EntityID entity);
+
+// Get an entity by name (returns INVALID_ENTITY if not found)
+ECS::EntityID get_entity(const std::string& name);
+
+// Hide/show an entity's sprite by name
+bool set_entity_visible(const std::string& name, bool visible);
 
 void init_scene_test();
 

@@ -47,10 +47,11 @@ struct Player {
     // Hotspot interaction
     int active_hotspot_index = -1;
     HotspotInteractionState hotspot_state = HotspotInteractionState::None;
+    std::string pending_item_use;  // Item that was selected when clicking hotspot (empty if normal click)
     
     // Player-specific settings
     float boundary_margin = 2.5f;                  // Keep player away from scene edges
-    float hotspot_proximity_tolerance = 5.0f;      // Extra distance beyond interaction_distance
+    float hotspot_proximity_tolerance = 5.0f;      // Arrival threshold for hotspot interaction
     float direction_normalization_threshold = 0.025f; // Min distance to normalize direction vector
 };
 

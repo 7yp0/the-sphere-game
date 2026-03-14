@@ -17,6 +17,8 @@ void set_depth_map_data(TextureID depthMapTexture, uint32_t sceneWidth, uint32_t
 void render_sprite(TextureID tex, Vec3 pos, Vec2 size, PivotPoint pivot = PivotPoint::TOP_LEFT);
 void render_sprite(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range, PivotPoint pivot = PivotPoint::TOP_LEFT);
 void render_sprite_animated(const SpriteAnimation* anim, Vec3 pos, Vec2 size, PivotPoint pivot = PivotPoint::TOP_LEFT);
+void render_sprite_outlined(TextureID tex, Vec3 pos, Vec2 size, Vec4 outline_color, PivotPoint pivot = PivotPoint::TOP_LEFT);
+void render_sprite_outlined(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range, Vec4 outline_color, PivotPoint pivot = PivotPoint::TOP_LEFT);
 void render_rect(Vec3 pos, Vec2 size, Vec4 color, PivotPoint pivot = PivotPoint::TOP_LEFT);
 void render_line(Vec3 start, Vec3 end, Vec4 color, float thickness = 1.0f);
 

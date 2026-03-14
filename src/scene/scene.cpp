@@ -7,6 +7,7 @@
 #include "config.h"
 #include "ecs/ecs.h"
 #include "ecs/entity_factory.h"
+#include "inventory/inventory.h"
 
 using Game::g_state;
 
@@ -39,12 +40,6 @@ void init_scene_test() {
     // Load geometry from JSON (walkable areas + hotspots)
     GeometryEditor::load_geometry(scene.name.c_str());
     
-    // Register hotspot callbacks by name
-    // (geometry comes from JSON, callbacks are defined here in code)
-    register_hotspot_callback("box_hotspot", []() {
-        DEBUG_LOG("Player interacted with box!");
-    });
-    
     // NOTE: Add more callback registrations here as you create hotspots in the editor:
     // register_hotspot_callback("door", []() { /* door interaction */ });
     // register_hotspot_callback("tree", []() { /* tree interaction */ });
@@ -60,6 +55,7 @@ void init_scene_test() {
     
     printf("\n[ECS] Creating prop entities via factory functions...\n");
     g_state.scene.prop_entities.clear();
+    g_state.scene.named_entities.clear();
     
     // Box prop - shadow casting (solid shape)
     ECS::EntityID box_entity = ECS::create_shadow_casting_prop(
@@ -74,6 +70,7 @@ void init_scene_test() {
     ECS::update_entity_z_from_depth_map(box_entity, g_state.scene.depth_map, 
                                         g_state.scene.width, g_state.scene.height);
     g_state.scene.prop_entities.push_back(box_entity);
+    register_entity("box", box_entity);
     printf("[ECS] Created box prop: Entity=%u (shadow caster)\n", box_entity);
     
     // Tree prop - shadow casting with ALPHA TESTING (irregular silhouette)
@@ -89,6 +86,7 @@ void init_scene_test() {
     ECS::update_entity_z_from_depth_map(tree_entity, g_state.scene.depth_map, 
                                         g_state.scene.width, g_state.scene.height);
     g_state.scene.prop_entities.push_back(tree_entity);
+    register_entity("tree", tree_entity);
     printf("[ECS] Created tree prop: Entity=%u (alpha shadow caster)\n", tree_entity);
     
     // Stone prop - STATIC (no shadow casting) - for testing non-shadow props
@@ -102,6 +100,7 @@ void init_scene_test() {
     ECS::update_entity_z_from_depth_map(stone_entity, g_state.scene.depth_map, 
                                         g_state.scene.width, g_state.scene.height);
     g_state.scene.prop_entities.push_back(stone_entity);
+    register_entity("stone", stone_entity);
     printf("[ECS] Created stone prop: Entity=%u (static, no shadows)\n", stone_entity);
     
     printf("[ECS] Created %zu prop entities\n\n", g_state.scene.prop_entities.size());
@@ -122,6 +121,7 @@ void init_scene_test() {
         true                          // Casts shadows
     );
     g_state.scene.light_entities.push_back(warm_light);
+    register_entity("warm_light", warm_light);
     printf("[ECS] Created warm light: Entity=%u (shadow casting)\n", warm_light);
     
     // Blue fill light (NO SHADOWS - ambient fill)
@@ -133,6 +133,7 @@ void init_scene_test() {
         false                         // NO shadow casting
     );
     g_state.scene.light_entities.push_back(fill_light);
+    register_entity("fill_light", fill_light);
     printf("[ECS] Created fill light: Entity=%u (no shadows)\n", fill_light);
     
     printf("[ECS] Created %zu light entities\n\n", g_state.scene.light_entities.size());
@@ -160,10 +161,56 @@ void init_scene_test() {
         window_cookie
     );
     g_state.scene.projector_light_entities.push_back(window_light);
+    register_entity("window_light", window_light);
     printf("[ECS] Created window light: Entity=%u\n", window_light);
     
     // Load entity positions from JSON (overwrites hardcoded positions if file exists)
     GeometryEditor::load_entities(scene.name.c_str());
+    
+    // Register inventory items for this scene
+    Inventory::register_item("stone", "A smooth grey stone", "ui/items/item_stone.png");
+    Inventory::register_item("note", "A torn note with strange symbols", "ui/items/item_note.png");
+    
+    // Player starts with the mysterious note
+    Inventory::add_item("note");
+    
+    // Make the note non-selectable - clicking it shows its contents
+    Inventory::set_item_on_use("note", []() {
+        DEBUG_LOG("You read the note: 'The sphere awakens at midnight...'");
+    });
+
+    // Register hotspot callbacks by name
+    // (geometry comes from JSON, callbacks are defined here in code)
+    register_hotspot_callback("box_hotspot", []() {
+        DEBUG_LOG("Player interacted with box!");
+    });
+
+    register_hotspot_callback("hotspot_tree", []() {
+        DEBUG_LOG("Player interacted with tree!");
+    });
+
+    register_hotspot_callback("stone_hotspot", []() {
+        // Add stone to inventory
+        if (Inventory::add_item("stone") >= 0) {
+            // Hide stone prop by name
+            set_entity_visible("stone", false);
+            
+            // Disable the hotspot so it can't be clicked again
+            set_hotspot_enabled("stone_hotspot", false);
+        } else {
+            DEBUG_LOG("Inventory full or Item not registered!");
+        }
+    });
+
+    register_hotspot_item_callback("box_hotspot", "stone", []() {
+        Inventory::remove_item("stone");
+    });
+    
+    // Set default invalid combination feedback
+    Inventory::set_invalid_combination_callback([](const std::string& item1, const std::string& item2) {
+        DEBUG_LOG("Can't combine %s with %s - that doesn't work.", item1.c_str(), item2.c_str());
+        // TODO: Play error sound, show speech bubble, etc.
+    });
 }
 
 bool register_hotspot_callback(const std::string& hotspot_name, std::function<void()> callback) {
@@ -175,6 +222,18 @@ bool register_hotspot_callback(const std::string& hotspot_name, std::function<vo
         }
     }
     DEBUG_LOG("[Scene] Hotspot '%s' not found - callback not registered", hotspot_name.c_str());
+    return false;
+}
+
+bool register_hotspot_item_callback(const std::string& hotspot_name, const std::string& item_id, std::function<void()> callback) {
+    for (auto& hotspot : g_state.scene.geometry.hotspots) {
+        if (hotspot.name == hotspot_name) {
+            hotspot.item_callbacks[item_id] = callback;
+            DEBUG_INFO("[Scene] Registered item '%s' callback for hotspot '%s'", item_id.c_str(), hotspot_name.c_str());
+            return true;
+        }
+    }
+    DEBUG_LOG("[Scene] Hotspot '%s' not found - item callback not registered", hotspot_name.c_str());
     return false;
 }
 
@@ -197,6 +256,35 @@ Hotspot* get_hotspot(const std::string& hotspot_name) {
         }
     }
     return nullptr;
+}
+
+void register_entity(const std::string& name, ECS::EntityID entity) {
+    g_state.scene.named_entities[name] = entity;
+    DEBUG_INFO("[Scene] Registered entity '%s' -> Entity %u", name.c_str(), entity);
+}
+
+ECS::EntityID get_entity(const std::string& name) {
+    auto it = g_state.scene.named_entities.find(name);
+    if (it != g_state.scene.named_entities.end()) {
+        return it->second;
+    }
+    DEBUG_LOG("[Scene] Entity '%s' not found", name.c_str());
+    return ECS::INVALID_ENTITY;
+}
+
+bool set_entity_visible(const std::string& name, bool visible) {
+    ECS::EntityID entity = get_entity(name);
+    if (entity == ECS::INVALID_ENTITY) {
+        return false;
+    }
+    
+    auto* sprite = g_state.ecs_world.get_component<ECS::SpriteComponent>(entity);
+    if (sprite) {
+        sprite->visible = visible;
+        DEBUG_INFO("[Scene] Entity '%s' %s", name.c_str(), visible ? "shown" : "hidden");
+        return true;
+    }
+    return false;
 }
 
 }

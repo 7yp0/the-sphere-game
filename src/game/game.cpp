@@ -9,6 +9,7 @@
 #include "scene/scene.h"
 #include "debug/debug.h"
 #include "ui/cursor.h"
+#include "ui/inventory_ui.h"
 #include "types.h"
 #include "ecs/ecs.h"
 #include "ecs/entity_factory.h"
@@ -98,6 +99,12 @@ static void update_animated_light(float delta_time) {
 }
 
 void init() {    
+    // Initialize inventory UI FIRST (so scene can register items)
+    UI::init_inventory_ui();
+    
+    // Initialize cursor system
+    UI::init_cursor();
+    
     // Initialize scene (this also creates prop ECS entities)
     // Note: Geometry is loaded from JSON inside init_scene_test() before callbacks are registered
     Scene::init_scene_test();
@@ -108,9 +115,6 @@ void init() {
     
     // Initialize framebuffer for offscreen rendering at base resolution
     Renderer::init_framebuffer(Config::BASE_WIDTH, Config::BASE_HEIGHT);
-    
-    // Initialize cursor system
-    UI::init_cursor();
 }
 
 void set_viewport(uint32_t width, uint32_t height) {
@@ -134,11 +138,23 @@ void update(float delta_time) {
     Debug::handle_debug_keys();
 #endif
     
+    // Clear tooltip at start of frame (before any UI updates)
+    UI::reset_cursor_state();
+    
+    // Get mouse position for UI
+    Vec2 mouse_pos = Platform::get_mouse_pos();
+    
+    // Update inventory UI (may consume input)
+    bool ui_consumed_input = UI::update_inventory_ui(mouse_pos);
+    
     // Get player transform and walker from ECS
     ECS::Transform2_5DComponent* player_transform = get_player_transform();
     ECS::WalkerComponent* player_walker = get_player_walker();
     if (player_transform && player_walker) {
-        player_handle_input(g_state.player, *player_transform, *player_walker);
+        // Only handle player input if UI didn't consume it
+        if (!ui_consumed_input) {
+            player_handle_input(g_state.player, *player_transform, *player_walker);
+        }
         player_update(g_state.player, *player_transform, *player_walker, 
                       g_state.base_width, g_state.base_height, delta_time);
         
@@ -492,12 +508,18 @@ void render() {
     Debug::render_overlay(mouse_pixel);
 #endif
     
+    // Render inventory UI (before cursor so cursor appears on top)
+    UI::render_inventory_ui();
+    
     // Update and render cursor (always on top)
     UI::update_cursor(mouse_pixel);
     UI::render_cursor(mouse_pixel);
 }
 
 void shutdown() {
+    // Shutdown inventory UI
+    UI::shutdown_inventory_ui();
+    
     // Shutdown cursor system (restores system cursor)
     UI::shutdown_cursor();
     

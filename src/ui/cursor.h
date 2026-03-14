@@ -48,6 +48,7 @@ void set_cursor_state(CursorState state);
 
 // Set tooltip text (empty string = no tooltip)
 void set_tooltip(const std::string& text);
+void reset_cursor_state();  // Call once per frame before UI updates
 
 // Get current cursor state
 CursorState get_cursor_state();
