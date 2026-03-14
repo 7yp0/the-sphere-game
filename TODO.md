@@ -10,6 +10,8 @@
 
 ---
 
+- [ ] `say(character, "string.key")` - Character spricht (via Localization)
+
 ## Camera & World Navigation
 
 ### Camera System
@@ -66,7 +68,6 @@
 - [ ] `setFlag(name, value)` / `setValue(name, value)`
 - [ ] `playSound(sound)` / `playMusic(track)`
 - [ ] `showText(text)` - Einblendung
-- [ ] `say(character, "string.key")` - Character spricht (via Localization)
 
 ### Input Blocking (Optional)
 - [ ] `blockInput()` / `unblockInput()` actions
