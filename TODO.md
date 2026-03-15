@@ -10,7 +10,62 @@
 
 ---
 
-- [ ] `say(character, "string.key")` - Character spricht (via Localization)
+## Localization
+
+### Text Localization
+
+- [ ] String-key based system: `say(player, "dialogue.sphere.what_is_this")`
+- [ ] JSON files per language: `localization/en.json`, `localization/de.json`
+- [ ] Key lookup at runtime based on language setting
+
+### Voice Localization
+
+- [ ] Voice files per language: `voice/en/`, `voice/de/`
+- [ ] File naming matches string keys: `dialogue.sphere.what_is_this.ogg`
+- [ ] Auto-load correct voice file based on language
+
+### Structure
+
+```bash
+localization/
+  en.json
+  de.json
+voice/
+  en/dialogue.sphere.what_is_this.ogg
+  de/dialogue.sphere.what_is_this.ogg
+```
+
+### Dialogue System (Linear)
+
+- Keine Dialogue Trees für dieses Spiel
+- Lineare Dialoge über `say(character, "string.key")` Action
+- String-key wird über Localization System aufgelöst
+- Player, NPCs und Objekte können sprechen
+- Entities, die sprechen können, erhalten eine `TalkableComponent`.
+- Die Component enthält:
+  - `bubble_offset`: Offset-Position der Sprechblase relativ zur Entity (z.B. über dem Kopf)
+  - `text_color`: Textfarbe (RGBA)
+- Ablauf von `say(character, "string.key")`:
+    1. Text wird über Localization-System per Key geladen (z.B. aus `localization/en.json`)
+    2. Die Sprechblase/Textbox wird an der durch die Component definierten Position und Farbe angezeigt
+    3. Optional: Passende Voice-Datei (`voice/{lang}/{key}.ogg`) wird abgespielt
+    4. Nach Klick oder Timer (im game state configurable)  verschwindet die Sprechblase
+- Vorteil: Pro Entity kann Position und Stil der Sprechblase individuell festgelegt werden (z.B. große NPCs, kleine Tiere, etc.)
+- Das System prüft, ob die Entity eine `TalkableComponent` besitzt, bevor gesprochen werden kann.
+- Beispiel-Component:
+
+    ```cpp
+    struct TalkableComponent {
+        glm::vec2 bubble_offset;
+        glm::vec4 text_color;
+    };
+    ```
+
+- Die Speechbubble-UI liest Offset und Farbe aus der Component und positioniert/rendered entsprechend.
+- [ ] Optional: Typewriter effect
+
+---
+
 - [ ] depth map darf auch eine höhere auflösung haben als die bg grafik
 - [ ] pro scene kann man z von weiß und schwarz der depth map definieren (also ganz hinten und ganz vorne definieren)
 
@@ -22,7 +77,6 @@
 - [ ] Smooth camera movement (lerp)
 - [ ] Camera bounds (scene limits, no overscroll)
 - [ ] Scrollable scenes (larger than viewport)
-- [ ] Smooth camera zoom (cinematic, bilinear interpolation)
 
 ### Parallax Scrolling
 
@@ -64,6 +118,7 @@
 
 ### Actions
 
+- [ ] `say(entity, textkey)`
 - [ ] `movePlayer(pos)` / `moveEntity(entity, pos)`
 - [ ] `wait(seconds)`
 - [ ] `panCamera(pos)`
@@ -175,50 +230,6 @@ Cutscene()
 - [ ] Voice volume
 - [ ] Language selection
 - [ ] Save settings to config file
-
----
-
-## Localization
-
-### Text Localization
-
-- [ ] String-key based system: `say(player, "dialogue.sphere.what_is_this")`
-- [ ] JSON files per language: `localization/en.json`, `localization/de.json`
-- [ ] Key lookup at runtime based on language setting
-
-### Voice Localization
-
-- [ ] Voice files per language: `voice/en/`, `voice/de/`
-- [ ] File naming matches string keys: `dialogue.sphere.what_is_this.ogg`
-- [ ] Auto-load correct voice file based on language
-
-### Structure
-
-```
-localization/
-  en.json
-  de.json
-voice/
-  en/dialogue.sphere.what_is_this.ogg
-  de/dialogue.sphere.what_is_this.ogg
-```
-
----
-
-## Dialogue System (Linear)
-
-### Dialogue via Cutscene
-
-- Keine Dialogue Trees für dieses Spiel
-- Lineare Dialoge über `say(character, "string.key")` Action
-- String-key wird über Localization System aufgelöst
-- Player, NPCs und Objekte können sprechen
-
-### Dialogue UI
-
-- [ ] Speech bubble / text box über Character
-- [ ] Click to advance / auto-advance nach Zeit
-- [ ] Optional: Typewriter effect
 
 ---
 
