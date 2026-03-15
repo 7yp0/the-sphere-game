@@ -11,8 +11,8 @@ constexpr uint32_t BASE_HEIGHT = 180;
 
 // Viewport and rendering resolution
 // Must match expected scene dimensions for correct coordinate system behavior
-constexpr uint32_t VIEWPORT_WIDTH = 1920;
-constexpr uint32_t VIEWPORT_HEIGHT = 1080;
+constexpr uint32_t VIEWPORT_WIDTH = 1280;
+constexpr uint32_t VIEWPORT_HEIGHT = 720;
 
 // Depth scale gradient: how much scale changes per pixel of distance from horizon
 // Formula: scale = 1.0 + (horizon_y - sprite_y) * DEPTH_GRADIENT

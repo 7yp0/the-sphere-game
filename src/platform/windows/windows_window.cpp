@@ -15,6 +15,35 @@
 
 // Forward declarations
 namespace Platform {
+
+    // Letterbox-Viewport-Parameter
+    static int g_letterbox_offset_x = 0;
+    static int g_letterbox_offset_y = 0;
+    static int g_letterbox_width = 0;
+    static int g_letterbox_height = 0;
+
+    // Setzt den OpenGL-Viewport und berechnet Letterbox-Offsets für Integer-Scaling 16:9
+    void update_letterbox_viewport()
+    {
+        RECT clientRect = {};
+        GetClientRect(g_hwnd, &clientRect);
+        int winW = clientRect.right - clientRect.left;
+        int winH = clientRect.bottom - clientRect.top;
+        const int baseW = 320;
+        const int baseH = 180;
+        int scale = (int)fmin(floor((float)winW / baseW), floor((float)winH / baseH));
+        if (scale < 1) scale = 1;
+        int targetW = baseW * scale;
+        int targetH = baseH * scale;
+        int offsetX = (winW - targetW) / 2;
+        int offsetY = (winH - targetH) / 2;
+        g_letterbox_offset_x = offsetX;
+        g_letterbox_offset_y = offsetY;
+        g_letterbox_width = targetW;
+        g_letterbox_height = targetH;
+        glViewport(offsetX, offsetY, targetW, targetH);
+        Renderer::set_viewport((uint32_t)targetW, (uint32_t)targetH);
+    }
     void set_mouse_pos(Vec2 pos);
     void set_mouse_clicked(bool clicked);
     void set_key_pressed(int key_code, bool pressed);
@@ -45,6 +74,9 @@ void toggle_fullscreen();
 
 // Windows message callback
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+        case WM_SIZE:
+            update_letterbox_viewport();
+            return 0;
 {
     switch (msg)
     {
@@ -88,9 +120,17 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         {
             int x = GET_X_LPARAM(lparam);
             int y = GET_Y_LPARAM(lparam);
-            // Windows has Y=0 at top, game expects Y=0 at bottom
-            // Try without flip first to diagnose
-            set_mouse_pos(Vec2((float)x, (float)y));
+            // Letterbox: Nur Spielfeldbereich berücksichtigen
+            int relX = x - g_letterbox_offset_x;
+            int relY = y - g_letterbox_offset_y;
+            // Clamp auf Spielfeld
+            if (relX < 0) relX = 0;
+            if (relY < 0) relY = 0;
+            if (relX >= g_letterbox_width) relX = g_letterbox_width - 1;
+            if (relY >= g_letterbox_height) relY = g_letterbox_height - 1;
+            // Y-Flip: OpenGL und Spiel erwarten Y=0 unten
+            int flippedY = g_letterbox_height - 1 - relY;
+            set_mouse_pos(Vec2((float)relX, (float)flippedY));
             return 0;
         }
 
@@ -116,6 +156,7 @@ void set_key_pressed(int key_code, bool pressed)
 }
 
 bool init_window(const WindowConfig& config)
+    update_letterbox_viewport();
 {
     g_window_width = config.width;
     g_window_height = config.height;
@@ -308,6 +349,7 @@ void swap_buffers()
     if (g_hdc && g_hglrc)
     {
         wglMakeCurrent(g_hdc, g_hglrc);
+        update_letterbox_viewport();
         SwapBuffers(g_hdc);
     }
 }
@@ -461,6 +503,7 @@ void toggle_fullscreen()
         g_window_height = monitor_height;
         
         g_fullscreen = true;
+        update_letterbox_viewport();
     }
     else
     {
@@ -477,6 +520,7 @@ void toggle_fullscreen()
         g_window_height = clientRect.bottom - clientRect.top;
         
         g_fullscreen = false;
+        update_letterbox_viewport();
     }
     
     printf("[WINDOWS] Fullscreen: %s, Size: %u x %u\n", 

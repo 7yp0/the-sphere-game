@@ -11,10 +11,13 @@
 ---
 
 - [ ] `say(character, "string.key")` - Character spricht (via Localization)
+- [ ] depth map darf auch eine höhere auflösung haben als die bg grafik
+- [ ] pro scene kann man z von weiß und schwarz der depth map definieren (also ganz hinten und ganz vorne definieren)
 
 ## Camera & World Navigation
 
 ### Camera System
+
 - [ ] Camera follow player with deadzone
 - [ ] Smooth camera movement (lerp)
 - [ ] Camera bounds (scene limits, no overscroll)
@@ -22,6 +25,7 @@
 - [ ] Smooth camera zoom (cinematic, bilinear interpolation)
 
 ### Parallax Scrolling
+
 - [ ] Parallax layer system (horizontal + vertical)
 - [ ] Multiple background layers at different speeds
 - [ ] Depth factor per layer
@@ -31,6 +35,7 @@
 ## Close-Up System
 
 ### Close-Up Scenes
+
 - [ ] Special game mode for puzzle close-ups
 - [ ] Separate input handling per close-up
 - [ ] Enter close-up via cutscene action `enterCloseUp(scene)`
@@ -38,6 +43,7 @@
 - [ ] Pass/fail state back to main game (set flags)
 
 ### Cable Physics (Wrap-Point System)
+
 - [ ] Kabel-Ende folgt Mausposition
 - [ ] Wrap-Point-Tracking um Säule/Objekt
 - [ ] Umrundung tracken (Maus kreist um Objekt → Kabel wickelt sich)
@@ -45,18 +51,19 @@
 - [ ] Z-Order pro Segment (vor/hinter Säule alternierend)
 - [ ] Connect cable to socket
 
-
 ---
 
 ## Cutscene System
 
 ### Cutscene Engine
+
 - [ ] Action queue system
 - [ ] Sequential execution (default)
 - [ ] Parallel execution blocks (all actions in block run simultaneously, block ends when all complete)
 - [ ] Fluent C++ API for scripting
 
 ### Actions
+
 - [ ] `movePlayer(pos)` / `moveEntity(entity, pos)`
 - [ ] `wait(seconds)`
 - [ ] `panCamera(pos)`
@@ -70,6 +77,7 @@
 - [ ] `showText(text)` - Einblendung
 
 ### Input Blocking (Optional)
+
 - [ ] `blockInput()` / `unblockInput()` actions
 - [ ] Cutscenes do NOT block input by default
 - [ ] Explicit control when needed (e.g. scene transitions)
@@ -94,6 +102,7 @@ Cutscene()
 ## Scene Flow
 
 ### Hotspot Types
+
 - **Interactive Hotspot**: Reagiert auf Klick (bestehend)
 - **Trigger Hotspot**: Reagiert auf Player-Collision (für Events, Ambient, etc.)
 - [ ] Trigger hotspot type in Geometry Editor
@@ -101,12 +110,14 @@ Cutscene()
 - [ ] Trigger callback system
 
 ### Scene Exits (via Cutscene)
+
 - Exit = normaler Interactive Hotspot
 - Player läuft zum Target Point → Cutscene triggert (Tür auf, durchgehen, Fade, Scene load)
 - [ ] Scene change action im Cutscene System
 - [ ] Transition effects (fade to black, cut, etc.)
 
 ### Spawn Points
+
 - [ ] Spawn point definition per scene (in Editor)
 - [ ] Named spawn points (enter_from_kitchen, etc.)
 - [ ] Player spawn after scene load
@@ -116,6 +127,7 @@ Cutscene()
 ## Game State
 
 ### Global Game State
+
 - [ ] Persistent state system for the session
 - [ ] String-key based access
 - [ ] Flags (bool): `flags["sphere_taken"] = true`
@@ -123,6 +135,7 @@ Cutscene()
 - [ ] Strings (string): `strings["current_chapter"] = "intro"`
 
 ### Scene/Entity State (Auto-Persist)
+
 - [ ] Entity visibility state (enabled/disabled)
 - [ ] Serialize to scene JSON (like geometry)
 - [ ] Restore on scene reload
@@ -133,12 +146,14 @@ Cutscene()
 ## Save / Load
 
 ### Auto-Save System
+
 - [ ] Single auto-save slot (JSON)
 - [ ] Auto-save on: item pickup, flag change, scene change
 - [ ] Optional: debounce (max 1x pro Sekunde)
 - [ ] Save: scene, player position, inventory, flags/values/strings, entity states
 
 ### Load System
+
 - [ ] Restore full game state from auto-save
 - [ ] "Continue" from main menu loads auto-save
 
@@ -147,12 +162,14 @@ Cutscene()
 ## Main Menu
 
 ### Menu Options
+
 - [ ] **New Game** - Start fresh, clear auto-save
 - [ ] **Continue** - Load auto-save (disabled if no save exists)
 - [ ] **Settings** - Opens settings submenu
 - [ ] **Exit** - Quit game
 
 ### Settings
+
 - [ ] Music volume
 - [ ] Sound effects volume
 - [ ] Voice volume
@@ -164,16 +181,19 @@ Cutscene()
 ## Localization
 
 ### Text Localization
+
 - [ ] String-key based system: `say(player, "dialogue.sphere.what_is_this")`
 - [ ] JSON files per language: `localization/en.json`, `localization/de.json`
 - [ ] Key lookup at runtime based on language setting
 
 ### Voice Localization
+
 - [ ] Voice files per language: `voice/en/`, `voice/de/`
 - [ ] File naming matches string keys: `dialogue.sphere.what_is_this.ogg`
 - [ ] Auto-load correct voice file based on language
 
 ### Structure
+
 ```
 localization/
   en.json
@@ -188,24 +208,46 @@ voice/
 ## Dialogue System (Linear)
 
 ### Dialogue via Cutscene
+
 - Keine Dialogue Trees für dieses Spiel
 - Lineare Dialoge über `say(character, "string.key")` Action
 - String-key wird über Localization System aufgelöst
 - Player, NPCs und Objekte können sprechen
 
 ### Dialogue UI
+
 - [ ] Speech bubble / text box über Character
 - [ ] Click to advance / auto-advance nach Zeit
 - [ ] Optional: Typewriter effect
 
 ---
 
+## Shader FX
+
+dizzy shader:
+
+- [ ] 'sternchen sehen' (bunte punkte die nach innen gehen)
+
+pass out shader:
+
+- [ ] screen shake
+- [ ] chromatic abrevation
+- [ ] unscharf, verzerrung
+
+ripple wave shader:
+
+- [ ] ripple wave shader
+
+---
+
 ## Audio
 
 ### Audio Format
+
 - OGG für alles (beste Qualität/Größe ratio)
 
 ### Music System
+
 - [ ] Event/State-triggered music (nicht automatisch per scene)
 - [ ] `playMusic(track)` action in Cutscenes
 - [ ] Track metadata: BPM, time signature
@@ -218,15 +260,18 @@ voice/
 - [ ] `waitForBar(bar)` action für Cutscenes (wartet bis Bar erreicht)
 
 ### Sound Effects
+
 - [ ] Interaction sounds
 - [ ] Item pickup sounds
 - [ ] UI sounds
 
 ### Atmosphere
+
 - [ ] Ambient/Atmo loops per scene
 - [ ] Layered ambient (mehrere gleichzeitig)
 
 ### Voice
+
 - [ ] Voice files via Localization System (`voice/{lang}/string.key.ogg`)
 - [ ] Auto-load matching voice for `say()` action
 - [ ] Voice spielt während Text angezeigt wird
@@ -237,11 +282,13 @@ voice/
 ## Debug & Development Tools
 
 ### Act Loading
+
 - [ ] `--act 1/2/3` flag - Load specific act
 - [ ] Predefined start states per act (scene, flags, inventory)
 - [ ] Skip previous acts for testing
 
 ### Close-Up Loading  
+
 - [ ] `--closeup <name>` flag - Load specific close-up puzzle
 - [ ] Isolated testing of puzzle mechanics
 
@@ -250,6 +297,7 @@ voice/
 ## Performance (falls nötig)
 
 ### Optimization
+
 - [ ] Batch rendering if needed
 - [ ] Optimize lighting calculations
 - [ ] Profiling
@@ -267,12 +315,14 @@ voice/
 ## Content
 
 ### Background Graphics
+
 - [ ] BACKYARD
 - [ ] CORRIDORANDKITCHEN
 - [ ] BASEMENT
 - [ ] CRASHSITE
 
 ### Close-Up Graphics
+
 - [ ] NIGHTSKY-CU
 - [ ] CRASHSITESPHERE-CU
 - [ ] VISION (with animation)
@@ -284,6 +334,7 @@ voice/
 - [ ] POLISHING-CU
 
 ### Player Animations
+
 - [ ] idle
 - [ ] walking
 - [ ] walking drunk
@@ -311,11 +362,13 @@ voice/
 - [ ] rubbing his temple while swaying
 
 ### Agent Animations
+
 - [ ] idle
 - [ ] walking
 - [ ] looking up
 
 ### Inventory Items
+
 - [ ] almost empty bottle of beer
 - [ ] closed bottle of beer
 - [ ] bottle opener
@@ -345,18 +398,23 @@ voice/
 ## Act 1
 
 ### Scenes
+
 - [ ] Build scenes (lighting, hotspots, props, walkable areas)
 
 ### Cutscenes
+
 - [ ] Script cutscenes
 
 ### Puzzles
+
 - [ ] Implement puzzles
 
 ### Dialogue
+
 - [ ] Write dialogue text
 
 ### Close-Ups
+
 - [ ] Program close-up mechanics
 
 ---
@@ -364,18 +422,23 @@ voice/
 ## Act 2
 
 ### Scenes
+
 - [ ] Build scenes (lighting, hotspots, props, walkable areas)
 
 ### Cutscenes
+
 - [ ] Script cutscenes
 
 ### Puzzles
+
 - [ ] Implement puzzles
 
 ### Dialogue
+
 - [ ] Write dialogue text
 
 ### Close-Ups
+
 - [ ] Program close-up mechanics
 
 ---
@@ -383,18 +446,23 @@ voice/
 ## Act 3
 
 ### Scenes
+
 - [ ] Build scenes (lighting, hotspots, props, walkable areas)
 
 ### Cutscenes
+
 - [ ] Script cutscenes
 
 ### Puzzles
+
 - [ ] Implement puzzles
 
 ### Dialogue
+
 - [ ] Write dialogue text
 
 ### Close-Ups
+
 - [ ] Program close-up mechanics
 
 ---

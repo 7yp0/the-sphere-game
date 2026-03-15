@@ -48,7 +48,8 @@ int engine_run(int argc, char** argv)
         uint32_t current_width = Platform::get_window_width();
         uint32_t current_height = Platform::get_window_height();
         if (current_width != last_width || current_height != last_height) {
-            Renderer::set_viewport(current_width, current_height);
+            // Reinitialize renderer and game viewport on resize/fullscreen toggle
+            Renderer::init_renderer(current_width, current_height);
             Game::set_viewport(current_width, current_height);
             last_width = current_width;
             last_height = current_height;

@@ -20,6 +20,23 @@ namespace Platform {
 @end
 
 @implementation KeyboardView
+{
+    NSTrackingArea* _trackingArea;
+}
+
+
+- (void)updateTrackingAreas {
+    [super updateTrackingAreas];
+    if (_trackingArea) {
+        [self removeTrackingArea:_trackingArea];
+        _trackingArea = nil;
+    }
+    _trackingArea = [[NSTrackingArea alloc] initWithRect:self.bounds
+                                                 options:(NSTrackingMouseMoved | NSTrackingActiveAlways | NSTrackingInVisibleRect)
+                                                   owner:self
+                                                userInfo:nil];
+    [self addTrackingArea:_trackingArea];
+}
 
 - (BOOL)acceptsFirstResponder {
     return YES;
@@ -33,10 +50,13 @@ namespace Platform {
     if (self.window) {
         [self.window makeFirstResponder:self];
     }
+    // Hintergrundfarbe der View auf Schwarz setzen
+    self.layer.backgroundColor = [NSColor blackColor].CGColor;
 }
 
 - (void)drawRect:(NSRect)dirtyRect {
-    // Let GL view handle rendering
+    [[NSColor blackColor] setFill];
+    NSRectFill(dirtyRect);
     [self.glView display];
 }
 
@@ -89,9 +109,49 @@ namespace Platform {
 @end
 
 @implementation OpenGLView
+
 - (BOOL)isOpaque {
     return YES;
 }
+
+// Letterbox-Viewport-Berechnung mit Integer-Scaling auf 16:9 (Vielfaches von 320x180)
+- (void)drawRect:(NSRect)dirtyRect {
+    // 1. Komplett schwarz füllen
+    [[NSColor blackColor] setFill];
+    NSRectFill(dirtyRect);
+
+    // 2. Letterbox: Erzwinge IMMER 16:9 (Vielfaches von 320x180)
+    const int baseW = 320;
+    const int baseH = 180;
+    CGFloat viewW = self.bounds.size.width;
+    CGFloat viewH = self.bounds.size.height;
+    CGFloat aspect = 16.0/9.0;
+    // Berechne maximalen 16:9-Bereich, der in die View passt
+    CGFloat targetW = viewW;
+    CGFloat targetH = viewW / aspect;
+    if (targetH > viewH) {
+        targetH = viewH;
+        targetW = viewH * aspect;
+    }
+    // Integer-Scaling auf Vielfaches von 320x180
+    int scale = (int)fmin(floor(targetW / baseW), floor(targetH / baseH));
+    if (scale < 1) scale = 1;
+    int intW = baseW * scale;
+    int intH = baseH * scale;
+    CGFloat offsetX = (viewW - intW) * 0.5;
+    CGFloat offsetY = (viewH - intH) * 0.5;
+    NSRect gameRect = NSMakeRect(offsetX, offsetY, intW, intH);
+
+    // 3. OpenGL-Viewport setzen (Renderer bekommt diese Info!)
+    Renderer::set_viewport((uint32_t)intW, (uint32_t)intH);
+
+    // 4. OpenGL-Viewport verschieben (Letterbox):
+    glViewport((GLint)offsetX, (GLint)offsetY, (GLsizei)intW, (GLsizei)intH);
+
+    // 5. Spielfeld rendern (eigentliches Spiel-Rendering)
+    [super drawRect:gameRect];
+}
+
 @end
 
 @interface WindowDelegate : NSObject <NSWindowDelegate>
@@ -144,11 +204,15 @@ bool init_window(const WindowConfig& config)
 
         NSRect rect = NSMakeRect(0, 0, config.width, config.height);
 
-        g_window = [[NSWindow alloc] initWithContentRect:rect
-                                                styleMask:style
-                                                  backing:NSBackingStoreBuffered
-                                                    defer:NO];
-        [g_window setTitle:[NSString stringWithUTF8String:config.title]];
+                g_window = [[NSWindow alloc] initWithContentRect:rect
+                                                                                                styleMask:style
+                                                                                                    backing:NSBackingStoreBuffered
+                                                                                                        defer:NO];
+                [g_window setTitle:[NSString stringWithUTF8String:config.title]];
+                // Fensterhintergrundfarbe auf Schwarz
+                [g_window setBackgroundColor:[NSColor blackColor]];
+                [g_window setOpaque:YES];
+                [g_window setHasShadow:NO];
 
         // Create OpenGL pixel format
         NSOpenGLPixelFormatAttribute attrs[] = {
@@ -258,11 +322,21 @@ Vec2 get_mouse_pos()
 
 uint32_t get_window_width()
 {
+    if (g_fullscreen && g_window) {
+        NSScreen* screen = [g_window screen] ?: [NSScreen mainScreen];
+        NSRect screenFrame = [screen frame];
+        return (uint32_t)screenFrame.size.width;
+    }
     return g_window_width;
 }
 
 uint32_t get_window_height()
 {
+    if (g_fullscreen && g_window) {
+        NSScreen* screen = [g_window screen] ?: [NSScreen mainScreen];
+        NSRect screenFrame = [screen frame];
+        return (uint32_t)screenFrame.size.height;
+    }
     return g_window_height;
 }
 
@@ -350,39 +424,49 @@ void toggle_fullscreen()
     @autoreleasepool {
         if (!g_fullscreen) {
             // Borderless fullscreen: cover the ENTIRE screen
-            // The renderer will upscale from 320x180 FBO to this size
             NSScreen* screen = [g_window screen] ?: [NSScreen mainScreen];
             NSRect screenFrame = [screen frame];
-            
             // Remove window decorations and cover full screen
             [g_window setStyleMask:NSWindowStyleMaskBorderless];
             [g_window setFrame:screenFrame display:YES animate:NO];
             [g_window setLevel:NSFloatingWindowLevel];  // Keep on top
-            
+            [g_window setBackgroundColor:[NSColor blackColor]];
+            [g_window setOpaque:YES];
+            // Menüleiste und Dock ausblenden
+            [NSApp setPresentationOptions:(NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar)];
             g_window_width = (uint32_t)screenFrame.size.width;
             g_window_height = (uint32_t)screenFrame.size.height;
+            // OpenGLView auf neue Größe setzen
+            if (g_keyboardView && g_keyboardView.glView) {
+                [g_keyboardView.glView setFrame:[[g_window contentView] bounds]];
+                [g_keyboardView.glView setNeedsDisplay:YES];
+            }
             g_fullscreen = true;
-            
             printf("[MAC] Fullscreen: ON, Size: %u x %u\n", g_window_width, g_window_height);
             fflush(stdout);
         } else {
-            // Restore windowed mode with decorations
+            // Restore windowed mode mit Decorations
             NSUInteger style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
             [g_window setStyleMask:style];
             [g_window setLevel:NSNormalWindowLevel];
-            
-            // Restore to a reasonable windowed size/position
+            [g_window setBackgroundColor:[NSColor blackColor]];
+            [g_window setOpaque:YES];
+            // Menüleiste und Dock wiederherstellen
+            [NSApp setPresentationOptions:NSApplicationPresentationDefault];
             NSScreen* screen = [g_window screen] ?: [NSScreen mainScreen];
             NSRect screenFrame = [screen frame];
             CGFloat window_x = screenFrame.origin.x + (screenFrame.size.width - Config::VIEWPORT_WIDTH) / 2;
             CGFloat window_y = screenFrame.origin.y + (screenFrame.size.height - Config::VIEWPORT_HEIGHT) / 2;
             NSRect windowedFrame = NSMakeRect(window_x, window_y, Config::VIEWPORT_WIDTH, Config::VIEWPORT_HEIGHT);
             [g_window setFrame:windowedFrame display:YES animate:NO];
-            
             g_window_width = Config::VIEWPORT_WIDTH;
             g_window_height = Config::VIEWPORT_HEIGHT;
+            // OpenGLView auf neue Größe setzen
+            if (g_keyboardView && g_keyboardView.glView) {
+                [g_keyboardView.glView setFrame:[[g_window contentView] bounds]];
+                [g_keyboardView.glView setNeedsDisplay:YES];
+            }
             g_fullscreen = false;
-            
             printf("[MAC] Fullscreen: OFF, Size: %u x %u\n", g_window_width, g_window_height);
             fflush(stdout);
         }

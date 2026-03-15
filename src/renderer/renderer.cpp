@@ -893,18 +893,44 @@ void end_render_to_framebuffer()
 
 void render_framebuffer_to_screen()
 {
+
+    // Calculate maximal 16:9 area (no integer scaling)
+    int viewW = (int)g_viewport_width;
+    int viewH = (int)g_viewport_height;
+    float aspect = 16.0f / 9.0f;
+    int targetW = viewW;
+    int targetH = (int)(viewW / aspect);
+    if (targetH > viewH) {
+        targetH = viewH;
+        targetW = (int)(viewH * aspect);
+    }
+    // Ensure letterbox bars are exactly equal (centered)
+    int offsetX = (viewW - targetW) / 2;
+    int offsetY = (viewH - targetH) / 2;
+    // If the difference is odd, OpenGL rounds down, so add +1 to the top/left bar for perfect centering
+    if ((viewW - targetW) % 2 != 0) offsetX++;
+    if ((viewH - targetH) % 2 != 0) offsetY++;
+
+    // Clear whole screen to black (letterbox bars)
+    glViewport(0, 0, viewW, viewH);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // Set viewport to centered 16:9 region (maximal)
+    glViewport(offsetX, offsetY, targetW, targetH);
+
     // Disable depth test for fullscreen quad
     glDisable(GL_DEPTH_TEST);
-    
+
     glUseProgram(upscaleShaderProgram);
-    
+
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, g_fbo_texture);
-    
+
     glBindVertexArray(quadVAO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
-    
+
     // Re-enable depth test
     glEnable(GL_DEPTH_TEST);
 }
