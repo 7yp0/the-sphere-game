@@ -16,10 +16,13 @@ void clear_screen();
 void set_depth_map_data(TextureID depthMapTexture, uint32_t sceneWidth, uint32_t sceneHeight);
 void render_sprite(TextureID tex, Vec3 pos, Vec2 size, PivotPoint pivot = PivotPoint::TOP_LEFT);
 void render_sprite(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range, PivotPoint pivot = PivotPoint::TOP_LEFT);
+void render_tinted_sprite(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range, Vec4 tint, PivotPoint pivot = PivotPoint::TOP_LEFT);
 void render_sprite_animated(const SpriteAnimation* anim, Vec3 pos, Vec2 size, PivotPoint pivot = PivotPoint::TOP_LEFT);
 void render_sprite_outlined(TextureID tex, Vec3 pos, Vec2 size, Vec4 outline_color, PivotPoint pivot = PivotPoint::TOP_LEFT);
 void render_sprite_outlined(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range, Vec4 outline_color, PivotPoint pivot = PivotPoint::TOP_LEFT);
 void render_rect(Vec3 pos, Vec2 size, Vec4 color, PivotPoint pivot = PivotPoint::TOP_LEFT);
+// Zeichnet ein Rechteck mit abgerundeten Ecken (SDF-Shader)
+void render_rounded_rect(Vec3 pos, Vec2 size, Vec4 color, float radius, PivotPoint pivot = PivotPoint::TOP_LEFT);
 void render_line(Vec3 start, Vec3 end, Vec4 color, float thickness = 1.0f);
 
 // 2.5D Depth Scaling Functions
@@ -37,6 +40,14 @@ void render_sprite_with_depth(TextureID tex, Vec3 pos, Vec2 base_size, Vec4 tex_
 void render_sprite_animated_with_depth(const SpriteAnimation* anim, Vec3 pos, Vec2 base_size,
                                        float sprite_y, float horizon_y, float scale_gradient = 0.003f, bool inverted = false,
                                        PivotPoint pivot = PivotPoint::TOP_LEFT);
+
+// ===================== UI FRAMEBUFFER (VIEWPORT-RESOLUTION) =====================
+// Separates FBO für UI-Rendering in VIEWPORT_WIDTH x VIEWPORT_HEIGHT
+void init_ui_framebuffer(uint32_t width, uint32_t height);
+void begin_render_to_ui_framebuffer();   // Bind UI-FBO, set viewport to viewport resolution
+void end_render_to_ui_framebuffer();     // Unbind UI-FBO
+void render_ui_framebuffer_to_screen();  // Blit UI-FBO texture to screen (overlay)
+void shutdown_ui_framebuffer();
 
 // Light data for ECS-based rendering
 // Position is in OpenGL coords (-1 to +1), matches ECS::Transform3DComponent
@@ -135,6 +146,16 @@ void clear_projector_lights();  // Call at end of frame
 // Get current rendering dimensions (FBO base or viewport)
 uint32_t get_render_width();
 uint32_t get_render_height();
+
+uint32_t get_viewport_target_width();
+uint32_t get_viewport_target_height();
+
+// Convert window pixel coordinates to UI-FBO coordinates (accounts for letterboxing)
+Vec2 window_to_ui_coords(Vec2 window_pos);
+
+// Scale factor from UI-FBO to display (e.g. 1.0 at 1280x720, 1.5 at 1920x1080, 2.0 at 2560x1440).
+// Use to scale UI text so it stays readable at any window size.
+float get_ui_text_scale();
 
 void shutdown();
 

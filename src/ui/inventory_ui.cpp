@@ -25,12 +25,11 @@ static Vec2 get_panel_size() {
 // Helper: Calculate panel position (centered on screen)
 static Vec2 get_panel_position() {
     Vec2 panel_size = get_panel_size();
-    float viewport_w = (float)Platform::get_window_width();
-    float viewport_h = (float)Platform::get_window_height();
-    return Vec2(
-        (viewport_w - panel_size.x) * 0.5f,
-        (viewport_h - panel_size.y) * 0.5f
-    );
+    // UI wird jetzt immer in VIEWPORT_WIDTH/HEIGHT (UI-FBO) gerendert
+        return Vec2(
+            (Config::VIEWPORT_WIDTH - panel_size.x) * 0.5f,
+            (Config::VIEWPORT_HEIGHT - panel_size.y) * 0.5f
+        );
 }
 
 // Helper: Calculate slot position within panel
@@ -55,10 +54,9 @@ static bool point_in_rect(Vec2 point, Vec2 rect_pos, Vec2 rect_size) {
 
 // Helper: Get inventory button position (bottom-left corner)
 static Vec2 get_icon_button_position() {
-    float viewport_h = (float)Platform::get_window_height();
     return Vec2(
         InventoryConfig::icon_button_margin(),
-        viewport_h - InventoryConfig::icon_button_size() - InventoryConfig::icon_button_margin()
+        Config::VIEWPORT_HEIGHT - InventoryConfig::icon_button_size() - InventoryConfig::icon_button_margin()
     );
 }
 
@@ -221,7 +219,6 @@ void render_inventory_ui() {
         : g_inv_ui.icon_button_tex;
     
     if (btn_tex != 0) {
-        // Use texture
         Renderer::render_sprite(
             btn_tex,
             Vec3(btn_pos.x, btn_pos.y, ZDepth::GAME_HUD),
@@ -277,7 +274,7 @@ void render_inventory_ui() {
     for (int i = 0; i < (int)Inventory::MAX_SLOTS; i++) {
         Vec2 slot_pos = get_slot_position(i);
         Vec2 slot_size = Vec2(InventoryConfig::slot_size(), InventoryConfig::slot_size());
-        
+
         // Slot background
         if (g_inv_ui.slot_bg_tex != 0) {
             Renderer::render_sprite(
@@ -287,10 +284,9 @@ void render_inventory_ui() {
                 PivotPoint::TOP_LEFT
             );
         } else {
-            Vec4 slot_color = Vec4(0.25f, 0.25f, 0.3f, 1.0f);
-            if (i == g_inv_ui.hovered_slot) {
-                slot_color = Vec4(0.35f, 0.35f, 0.45f, 1.0f);
-            }
+            Vec4 slot_color = (i == g_inv_ui.hovered_slot)
+                ? Vec4(0.35f, 0.35f, 0.4f, 1.0f)
+                : Vec4(0.25f, 0.25f, 0.3f, 1.0f);
             Renderer::render_rect(
                 Vec3(slot_pos.x, slot_pos.y, ZDepth::PANELS - 0.001f),
                 slot_size,
@@ -298,13 +294,13 @@ void render_inventory_ui() {
                 PivotPoint::TOP_LEFT
             );
         }
-        
-        // Render item icon (but not if it's the currently selected item - that's on cursor)
+
+        // Render item icon (always, regardless of slot background type)
         const auto& slot = Inventory::get_slot(i);
         if (!slot.is_empty() && slot.item_id != g_inv_ui.selected_item_id) {
             const auto* item_def = Inventory::get_item_def(slot.item_id);
             if (item_def && item_def->icon_tex != 0) {
-                float icon_size = InventoryConfig::slot_size() - 8.0f * get_ui_scale();
+                float icon_size = InventoryConfig::slot_size() - 8.0f * UI::UI_SCALE;
                 Vec2 icon_pos = Vec2(
                     slot_pos.x + (InventoryConfig::slot_size() - icon_size) * 0.5f,
                     slot_pos.y + (InventoryConfig::slot_size() - icon_size) * 0.5f
@@ -319,13 +315,14 @@ void render_inventory_ui() {
                 // No texture - render placeholder with item ID
                 Renderer::render_text(
                     slot.item_id.substr(0, 3).c_str(),
-                    Vec2(slot_pos.x + 8.0f * get_ui_scale(), slot_pos.y + 20.0f * get_ui_scale()),
+                    Vec2(slot_pos.x + 8.0f * UI::UI_SCALE, slot_pos.y + 20.0f * UI::UI_SCALE),
                     0.5f
                 );
             }
         }
     }
 }
+
 
 void open_inventory() {
     g_inv_ui.is_open = true;

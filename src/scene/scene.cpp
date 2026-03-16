@@ -1,5 +1,6 @@
 #include "scene.h"
 #include "game/game.h"
+#include "game/dialogue.h"
 #include "renderer/renderer.h"
 #include "renderer/texture_loader.h"
 #include "debug/debug_log.h"
@@ -22,10 +23,6 @@ void init_scene_test() {
     scene.background = Renderer::load_texture("scenes/test/backgrounds/bg_room.png");
     scene.background_normal_map = Renderer::load_texture("scenes/test/backgrounds/bg_room_normal_map.png");
     scene.depth_map = Renderer::load_depth_map("scenes/test/backgrounds/bg_room_depth_map.png");
-    
-    printf("[SCENE] Depth map loaded - TextureID: %u, Size: %ux%u, Valid: %s\n", 
-        scene.depth_map.texture_id, scene.depth_map.width, scene.depth_map.height,
-        scene.depth_map.is_valid() ? "YES" : "NO");
 
     // Load textures for props
     Renderer::TextureID box_texture = Renderer::load_texture("scenes/test/props/bg_box.png");
@@ -53,10 +50,6 @@ void init_scene_test() {
     // CREATE ECS ENTITIES USING FACTORY FUNCTIONS
     // =========================================================================
     
-    printf("\n[ECS] Creating prop entities via factory functions...\n");
-    g_state.scene.prop_entities.clear();
-    g_state.scene.named_entities.clear();
-    
     // Box prop - shadow casting (solid shape)
     ECS::EntityID box_entity = ECS::create_shadow_casting_prop(
         Vec2(75.0f, 130.0f),    // Position (pixel coords)
@@ -71,7 +64,6 @@ void init_scene_test() {
                                         g_state.scene.width, g_state.scene.height);
     g_state.scene.prop_entities.push_back(box_entity);
     register_entity("box", box_entity);
-    printf("[ECS] Created box prop: Entity=%u (shadow caster)\n", box_entity);
     
     // Tree prop - shadow casting with ALPHA TESTING (irregular silhouette)
     ECS::EntityID tree_entity = ECS::create_shadow_casting_prop(
@@ -87,7 +79,6 @@ void init_scene_test() {
                                         g_state.scene.width, g_state.scene.height);
     g_state.scene.prop_entities.push_back(tree_entity);
     register_entity("tree", tree_entity);
-    printf("[ECS] Created tree prop: Entity=%u (alpha shadow caster)\n", tree_entity);
     
     // Stone prop - STATIC (no shadow casting) - for testing non-shadow props
     ECS::EntityID stone_entity = ECS::create_static_prop(
@@ -101,15 +92,11 @@ void init_scene_test() {
                                         g_state.scene.width, g_state.scene.height);
     g_state.scene.prop_entities.push_back(stone_entity);
     register_entity("stone", stone_entity);
-    printf("[ECS] Created stone prop: Entity=%u (static, no shadows)\n", stone_entity);
-    
-    printf("[ECS] Created %zu prop entities\n\n", g_state.scene.prop_entities.size());
     
     // =========================================================================
     // CREATE LIGHT ENTITIES
     // =========================================================================
-    
-    printf("[ECS] Creating light entities via factory functions...\n");
+
     g_state.scene.light_entities.clear();
     
     // Warm center light (SHADOW CASTING - main light)
@@ -122,7 +109,6 @@ void init_scene_test() {
     );
     g_state.scene.light_entities.push_back(warm_light);
     register_entity("warm_light", warm_light);
-    printf("[ECS] Created warm light: Entity=%u (shadow casting)\n", warm_light);
     
     // Blue fill light (NO SHADOWS - ambient fill)
     ECS::EntityID fill_light = ECS::create_point_light(
@@ -134,9 +120,6 @@ void init_scene_test() {
     );
     g_state.scene.light_entities.push_back(fill_light);
     register_entity("fill_light", fill_light);
-    printf("[ECS] Created fill light: Entity=%u (no shadows)\n", fill_light);
-    
-    printf("[ECS] Created %zu light entities\n\n", g_state.scene.light_entities.size());
     
     // =========================================================================
     // Create projector lights (window lights)
@@ -162,7 +145,6 @@ void init_scene_test() {
     );
     g_state.scene.projector_light_entities.push_back(window_light);
     register_entity("window_light", window_light);
-    printf("[ECS] Created window light: Entity=%u\n", window_light);
     
     // Load entity positions from JSON (overwrites hardcoded positions if file exists)
     GeometryEditor::load_entities(scene.name.c_str());
@@ -186,7 +168,7 @@ void init_scene_test() {
     });
 
     register_hotspot_callback("hotspot_tree", []() {
-        DEBUG_LOG("Player interacted with tree!");
+        Dialogue::say(g_state.player_entity, "dialogue.sphere.hello", 2.0f);
     });
 
     register_hotspot_callback("stone_hotspot", []() {
@@ -208,7 +190,7 @@ void init_scene_test() {
     
     // Set default invalid combination feedback
     Inventory::set_invalid_combination_callback([](const std::string& item1, const std::string& item2) {
-        DEBUG_LOG("Can't combine %s with %s - that doesn't work.", item1.c_str(), item2.c_str());
+        Dialogue::say(g_state.player_entity, "generic.cant_combine");
         // TODO: Play error sound, show speech bubble, etc.
     });
 }
@@ -217,11 +199,10 @@ bool register_hotspot_callback(const std::string& hotspot_name, std::function<vo
     for (auto& hotspot : g_state.scene.geometry.hotspots) {
         if (hotspot.name == hotspot_name) {
             hotspot.callback = callback;
-            DEBUG_INFO("[Scene] Registered callback for hotspot '%s'", hotspot_name.c_str());
             return true;
         }
     }
-    DEBUG_LOG("[Scene] Hotspot '%s' not found - callback not registered", hotspot_name.c_str());
+    DEBUG_ERROR("[Scene] Hotspot '%s' not found - callback not registered", hotspot_name.c_str());
     return false;
 }
 
@@ -229,11 +210,10 @@ bool register_hotspot_item_callback(const std::string& hotspot_name, const std::
     for (auto& hotspot : g_state.scene.geometry.hotspots) {
         if (hotspot.name == hotspot_name) {
             hotspot.item_callbacks[item_id] = callback;
-            DEBUG_INFO("[Scene] Registered item '%s' callback for hotspot '%s'", item_id.c_str(), hotspot_name.c_str());
             return true;
         }
     }
-    DEBUG_LOG("[Scene] Hotspot '%s' not found - item callback not registered", hotspot_name.c_str());
+    DEBUG_ERROR("[Scene] Hotspot '%s' not found - item callback not registered", hotspot_name.c_str());
     return false;
 }
 
@@ -241,11 +221,10 @@ bool set_hotspot_enabled(const std::string& hotspot_name, bool enabled) {
     for (auto& hotspot : g_state.scene.geometry.hotspots) {
         if (hotspot.name == hotspot_name) {
             hotspot.enabled = enabled;
-            DEBUG_INFO("[Scene] Hotspot '%s' %s", hotspot_name.c_str(), enabled ? "enabled" : "disabled");
             return true;
         }
     }
-    DEBUG_LOG("[Scene] Hotspot '%s' not found", hotspot_name.c_str());
+    DEBUG_ERROR("[Scene] Hotspot '%s' not found", hotspot_name.c_str());
     return false;
 }
 
@@ -260,7 +239,6 @@ Hotspot* get_hotspot(const std::string& hotspot_name) {
 
 void register_entity(const std::string& name, ECS::EntityID entity) {
     g_state.scene.named_entities[name] = entity;
-    DEBUG_INFO("[Scene] Registered entity '%s' -> Entity %u", name.c_str(), entity);
 }
 
 ECS::EntityID get_entity(const std::string& name) {
@@ -268,7 +246,7 @@ ECS::EntityID get_entity(const std::string& name) {
     if (it != g_state.scene.named_entities.end()) {
         return it->second;
     }
-    DEBUG_LOG("[Scene] Entity '%s' not found", name.c_str());
+    DEBUG_ERROR("[Scene] Entity '%s' not found", name.c_str());
     return ECS::INVALID_ENTITY;
 }
 
@@ -281,7 +259,6 @@ bool set_entity_visible(const std::string& name, bool visible) {
     auto* sprite = g_state.ecs_world.get_component<ECS::SpriteComponent>(entity);
     if (sprite) {
         sprite->visible = visible;
-        DEBUG_INFO("[Scene] Entity '%s' %s", name.c_str(), visible ? "shown" : "hidden");
         return true;
     }
     return false;

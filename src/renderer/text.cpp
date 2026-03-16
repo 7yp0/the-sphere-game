@@ -42,64 +42,43 @@ void init_text_renderer() {
     }
 }
 
-void render_text(const char* text, Vec2 pos, float scale) {
+void render_text(const char* text, Vec2 pos, float scale, Vec4 color, int max_chars) {
     if (!g_font_texture) init_text_renderer();
     if (!text) return;
-    
-    Vec3 current_pos = Vec3(pos, -1.0f);  // Use z=-1.0f for UI text depth
-    float start_x = pos.x;  // Remember start for newlines
-    
-    // Glyph size in pixels
+    Vec3 current_pos = Vec3(pos, -1.0f);
+    float start_x = pos.x;
     float glyph_width_px = GLYPH_WIDTH * scale;
     float glyph_height_px = GLYPH_HEIGHT * scale;
-    
     const char* p = text;
+    int chars_drawn = 0;
     while (*p) {
-        // Handle newline
+        if (max_chars >= 0 && chars_drawn >= max_chars) break;
         if (*p == '\n') {
             current_pos.x = start_x;
-            current_pos.y += glyph_height_px * 1.2f;  // Line spacing
+            current_pos.y += glyph_height_px * 1.2f;
             p++;
             continue;
         }
-        
-        // Determine UTF-8 character length
         int char_len = 1;
         unsigned char c = (unsigned char)*p;
-        if ((c & 0x80) == 0) {
-            char_len = 1;  // ASCII
-        } else if ((c & 0xE0) == 0xC0) {
-            char_len = 2;  // 2-byte UTF-8
-        } else if ((c & 0xF0) == 0xE0) {
-            char_len = 3;  // 3-byte UTF-8
-        } else if ((c & 0xF8) == 0xF0) {
-            char_len = 4;  // 4-byte UTF-8
-        }
-        
-        // Find this character in FONT_CHARS (UTF-8 aware search)
+        if ((c & 0x80) == 0) char_len = 1;
+        else if ((c & 0xE0) == 0xC0) char_len = 2;
+        else if ((c & 0xF0) == 0xE0) char_len = 3;
+        else if ((c & 0xF8) == 0xF0) char_len = 4;
         int char_index = -1;
         const char* fc = FONT_CHARS;
         int index = 0;
         while (*fc) {
-            // Get length of current FONT_CHARS character
             int fc_len = 1;
             unsigned char fc_c = (unsigned char)*fc;
-            if ((fc_c & 0x80) == 0) {
-                fc_len = 1;
-            } else if ((fc_c & 0xE0) == 0xC0) {
-                fc_len = 2;
-            } else if ((fc_c & 0xF0) == 0xE0) {
-                fc_len = 3;
-            } else if ((fc_c & 0xF8) == 0xF0) {
-                fc_len = 4;
-            }
-            
-            // Compare characters
+            if ((fc_c & 0x80) == 0) fc_len = 1;
+            else if ((fc_c & 0xE0) == 0xC0) fc_len = 2;
+            else if ((fc_c & 0xF0) == 0xE0) fc_len = 3;
+            else if ((fc_c & 0xF8) == 0xF0) fc_len = 4;
             if (fc_len == char_len && memcmp(p, fc, char_len) == 0) {
                 char_index = index;
                 break;
             }
-            
             fc += fc_len;
             index++;
         }
@@ -111,22 +90,37 @@ void render_text(const char* text, Vec2 pos, float scale) {
         
         int row = char_index / (int)CHARS_PER_ROW;
         int col = char_index % (int)CHARS_PER_ROW;
-        
-        // Calculate UV coordinates for this glyph
         float min_u = (col * GLYPH_WIDTH) / FONT_TEXTURE_WIDTH;
         float max_u = ((col + 1) * GLYPH_WIDTH) / FONT_TEXTURE_WIDTH;
         float min_v = (row * GLYPH_HEIGHT) / FONT_TEXTURE_HEIGHT;
         float max_v = ((row + 1) * GLYPH_HEIGHT) / FONT_TEXTURE_HEIGHT;
-        
         Vec4 uv_range(min_u, min_v, max_u, max_v);
-        
-        // render_sprite expects pixel coordinates and sizes, will convert internally
-        render_sprite(g_font_texture, current_pos, Vec2(glyph_width_px, glyph_height_px), 
-                     uv_range);
+        // Set color for this glyph
+        Renderer::render_tinted_sprite(g_font_texture, current_pos, Vec2(glyph_width_px, glyph_height_px), uv_range, color);
         current_pos.x += glyph_width_px * Renderer::CHAR_SPACING;
-        
         p += char_len;
+        chars_drawn++;
     }
 }
 
+float calculate_text_width(const char* text, float scale) {
+    if (!text) return 0.0f;
+    float glyph_width = 24.0f * scale;
+    float spacing = glyph_width * Renderer::CHAR_SPACING;
+    // Count UTF-8 codepoints (not bytes) to handle multibyte chars (ä, ö, ü, etc.)
+    int char_count = 0;
+    for (const char* p = text; *p; ) {
+        if (*p == '\n') { p++; continue; }
+        unsigned char c = (unsigned char)*p;
+        if      ((c & 0x80) == 0x00) p += 1;
+        else if ((c & 0xE0) == 0xC0) p += 2;
+        else if ((c & 0xF0) == 0xE0) p += 3;
+        else                          p += 4;
+        char_count++;
+    }
+    if (char_count == 0) return 0.0f;
+    // Visual width = advance of all chars except last + full glyph width of last char
+    // (avoids the trailing spacing gap that makes centering appear off)
+    return (char_count - 1) * spacing + glyph_width;
+}
 }

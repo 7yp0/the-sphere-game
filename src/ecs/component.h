@@ -18,6 +18,7 @@ enum class ComponentType : uint32_t {
     Emissive = 5,
     ProjectorLight = 6,
     Walker = 7,
+    Talkable = 8,
     
     // Add new component types here before COUNT
     COUNT
@@ -159,7 +160,9 @@ private:
     ComponentArray<EmissiveComponent> emissive_components_;
     ComponentArray<ProjectorLightComponent> projector_light_components_;
     ComponentArray<WalkerComponent> walker_components_;
+    ComponentArray<TalkableComponent> talkable_components_;
 };
+
 
 // Template specializations for get_component_type
 template<> constexpr ComponentType ComponentRegistry::get_component_type<Transform2_5DComponent>() { return ComponentType::Transform2_5D; }
@@ -170,8 +173,10 @@ template<> constexpr ComponentType ComponentRegistry::get_component_type<ShadowC
 template<> constexpr ComponentType ComponentRegistry::get_component_type<EmissiveComponent>() { return ComponentType::Emissive; }
 template<> constexpr ComponentType ComponentRegistry::get_component_type<ProjectorLightComponent>() { return ComponentType::ProjectorLight; }
 template<> constexpr ComponentType ComponentRegistry::get_component_type<WalkerComponent>() { return ComponentType::Walker; }
+template<> constexpr ComponentType ComponentRegistry::get_component_type<TalkableComponent>() { return ComponentType::Talkable; }
 
 // Template specializations for get_array
+
 template<> inline ComponentArray<Transform2_5DComponent>& ComponentRegistry::get_array<Transform2_5DComponent>() { return transform2_5d_components_; }
 template<> inline ComponentArray<Transform3DComponent>& ComponentRegistry::get_array<Transform3DComponent>() { return transform3d_components_; }
 template<> inline ComponentArray<SpriteComponent>& ComponentRegistry::get_array<SpriteComponent>() { return sprite_components_; }
@@ -180,6 +185,7 @@ template<> inline ComponentArray<ShadowCasterComponent>& ComponentRegistry::get_
 template<> inline ComponentArray<EmissiveComponent>& ComponentRegistry::get_array<EmissiveComponent>() { return emissive_components_; }
 template<> inline ComponentArray<ProjectorLightComponent>& ComponentRegistry::get_array<ProjectorLightComponent>() { return projector_light_components_; }
 template<> inline ComponentArray<WalkerComponent>& ComponentRegistry::get_array<WalkerComponent>() { return walker_components_; }
+template<> inline ComponentArray<TalkableComponent>& ComponentRegistry::get_array<TalkableComponent>() { return talkable_components_; }
 
 // Implementation of remove_all_components
 inline void ComponentRegistry::remove_all_components(EntityManager& em, EntityID id) {
@@ -191,6 +197,7 @@ inline void ComponentRegistry::remove_all_components(EntityManager& em, EntityID
     emissive_components_.remove(id);
     projector_light_components_.remove(id);
     walker_components_.remove(id);
+    talkable_components_.remove(id);
     // Clear all component bits
     em.get_entity(id).component_mask = 0;
 }

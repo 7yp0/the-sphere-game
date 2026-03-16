@@ -2,6 +2,7 @@
 #include "player.h"
 #include "animation_bank.h"
 #include "core/timing.h"
+#include "core/localization.h"
 #include "renderer/renderer.h"
 #include "renderer/texture_loader.h"
 #include "renderer/animation.h"
@@ -10,6 +11,7 @@
 #include "debug/debug.h"
 #include "ui/cursor.h"
 #include "ui/inventory_ui.h"
+#include "ui/speechbubble_ui.h"
 #include "types.h"
 #include "ecs/ecs.h"
 #include "ecs/entity_factory.h"
@@ -99,22 +101,27 @@ static void update_animated_light(float delta_time) {
 }
 
 void init() {    
+    // Load language with Localization system
+    Localization::load("en");
+
     // Initialize inventory UI FIRST (so scene can register items)
     UI::init_inventory_ui();
-    
+
     // Initialize cursor system
     UI::init_cursor();
-    
+
     // Initialize scene (this also creates prop ECS entities)
     // Note: Geometry is loaded from JSON inside init_scene_test() before callbacks are registered
     Scene::init_scene_test();
-    
+
     // Create player entity (this initializes player and its ECS transform)
     g_state.player_entity = player_create_entity(g_state.player, g_state.ecs_world,
                                                   g_state.base_width, g_state.base_height);
-    
+
     // Initialize framebuffer for offscreen rendering at base resolution
     Renderer::init_framebuffer(Config::BASE_WIDTH, Config::BASE_HEIGHT);
+    // Initialize UI framebuffer for UI rendering at viewport resolution
+    Renderer::init_ui_framebuffer(Config::VIEWPORT_WIDTH, Config::VIEWPORT_HEIGHT);
 }
 
 void set_viewport(uint32_t width, uint32_t height) {
@@ -141,9 +148,9 @@ void update(float delta_time) {
     // Clear tooltip at start of frame (before any UI updates)
     UI::reset_cursor_state();
     
-    // Get mouse position for UI
-    Vec2 mouse_pos = Platform::get_mouse_pos();
-    
+    // Convert window mouse position to UI-FBO coordinates (handles letterboxing)
+    Vec2 mouse_pos = Renderer::window_to_ui_coords(Platform::get_mouse_pos());
+
     // Update inventory UI (may consume input)
     bool ui_consumed_input = UI::update_inventory_ui(mouse_pos);
     
@@ -360,22 +367,6 @@ void render() {
         Renderer::clear_projector_lights();
     }
     
-    // Debug: Print shadow caster count once
-    static bool shadow_debug_printed = false;
-    if (!shadow_debug_printed && num_shadow_casters > 0) {
-        printf("[SHADOW] Collected %u shadow casters:\n", num_shadow_casters);
-        printf("[SHADOW] Starting position dump...\n");
-        for (uint32_t i = 0; i < num_shadow_casters; i++) {
-            const auto& sc = shadow_casters[i];
-            printf("[SHADOW]   [%u] pos=(%.3f,%.3f,%.3f) size=(%.3f,%.3f) tex=%u alpha=%.2f\n",
-                   i, sc.position.x, sc.position.y, sc.position.z,
-                   sc.size.x, sc.size.y, sc.texture, sc.alpha_threshold);
-        }
-        printf("[SHADOW] Done.\n");
-        fflush(stdout);
-        shadow_debug_printed = true;
-    }
-    
     // =========================================================================
     // OFFSCREEN RENDERING: Render scene at base resolution (320x180)
     // =========================================================================
@@ -394,7 +385,6 @@ void render() {
     // Render props using ECS components (from current scene)
     // Props can receive shadows from other props (but not from themselves)
     // =========================================================================
-    static bool props_printed = false;
     int32_t prop_render_index = 0;
     for (ECS::EntityID prop_entity : g_state.scene.prop_entities) {
         auto* transform = g_state.ecs_world.get_component<ECS::Transform2_5DComponent>(prop_entity);
@@ -403,12 +393,6 @@ void render() {
         if (!transform || !sprite || !sprite->visible) {
             prop_render_index++;
             continue;
-        }
-        
-        // Debug: print prop z_depth once
-        if (!props_printed) {
-            printf("Prop z_depth: %.2f (pos: %.0f, %.0f)\n", 
-                   transform->z_depth, transform->position.x, transform->position.y);
         }
         
         // Calculate Z from depth map (ground level at this pixel)
@@ -439,8 +423,7 @@ void render() {
                                             shadow_z, prop_render_index);
         prop_render_index++;
     }
-    props_printed = true;
-    
+
     // =========================================================================
     // Render player using ECS components
     // Player receives shadows from props but doesn't shadow itself
@@ -495,25 +478,35 @@ void render() {
     }
     
     Renderer::end_render_to_framebuffer();
-    
+
     // =========================================================================
     // UPSCALE: Blit framebuffer to screen at viewport resolution (1280x720)
     // =========================================================================
     Renderer::clear_screen();
     Renderer::render_framebuffer_to_screen();
-    
+
     // Debug overlay (rendered at viewport resolution, after upscaling)
-    Vec2 mouse_pixel = Platform::get_mouse_pos();
+    Vec2 mouse_window = Platform::get_mouse_pos();
 #ifndef NDEBUG
-    Debug::render_overlay(mouse_pixel);
+    Debug::render_overlay(mouse_window);
 #endif
-    
+
+    // Convert window mouse to UI-FBO coordinates for all UI rendering
+    Vec2 mouse_ui = Renderer::window_to_ui_coords(mouse_window);
+
+    // ================= UI-FBO: Gesamte UI in separates FBO zeichnen =================
+    Renderer::begin_render_to_ui_framebuffer();
     // Render inventory UI (before cursor so cursor appears on top)
     UI::render_inventory_ui();
-    
+    // Render speech bubbles (after UI, before cursor)
+    UI::render_speechbubbles();
     // Update and render cursor (always on top)
-    UI::update_cursor(mouse_pixel);
-    UI::render_cursor(mouse_pixel);
+    UI::update_cursor(mouse_ui);
+    UI::render_cursor(mouse_ui);
+    Renderer::end_render_to_ui_framebuffer();
+
+    // Blit UI-FBO als Overlay auf das Fenster (volle Größe, kein Letterboxing)
+    Renderer::render_ui_framebuffer_to_screen();
 }
 
 void shutdown() {

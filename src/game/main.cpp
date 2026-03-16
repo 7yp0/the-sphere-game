@@ -10,7 +10,6 @@ int main(int argc, char** argv)
     // On Windows debug builds, allocate a console for output
     #if defined(_WIN32) && !defined(NDEBUG)
         AllocConsole();
-        printf("[DEBUG CONSOLE] Engine starting...\n");
     #endif
     
     return engine_run(argc, argv);

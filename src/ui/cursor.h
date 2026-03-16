@@ -2,7 +2,8 @@
 
 #include "types.h"
 #include "renderer/renderer.h"
-#include "inventory_ui.h"  // For get_ui_scale()
+#include "ui.h"
+
 #include <string>
 
 namespace UI {
@@ -12,20 +13,20 @@ enum class CursorState {
     Hover       // Over interactive hotspot
 };
 
-// Cursor configuration (BASE sizes at 1x scale)
+// Cursor configuration (BASE sizes in logical 320x180 pixels)
 namespace CursorConfig {
-    constexpr float BASE_CURSOR_SIZE = 8.0f;        // Cursor size at 1x
-    constexpr float BASE_ITEM_CURSOR_SIZE = 12.0f;  // Item on cursor size at 1x
-    constexpr float BASE_TOOLTIP_OFFSET_X = 5.0f;   // Tooltip X offset at 1x
-    constexpr float BASE_TOOLTIP_OFFSET_Y = 7.0f;   // Tooltip Y offset at 1x
-    constexpr float BASE_TOOLTIP_PADDING = 1.5f;    // Tooltip padding at 1x
-    
-    // Scaled accessors
-    inline float cursor_size() { return BASE_CURSOR_SIZE * get_ui_scale(); }
-    inline float item_cursor_size() { return BASE_ITEM_CURSOR_SIZE * get_ui_scale(); }
-    inline float tooltip_offset_x() { return BASE_TOOLTIP_OFFSET_X * get_ui_scale(); }
-    inline float tooltip_offset_y() { return BASE_TOOLTIP_OFFSET_Y * get_ui_scale(); }
-    inline float tooltip_padding() { return BASE_TOOLTIP_PADDING * get_ui_scale(); }
+    constexpr float BASE_CURSOR_SIZE       = 8.0f;
+    constexpr float BASE_ITEM_CURSOR_SIZE  = 12.0f;
+    constexpr float BASE_TOOLTIP_OFFSET_X  = 2.0f;
+    constexpr float BASE_TOOLTIP_OFFSET_Y  = -16.0f;
+    constexpr float BASE_TOOLTIP_PADDING   = UI::BASE_BACKDROP_PADDING;
+
+    // Scaled accessors (multiply by UI_SCALE to get UI-FBO pixel values)
+    inline float cursor_size()       { return BASE_CURSOR_SIZE      * UI::UI_SCALE; }
+    inline float item_cursor_size()  { return BASE_ITEM_CURSOR_SIZE * UI::UI_SCALE; }
+    inline float tooltip_offset_x()  { return BASE_TOOLTIP_OFFSET_X * UI::UI_SCALE; }
+    inline float tooltip_offset_y()  { return BASE_TOOLTIP_OFFSET_Y * UI::UI_SCALE; }
+    inline float tooltip_padding()   { return BASE_TOOLTIP_PADDING  * UI::UI_SCALE; }
 }
 
 struct CursorSystem {

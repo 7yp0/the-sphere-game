@@ -151,9 +151,6 @@ EntityID create_projector_light(
     projector.cookie = cookie;
     projector.enabled = true;
     
-    printf("[ECS] Created projector light entity %u at pixel(%.0f, %.0f) → OpenGL(%.2f, %.2f, %.2f)\n",
-           entity, pixel_position.x, pixel_position.y, gl_x, gl_y, z_depth);
-    
     return entity;
 }
 

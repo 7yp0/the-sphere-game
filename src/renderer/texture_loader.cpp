@@ -14,6 +14,7 @@ namespace Renderer {
 static std::map<std::string, TextureID> g_texture_cache;
 
 TextureID load_texture(const char* path) {
+    DEBUG_LOG("Loading texture: %s", path ? path : "nullptr");
     if (!path) {
         DEBUG_ERROR("load_texture called with nullptr path");
         return create_test_texture();
@@ -127,7 +128,7 @@ DepthMapData load_depth_map(const char* path) {
     png_free(img);
     
     result.texture_id = tex;
-    DEBUG_LOG("Depth map loaded: %s (%ux%u)", path, result.width, result.height);
+
     return result;
 }
 

@@ -13,11 +13,16 @@ static GLuint quadVAO = 0;
 static GLuint quadVBO = 0;
 static GLuint shaderProgram = 0;
 static GLuint colorShaderProgram = 0;
+static GLuint tintShaderProgram = 0;
 static GLuint litShaderProgram = 0;    // Shader for lit sprites with ECS lights
 static GLuint upscaleShaderProgram = 0;  // Shader for upscaling FBO to viewport
 static GLuint outlineShaderProgram = 0;  // Shader for sprite outlines (hover effect)
+static GLuint roundedRectShaderProgram = 0;
 static uint32_t g_viewport_width = 0;
 static uint32_t g_viewport_height = 0;
+// Sichtbarer 16:9-Viewport (Letterbox-Bereich)
+static uint32_t g_viewport_target_width = 0;
+static uint32_t g_viewport_target_height = 0;
 static TextureID g_depth_map_texture = 0;
 static uint32_t g_scene_width = 0;
 static uint32_t g_scene_height = 0;
@@ -34,10 +39,30 @@ static bool g_rendering_to_fbo = false;  // Track if currently rendering to FBO
 static ProjectorLightData g_projector_lights[MAX_PROJECTOR_LIGHTS];
 static uint32_t g_num_projector_lights = 0;
 
+// UI Framebuffer Object (FBO) for offscreen UI rendering
+static GLuint g_ui_fbo = 0;
+static GLuint g_ui_fbo_texture = 0;
+static GLuint g_ui_fbo_depth_rbo = 0;
+static uint32_t g_ui_fbo_width = 0;
+static uint32_t g_ui_fbo_height = 0;
+static bool g_rendering_to_ui_fbo = false;
+
+// Letterbox parameters (set each frame in render_framebuffer_to_screen)
+// These define where the game image sits inside the window (after letterboxing)
+static int g_letterbox_x = 0;
+static int g_letterbox_y = 0;
+static int g_letterbox_w = 0;
+static int g_letterbox_h = 0;
+
 void init_renderer(uint32_t width, uint32_t height)
 {
     g_viewport_width = width;
     g_viewport_height = height;
+    // Default letterbox = full window (no bars), updated each frame by render_framebuffer_to_screen
+    g_letterbox_x = 0;
+    g_letterbox_y = 0;
+    g_letterbox_w = (int)width;
+    g_letterbox_h = (int)height;
     glViewport(0, 0, width, height);
     
     glEnable(GL_DEPTH_TEST);
@@ -81,6 +106,19 @@ void init_renderer(uint32_t width, uint32_t height)
     std::string colorVertSrc = load_shader_source("color.vert");
     std::string colorFragSrc = load_shader_source("color.frag");
     colorShaderProgram = compile_and_link_shader(colorVertSrc.c_str(), colorFragSrc.c_str());
+
+    // Load tint shader (like basic, but with tintColor uniform)
+    std::string tintVertSrc = load_shader_source("tint.vert");
+    std::string tintFragSrc = load_shader_source("tint.frag");
+    tintShaderProgram = compile_and_link_shader(tintVertSrc.c_str(), tintFragSrc.c_str());
+    if (tintShaderProgram == 0) {
+        DEBUG_ERROR("Failed to compile tint shader program!");
+    } else {
+        glUseProgram(tintShaderProgram);
+        glUniform1i(glGetUniformLocation(tintShaderProgram, "texture0"), 0);
+        glUniform4f(glGetUniformLocation(tintShaderProgram, "tintColor"), 1, 1, 1, 1);
+        glUseProgram(0);
+    }
     
     // Load lit shader for ECS-based lighting
     std::string litVertSrc = load_shader_source("basic_lit.vert");
@@ -90,7 +128,6 @@ void init_renderer(uint32_t width, uint32_t height)
     if (litShaderProgram == 0) {
         DEBUG_ERROR("Failed to compile basic_lit shader program!");
     } else {
-        DEBUG_INFO("Successfully loaded basic_lit shader program (ID: %u)", litShaderProgram);
         glUseProgram(litShaderProgram);
         glUniform1i(glGetUniformLocation(litShaderProgram, "texture0"), 0);    // Diffuse
         glUniform1i(glGetUniformLocation(litShaderProgram, "normalMap"), 1);   // Normal map
@@ -106,9 +143,19 @@ void init_renderer(uint32_t width, uint32_t height)
     if (outlineShaderProgram == 0) {
         DEBUG_ERROR("Failed to compile outline shader program!");
     } else {
-        DEBUG_INFO("Successfully loaded outline shader program (ID: %u)", outlineShaderProgram);
         glUseProgram(outlineShaderProgram);
         glUniform1i(glGetUniformLocation(outlineShaderProgram, "texture0"), 0);
+        glUseProgram(0);
+    }
+// Rounded rect shader
+    std::string roundedVertSrc = load_shader_source("rounded_rect.vert");
+    std::string roundedFragSrc = load_shader_source("rounded_rect.frag");
+    roundedRectShaderProgram = compile_and_link_shader(roundedVertSrc.c_str(), roundedFragSrc.c_str());
+    if (roundedRectShaderProgram == 0) {
+        DEBUG_ERROR("Failed to compile rounded_rect shader program!");
+    } else {
+        glUseProgram(roundedRectShaderProgram);
+        glUniform1i(glGetUniformLocation(roundedRectShaderProgram, "texture0"), 0);
         glUseProgram(0);
     }
 }
@@ -141,48 +188,78 @@ void render_sprite(TextureID tex, Vec3 pos, Vec2 size, PivotPoint pivot)
 
 void render_sprite(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range, PivotPoint pivot)
 {
-    // Get current render target dimensions (FBO or viewport)
     uint32_t render_width = get_render_width();
     uint32_t render_height = get_render_height();
-    
-    // Convert pixel coordinates to OpenGL coordinates
     Vec2 opengl_pos = Coords::pixel_to_opengl(Vec2(pos.x, pos.y), render_width, render_height);
     Vec2 opengl_size = Vec2(
         (size.x / (float)render_width) * 2.0f,
         (size.y / (float)render_height) * 2.0f
     );
-    
-    // Calculate offset from pivot point to center
     Vec2 pivot_offset = Coords::get_pivot_offset(pivot, size.x, size.y);
     Vec2 pivot_offset_opengl = Vec2(
         (pivot_offset.x / (float)render_width) * 2.0f,
-        -(pivot_offset.y / (float)render_height) * 2.0f  // Negate because Y is inverted
+        -(pivot_offset.y / (float)render_height) * 2.0f
     );
-    
-    // Shader expects center point
     Vec2 opengl_center = Vec2(
         opengl_pos.x + pivot_offset_opengl.x,
         opengl_pos.y + pivot_offset_opengl.y
     );
-    
     glUseProgram(shaderProgram);
-    
     GLint posLoc = glGetUniformLocation(shaderProgram, "spritePos");
     GLint sizeLoc = glGetUniformLocation(shaderProgram, "spriteSize");
     GLint zLoc = glGetUniformLocation(shaderProgram, "spriteZ");
     GLint texCoordLoc = glGetUniformLocation(shaderProgram, "texCoordRange");
-    
     glUniform2f(posLoc, opengl_center.x, opengl_center.y);
     glUniform2f(sizeLoc, opengl_size.x, opengl_size.y);
-    glUniform1f(zLoc, pos.z);  // Use z component from Vec3
+    glUniform1f(zLoc, pos.z);
     glUniform4f(texCoordLoc, tex_coord_range.x, tex_coord_range.y, tex_coord_range.z, tex_coord_range.w);
-    
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, tex);
-    
     glBindVertexArray(quadVAO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
+    glUseProgram(0);
+
+}
+
+// New: render_colored_sprite for color-tinted rendering (uses colorShaderProgram)
+
+// Render a sprite with a color tint (multiplied)
+void render_tinted_sprite(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range, Vec4 tint, PivotPoint pivot)
+{
+    uint32_t render_width = get_render_width();
+    uint32_t render_height = get_render_height();
+    Vec2 opengl_pos = Coords::pixel_to_opengl(Vec2(pos.x, pos.y), render_width, render_height);
+    Vec2 opengl_size = Vec2(
+        (size.x / (float)render_width) * 2.0f,
+        (size.y / (float)render_height) * 2.0f
+    );
+    Vec2 pivot_offset = Coords::get_pivot_offset(pivot, size.x, size.y);
+    Vec2 pivot_offset_opengl = Vec2(
+        (pivot_offset.x / (float)render_width) * 2.0f,
+        -(pivot_offset.y / (float)render_height) * 2.0f
+    );
+    Vec2 opengl_center = Vec2(
+        opengl_pos.x + pivot_offset_opengl.x,
+        opengl_pos.y + pivot_offset_opengl.y
+    );
+    glUseProgram(tintShaderProgram);
+    GLint posLoc = glGetUniformLocation(tintShaderProgram, "spritePos");
+    GLint sizeLoc = glGetUniformLocation(tintShaderProgram, "spriteSize");
+    GLint zLoc = glGetUniformLocation(tintShaderProgram, "spriteZ");
+    GLint texCoordLoc = glGetUniformLocation(tintShaderProgram, "texCoordRange");
+    GLint tintLoc = glGetUniformLocation(tintShaderProgram, "tintColor");
+    glUniform2f(posLoc, opengl_center.x, opengl_center.y);
+    glUniform2f(sizeLoc, opengl_size.x, opengl_size.y);
+    glUniform1f(zLoc, pos.z);
+    glUniform4f(texCoordLoc, tex_coord_range.x, tex_coord_range.y, tex_coord_range.z, tex_coord_range.w);
+    glUniform4f(tintLoc, tint.x, tint.y, tint.z, tint.w);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+    glUseProgram(0);
 }
 
 void render_sprite_animated(const SpriteAnimation* anim, Vec3 pos, Vec2 size, PivotPoint pivot)
@@ -212,30 +289,23 @@ void render_sprite_outlined(TextureID tex, Vec3 pos, Vec2 size, Vec4 outline_col
 
 void render_sprite_outlined(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_range, Vec4 outline_color, PivotPoint pivot)
 {
-    // Get current render target dimensions (FBO or viewport)
     uint32_t render_width = get_render_width();
     uint32_t render_height = get_render_height();
-    
-    // Convert pixel coordinates to OpenGL coordinates
     Vec2 opengl_pos = Coords::pixel_to_opengl(Vec2(pos.x, pos.y), render_width, render_height);
     Vec2 opengl_size = Vec2(
         (size.x / (float)render_width) * 2.0f,
         (size.y / (float)render_height) * 2.0f
     );
-    
-    // Calculate offset from pivot point to center
     Vec2 pivot_offset = Coords::get_pivot_offset(pivot, size.x, size.y);
     Vec2 pivot_offset_opengl = Vec2(
         (pivot_offset.x / (float)render_width) * 2.0f,
         -(pivot_offset.y / (float)render_height) * 2.0f
     );
-    
     Vec2 opengl_center = Vec2(
         opengl_pos.x + pivot_offset_opengl.x,
         opengl_pos.y + pivot_offset_opengl.y
     );
     
-    // Get texture dimensions for texel size calculation
     GLint tex_width = 0, tex_height = 0;
     glBindTexture(GL_TEXTURE_2D, tex);
     glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &tex_width);
@@ -245,7 +315,6 @@ void render_sprite_outlined(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_r
     float texel_y = (tex_height > 0) ? 1.0f / (float)tex_height : 0.0f;
     
     glUseProgram(outlineShaderProgram);
-    
     glUniform2f(glGetUniformLocation(outlineShaderProgram, "spritePos"), opengl_center.x, opengl_center.y);
     glUniform2f(glGetUniformLocation(outlineShaderProgram, "spriteSize"), opengl_size.x, opengl_size.y);
     glUniform1f(glGetUniformLocation(outlineShaderProgram, "spriteZ"), pos.z);
@@ -254,14 +323,50 @@ void render_sprite_outlined(TextureID tex, Vec3 pos, Vec2 size, Vec4 tex_coord_r
     glUniform2f(glGetUniformLocation(outlineShaderProgram, "texelSize"), texel_x, texel_y);
     glUniform4f(glGetUniformLocation(outlineShaderProgram, "outlineColor"), 
                 outline_color.x, outline_color.y, outline_color.z, outline_color.w);
-    
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, tex);
-    
     glBindVertexArray(quadVAO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
 }
+
+void render_rounded_rect(Vec3 pos, Vec2 size, Vec4 color, float radius, PivotPoint pivot) {
+    uint32_t render_width = get_render_width();
+    uint32_t render_height = get_render_height();
+
+    Vec2 opengl_pos = Coords::pixel_to_opengl(Vec2(pos.x, pos.y), render_width, render_height);
+    Vec2 opengl_size = Vec2(
+        (size.x / (float)render_width) * 2.0f,
+        (size.y / (float)render_height) * 2.0f
+    );
+    Vec2 pivot_offset = Coords::get_pivot_offset(pivot, size.x, size.y);
+    Vec2 pivot_offset_opengl = Vec2(
+        (pivot_offset.x / (float)render_width) * 2.0f,
+        -(pivot_offset.y / (float)render_height) * 2.0f
+    );
+    Vec2 opengl_center = Vec2(
+        opengl_pos.x + pivot_offset_opengl.x,
+        opengl_pos.y + pivot_offset_opengl.y
+    );
+    glUseProgram(roundedRectShaderProgram);
+    GLint posLoc    = glGetUniformLocation(roundedRectShaderProgram, "spritePos");
+    GLint sizeLoc   = glGetUniformLocation(roundedRectShaderProgram, "spriteSize");
+    GLint zLoc      = glGetUniformLocation(roundedRectShaderProgram, "spriteZ");
+    GLint colorLoc  = glGetUniformLocation(roundedRectShaderProgram, "rectColor");
+    GLint radiusLoc = glGetUniformLocation(roundedRectShaderProgram, "radius");
+    GLint sizePxLoc = glGetUniformLocation(roundedRectShaderProgram, "rectSize");
+    glUniform2f(posLoc, opengl_center.x, opengl_center.y);
+    glUniform2f(sizeLoc, opengl_size.x, opengl_size.y);
+    glUniform1f(zLoc, pos.z);
+    glUniform4f(colorLoc, color.x, color.y, color.z, color.w);
+    glUniform2f(sizePxLoc, size.x, size.y);    // pixel dimensions for SDF
+    glUniform1f(radiusLoc, radius);             // radius directly in pixels
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+    glUseProgram(0);
+}
+
 
 void render_rect(Vec3 pos, Vec2 size, Vec4 color, PivotPoint pivot)
 {
@@ -410,6 +515,9 @@ void shutdown()
     }
     if (colorShaderProgram) {
         glDeleteProgram(colorShaderProgram);
+    }
+    if (tintShaderProgram) {
+        glDeleteProgram(tintShaderProgram);
     }
     if (litShaderProgram) {
         glDeleteProgram(litShaderProgram);
@@ -870,7 +978,6 @@ void init_framebuffer(uint32_t base_width, uint32_t base_height)
     if (upscaleShaderProgram == 0) {
         DEBUG_ERROR("Failed to compile upscale shader program!");
     } else {
-        DEBUG_INFO("Successfully loaded upscale shader program (ID: %u)", upscaleShaderProgram);
         glUseProgram(upscaleShaderProgram);
         glUniform1i(glGetUniformLocation(upscaleShaderProgram, "screenTexture"), 0);
         glUseProgram(0);
@@ -907,9 +1014,16 @@ void render_framebuffer_to_screen()
     // Ensure letterbox bars are exactly equal (centered)
     int offsetX = (viewW - targetW) / 2;
     int offsetY = (viewH - targetH) / 2;
-    // If the difference is odd, OpenGL rounds down, so add +1 to the top/left bar for perfect centering
     if ((viewW - targetW) % 2 != 0) offsetX++;
     if ((viewH - targetH) % 2 != 0) offsetY++;
+
+    // Save letterbox params – used by render_ui_framebuffer_to_screen and mouse conversion
+    g_letterbox_x = offsetX;
+    g_letterbox_y = offsetY;
+    g_letterbox_w = targetW;
+    g_letterbox_h = targetH;
+    g_viewport_target_width  = (uint32_t)targetW;
+    g_viewport_target_height = (uint32_t)targetH;
 
     // Clear whole screen to black (letterbox bars)
     glViewport(0, 0, viewW, viewH);
@@ -957,12 +1071,114 @@ void shutdown_framebuffer()
 
 uint32_t get_render_width()
 {
-    return g_rendering_to_fbo ? g_fbo_width : g_viewport_width;
+    if (g_rendering_to_fbo)    return g_fbo_width;
+    if (g_rendering_to_ui_fbo) return g_ui_fbo_width;
+    return g_viewport_width;
 }
 
 uint32_t get_render_height()
 {
-    return g_rendering_to_fbo ? g_fbo_height : g_viewport_height;
+    if (g_rendering_to_fbo)    return g_fbo_height;
+    if (g_rendering_to_ui_fbo) return g_ui_fbo_height;
+    return g_viewport_height;
+}
+
+uint32_t get_viewport_target_width() { return g_viewport_target_width; }
+uint32_t get_viewport_target_height() { return g_viewport_target_height; }
+
+// Convert window pixel coordinates to UI-FBO coordinates (0..UI_FBO_WIDTH, 0..UI_FBO_HEIGHT).
+// Accounts for letterboxing so UI coords always map to the visible game area.
+Vec2 window_to_ui_coords(Vec2 window_pos)
+{
+    if (g_letterbox_w == 0 || g_letterbox_h == 0) return window_pos;
+    return Vec2(
+        (window_pos.x - (float)g_letterbox_x) * (float)g_ui_fbo_width  / (float)g_letterbox_w,
+        (window_pos.y - (float)g_letterbox_y) * (float)g_ui_fbo_height / (float)g_letterbox_h
+    );
+}
+
+float get_ui_text_scale()
+{
+    if (g_ui_fbo_height == 0) return 1.0f;
+    return (float)g_letterbox_h / (float)g_ui_fbo_height;
+}
+
+void init_ui_framebuffer(uint32_t width, uint32_t height)
+{
+    g_ui_fbo_width = width;
+    g_ui_fbo_height = height;
+    glGenFramebuffers(1, &g_ui_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, g_ui_fbo);
+    glGenTextures(1, &g_ui_fbo_texture);
+    glBindTexture(GL_TEXTURE_2D, g_ui_fbo_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    // GL_LINEAR for smooth upscaling of UI (text, rounded rects look better with bilinear)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, g_ui_fbo_texture, 0);
+    glGenRenderbuffers(1, &g_ui_fbo_depth_rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, g_ui_fbo_depth_rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, g_ui_fbo_depth_rbo);
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        DEBUG_ERROR("UI Framebuffer not complete! Status: 0x%X", status);
+    } else {
+        DEBUG_INFO("UI Framebuffer created: %ux%u (viewport resolution)", width, height);
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void begin_render_to_ui_framebuffer()
+{
+    g_rendering_to_ui_fbo = true;
+    glBindFramebuffer(GL_FRAMEBUFFER, g_ui_fbo);
+    glViewport(0, 0, g_ui_fbo_width, g_ui_fbo_height);
+    // Clear UI-FBO to transparent (UI ist Overlay!)
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void end_render_to_ui_framebuffer()
+{
+    g_rendering_to_ui_fbo = false;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, g_viewport_width, g_viewport_height);
+}
+
+void render_ui_framebuffer_to_screen()
+{
+    // Render UI-FBO with the same letterbox viewport as the game FBO so UI aligns
+    // with the game world. g_letterbox_* is set every frame by render_framebuffer_to_screen().
+    glViewport(g_letterbox_x, g_letterbox_y, g_letterbox_w, g_letterbox_h);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glUseProgram(upscaleShaderProgram);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, g_ui_fbo_texture);
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+    glEnable(GL_DEPTH_TEST);
+}
+
+void shutdown_ui_framebuffer()
+{
+    if (g_ui_fbo_texture) {
+        glDeleteTextures(1, &g_ui_fbo_texture);
+        g_ui_fbo_texture = 0;
+    }
+    if (g_ui_fbo_depth_rbo) {
+        glDeleteRenderbuffers(1, &g_ui_fbo_depth_rbo);
+        g_ui_fbo_depth_rbo = 0;
+    }
+    if (g_ui_fbo) {
+        glDeleteFramebuffers(1, &g_ui_fbo);
+        g_ui_fbo = 0;
+    }
 }
 
 }

@@ -15,7 +15,6 @@ static CursorSystem g_cursor;
 
 // Forward declarations
 static void render_tooltip(Vec2 mouse_pos, const char* text);
-static float calculate_text_width(const char* text, float scale);
 
 void init_cursor() {
     if (g_cursor.initialized) return;
@@ -44,10 +43,9 @@ void shutdown_cursor() {
 void update_cursor(Vec2 mouse_pos) {
     if (!g_cursor.initialized) return;
     
-    // Convert window mouse position to base resolution for hotspot detection
-    float scale_x = (float)Config::BASE_WIDTH / (float)Platform::get_window_width();
-    float scale_y = (float)Config::BASE_HEIGHT / (float)Platform::get_window_height();
-    Vec2 mouse_base = Vec2(mouse_pos.x * scale_x, mouse_pos.y * scale_y);
+    // Convert UI-FBO (viewport) mouse position to base resolution for hotspot detection
+    // Hotspot bounds are stored in BASE (320x180) coordinate space
+    Vec2 mouse_base = Vec2(mouse_pos.x / UI::UI_SCALE, mouse_pos.y / UI::UI_SCALE);
     
     // Check hotspots - set hover state if over a hotspot (don't reset, that's done by reset_cursor_state)
     const auto& hotspots = Game::g_state.scene.geometry.hotspots;
@@ -63,22 +61,6 @@ void update_cursor(Vec2 mouse_pos) {
             break;  // First match wins
         }
     }
-}
-
-// Calculate text width in pixels (simplified - assumes fixed width font)
-static float calculate_text_width(const char* text, float scale) {
-    if (!text) return 0.0f;
-    
-    // Match text.cpp glyph size
-    float glyph_width = 24.0f * scale;
-    float spacing = glyph_width * Renderer::CHAR_SPACING;
-    
-    int char_count = 0;
-    for (const char* p = text; *p; p++) {
-        if (*p != '\n') char_count++;
-    }
-    
-    return char_count * spacing;
 }
 
 void render_cursor(Vec2 mouse_pos) {
@@ -129,29 +111,31 @@ void render_cursor(Vec2 mouse_pos) {
 static void render_tooltip(Vec2 mouse_pos, const char* text) {
     if (!text || text[0] == '\0') return;
     
-    float scale = 1.0f;  // Text scale stays fixed
-    float text_width = calculate_text_width(text, scale);
+    float scale = Renderer::get_ui_text_scale();
+    float text_width = Renderer::calculate_text_width(text, scale);
     float text_height = 32.0f * scale;  // Match font glyph height
     float padding = CursorConfig::tooltip_padding();
     
     // Calculate tooltip position (smart positioning)
+    // UI-FBO: Tooltip position is fixed
     float tooltip_x = mouse_pos.x + CursorConfig::tooltip_offset_x();
     float tooltip_y = mouse_pos.y + CursorConfig::tooltip_offset_y();
     
-    float bg_width = text_width + padding * 2;
-    float bg_height = text_height + padding * 2;
+    float bg_width = text_width + padding / 2.0f;
+    float bg_height = text_height + padding / 2.0f;
     
     // Smart positioning: keep tooltip on screen
     float right_edge = tooltip_x + bg_width;
     float bottom_edge = tooltip_y + bg_height;
     
     // If tooltip would go off right edge, flip to left of cursor
-    if (right_edge > (float)Platform::get_window_width()) {
+        // UI-FBO: Begrenzung auf VIEWPORT_WIDTH/HEIGHT
+        if (right_edge > (float)Config::VIEWPORT_WIDTH) {
         tooltip_x = mouse_pos.x - CursorConfig::tooltip_offset_x() - bg_width;
     }
     
     // If tooltip would go off bottom edge, flip to above cursor
-    if (bottom_edge > (float)Platform::get_window_height()) {
+        if (bottom_edge > (float)Config::VIEWPORT_HEIGHT) {
         tooltip_y = mouse_pos.y - CursorConfig::tooltip_offset_y() - bg_height;
     }
     
@@ -162,10 +146,13 @@ static void render_tooltip(Vec2 mouse_pos, const char* text) {
     // Render background (semi-transparent black)
     Vec3 bg_pos = Vec3(tooltip_x, tooltip_y, ZDepth::TOOLTIP);
     Vec4 bg_color = Vec4(0.0f, 0.0f, 0.0f, 0.8f);
-    Renderer::render_rect(bg_pos, Vec2(bg_width, bg_height), bg_color);
+    Renderer::render_rounded_rect(bg_pos, Vec2(bg_width, bg_height), bg_color, 8.0f);
     
-    // Render text
-    Vec2 text_pos = Vec2(tooltip_x + padding, tooltip_y + padding);
+    // Render text centered in background rect
+    Vec2 text_pos = Vec2(
+        tooltip_x + (bg_width  - text_width)  / 2.0f,
+        tooltip_y + (bg_height - text_height) / 2.0f
+    );
     Renderer::render_text(text, text_pos, scale);
 }
 

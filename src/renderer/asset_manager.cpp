@@ -27,9 +27,8 @@ void init_asset_manager(const char* executable_path)
         for (auto& c : path_str) {
             if (c == '\\') c = '/';
         }
-        DEBUG_INFO("GetModuleFileName: %s", path_str.c_str());
     } else {
-        DEBUG_INFO("GetModuleFileName failed, using argv[0]: %s", executable_path);
+        DEBUG_ERROR("GetModuleFileName failed, using argv[0]: %s", executable_path);
     }
 #endif
     

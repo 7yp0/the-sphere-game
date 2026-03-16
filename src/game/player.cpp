@@ -4,6 +4,8 @@
 #include "platform.h"
 #include "types.h"
 #include "config.h"
+#include "dialogue.h"
+#include "renderer/renderer.h"
 #include "renderer/texture_loader.h"
 #include "renderer/spritesheet_utils.h"
 #include "collision/polygon_utils.h"
@@ -24,8 +26,6 @@ namespace Game {
 
 ECS::EntityID player_create_entity(Player& player, ECS::World& world,
                                    uint32_t base_width, uint32_t base_height) {
-    printf("\n[ECS] Creating player entity...\n");
-    
     // Create entity
     ECS::EntityID entity = world.create_entity();
     
@@ -50,11 +50,11 @@ ECS::EntityID player_create_entity(Player& player, ECS::World& world,
     shadow.enabled = true;
     shadow.alpha_threshold = 0.3f;
     shadow.shadow_intensity = 0.7f;
-    
-    printf("  Player: Entity=%u, pos=(%.0f,%.0f), z=%.2f, size=(%.0f,%.0f), shadow_caster=YES\n",
-           entity,
-           transform.position.x, transform.position.y, transform.z_depth,
-           sprite.base_size.x, sprite.base_size.y);
+
+    // Add TalkableComponent (player can trigger dialogue)
+    auto& talkable = world.add_component<ECS::TalkableComponent>(entity);
+    talkable.bubble_offset = Vec2(0.0f, -4.0f);  // Small gap above visual head (in BASE coords)
+    talkable.text_color = Vec4(0.0f, 1.0f, 0.0f, 1.0f);  // Green text
     
     return entity;
 }
@@ -134,7 +134,7 @@ static void execute_hotspot_callback(const Scene::Hotspot& hotspot, const std::s
         if (it != hotspot.item_callbacks.end() && it->second) {
             it->second();
         } else {
-            DEBUG_LOG("That doesn't work.");
+            Dialogue::say(g_state.player_entity, "generic.doesnt_work");
         }
         UI::clear_selected_item();
     } else if (hotspot.callback) {
@@ -384,10 +384,11 @@ void player_handle_input(Player& player, ECS::Transform2_5DComponent& transform,
             return;
         }
         
-        // Scale mouse position from window to base resolution
+        // Convert window mouse to UI-FBO coords, then scale to base resolution
+        Vec2 mouse_ui = Renderer::window_to_ui_coords(mouse_viewport);
         Vec2 mouse_pos = Vec2(
-            mouse_viewport.x * (float)Config::BASE_WIDTH / (float)Platform::get_window_width(),
-            mouse_viewport.y * (float)Config::BASE_HEIGHT / (float)Platform::get_window_height()
+            mouse_ui.x * (float)Config::BASE_WIDTH  / (float)Config::VIEWPORT_WIDTH,
+            mouse_ui.y * (float)Config::BASE_HEIGHT / (float)Config::VIEWPORT_HEIGHT
         );
         
         // Clear previous hotspot state for new click
@@ -503,8 +504,7 @@ void player_update(Player& player, ECS::Transform2_5DComponent& transform,
                         it->second();  // Execute item callback
                     } else {
                         // No callback for this item - show default message
-                        DEBUG_LOG("That doesn't work.");
-                        // TODO: Show this as in-game text/speech bubble
+                        Dialogue::say(g_state.player_entity, "generic.doesnt_work");
                     }
                     UI::clear_selected_item();
                     player.pending_item_use.clear();

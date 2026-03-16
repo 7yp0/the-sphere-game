@@ -109,8 +109,8 @@ PNGImage png_load(const char* filename) {
     // Supported bit depths: 1, 2, 4, 8 (lower depths will be upscaled)
     if ((bit_depth != 1 && bit_depth != 2 && bit_depth != 4 && bit_depth != 8) || 
         (color_type != 0 && color_type != 2 && color_type != 3 && color_type != 4 && color_type != 6)) {
-        DEBUG_INFO("PNG format not fully supported (need 1-8 bit grayscale, RGB, indexed, grayscale+alpha, or RGBA)");
-        DEBUG_INFO("  bit_depth=%d, color_type=%d", bit_depth, color_type);
+        DEBUG_ERROR("PNG format not fully supported (need 1-8 bit grayscale, RGB, indexed, grayscale+alpha, or RGBA)");
+        DEBUG_ERROR("  bit_depth=%d, color_type=%d", bit_depth, color_type);
         return error_image();
     }
 
