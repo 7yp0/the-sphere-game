@@ -43,28 +43,32 @@ draw = ImageDraw.Draw(img)
 
 # Try to find a good monospace font
 font = None
-font_size = 24  # Target size
+font_size = 26  # Target size — fills the 32px cell better
 
-# Try common monospace fonts
+# Try common monospace fonts (macOS paths first, then Windows, then names)
 font_candidates = [
-    "Consolas",
-    "Courier New",
-    "Lucida Console",
-    "C:/Windows/Fonts/consola.ttf",
+    "/System/Library/Fonts/Monaco.ttf",
+    "/Library/Fonts/Courier New.ttf",
+    "/System/Library/Fonts/Supplemental/Courier New.ttf",
     "C:/Windows/Fonts/cour.ttf",
+    "Courier New",
+    # Fallbacks
+    "/System/Library/Fonts/Menlo.ttc",
+    
+    "/System/Library/Fonts/SFNSMono.ttf",
+    "C:/Windows/Fonts/consola.ttf",
     "C:/Windows/Fonts/lucon.ttf",
+    "Menlo",
+    "Monaco",
+    "Consolas",
+    "Lucida Console",
 ]
 
 for font_name in font_candidates:
     try:
-        if os.path.exists(font_name):
-            font = ImageFont.truetype(font_name, font_size)
-            print(f"Using font file: {font_name}")
-            break
-        else:
-            font = ImageFont.truetype(font_name, font_size)
-            print(f"Using font: {font_name}")
-            break
+        font = ImageFont.truetype(font_name, font_size)
+        print(f"Using font: {font_name}")
+        break
     except (IOError, OSError):
         continue
 
@@ -108,29 +112,38 @@ print(f"Visual bounds: top={visual_top}, bottom={visual_bottom}, height={visual_
 # So: draw_y = cell_y + GLYPH_HEIGHT / 2 - (visual_top + visual_bottom) / 2
 visual_center = (visual_top + visual_bottom) / 2
 vertical_offset = GLYPH_HEIGHT / 2 - visual_center
+# Clamp: never draw above cell origin — negative offset would bleed into the cell above
+vertical_offset = max(0, vertical_offset)
 
 print(f"Visual center offset: {visual_center}, vertical_offset: {vertical_offset}")
 
-# Draw each character
+# Draw each character into its own GLYPH_WIDTH x GLYPH_HEIGHT surface, then paste.
+# This hard-clips any pixels that fall outside the cell boundary, preventing
+# adjacent-glyph bleed (e.g. umlaut dots of Ä showing up at the bottom of 'o').
 for i, char in enumerate(CHARS):
     row = i // CHARS_PER_ROW
     col = i % CHARS_PER_ROW
-    
+
     cell_x = col * GLYPH_WIDTH
     cell_y = row * GLYPH_HEIGHT
-    
+
+    # Render glyph into isolated surface
+    glyph_img  = Image.new('RGBA', (GLYPH_WIDTH, GLYPH_HEIGHT), (0, 0, 0, 0))
+    glyph_draw = ImageDraw.Draw(glyph_img)
+
     # Get character bounding box for horizontal centering
     bbox = draw.textbbox((0, 0), char, font=font)
     char_width = bbox[2] - bbox[0]
-    
+
     # Horizontal: center the character width in the cell
-    draw_x = cell_x + (GLYPH_WIDTH - char_width) // 2 - bbox[0]
-    
-    # Vertical: center based on visual extent of typical characters
-    draw_y = cell_y + vertical_offset
-    
-    # Draw the character
-    draw.text((draw_x, draw_y), char, font=font, fill=(255, 255, 255, 255))
+    local_x = (GLYPH_WIDTH - char_width) // 2 - bbox[0]
+    # Vertical: center based on visual extent of typical characters (clamped to >= 0)
+    local_y = vertical_offset
+
+    glyph_draw.text((local_x, local_y), char, font=font, fill=(255, 255, 255, 255))
+
+    # Paste onto atlas — any out-of-bounds pixels in glyph_img are already clipped
+    img.paste(glyph_img, (cell_x, cell_y), glyph_img)
 
 # Add debug visual: draw baseline and cell boundaries (comment out for production)
 DEBUG_GRID = False

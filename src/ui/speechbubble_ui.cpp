@@ -59,11 +59,11 @@ void render_speechbubbles() {
 
         float padding = UI::bubble_padding();
         float scale = Renderer::get_ui_text_scale();
-        float text_width  = Renderer::calculate_text_width(bubble.text.c_str(), scale);
-        float text_height = 32.0f * scale;
+        float text_width = Renderer::calculate_text_width(bubble.text.c_str(), scale);
+        float visual_h   = Renderer::GLYPH_VISUAL_HEIGHT * scale;
 
-        float bg_width  = text_width  + padding;
-        float bg_height = text_height + padding / 2.0f;
+        float bg_width  = text_width + padding;
+        float bg_height = visual_h   + padding / 2.0f;
 
         // Center horizontally, bubble bottom sits at anchor (expands upward)
         Vec2 bg_pos = Vec2(anchor.x - bg_width / 2.0f, anchor.y - bg_height);
@@ -76,8 +76,8 @@ void render_speechbubbles() {
                                       Vec4(0.0f, 0.0f, 0.0f, 0.8f), bg_height/2);
 
         Vec2 text_pos = Vec2(
-            bg_pos.x + (bg_width  - text_width)  / 2.0f,
-            bg_pos.y + (bg_height - text_height) / 2.0f
+            bg_pos.x + (bg_width  - text_width) / 2.0f,
+            bg_pos.y + (bg_height - visual_h)   / 2.0f - Renderer::GLYPH_TOP_PADDING * scale
         );
         int chars_visible = (int)((now - bubble.start_time) * TYPEWRITER_CHARS_PER_SEC);
         Renderer::render_text(bubble.text.c_str(), text_pos, scale, bubble.color, chars_visible);

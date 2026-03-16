@@ -96,10 +96,14 @@ void render_text(const char* text, Vec2 pos, float scale, Vec4 color, int max_ch
         
         int row = char_index / (int)CHARS_PER_ROW;
         int col = char_index % (int)CHARS_PER_ROW;
-        float min_u = (col * GLYPH_WIDTH) / FONT_TEXTURE_WIDTH;
-        float max_u = ((col + 1) * GLYPH_WIDTH) / FONT_TEXTURE_WIDTH;
-        float min_v = (row * GLYPH_HEIGHT) / FONT_TEXTURE_HEIGHT;
-        float max_v = ((row + 1) * GLYPH_HEIGHT) / FONT_TEXTURE_HEIGHT;
+        // Half-texel inset on all sides: GL_LINEAR averages with neighboring texels at
+        // exact cell boundaries, causing narrow glyphs (like 'l') to bleed adjacent chars.
+        const float hu = 0.5f / FONT_TEXTURE_WIDTH;
+        const float hv = 0.5f / FONT_TEXTURE_HEIGHT;
+        float min_u = (col * GLYPH_WIDTH)        / FONT_TEXTURE_WIDTH  + hu;
+        float max_u = ((col + 1) * GLYPH_WIDTH)  / FONT_TEXTURE_WIDTH  - hu;
+        float min_v = (row * GLYPH_HEIGHT)        / FONT_TEXTURE_HEIGHT + hv;
+        float max_v = ((row + 1) * GLYPH_HEIGHT)  / FONT_TEXTURE_HEIGHT - hv;
         Vec4 uv_range(min_u, min_v, max_u, max_v);
         // Set color for this glyph
         Renderer::render_tinted_sprite(g_font_texture, current_pos, Vec2(glyph_width_px, glyph_height_px), uv_range, color);
