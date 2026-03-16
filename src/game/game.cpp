@@ -120,7 +120,9 @@ void init() {
 
     // Initialize framebuffer for offscreen rendering at base resolution
     Renderer::init_framebuffer(Config::BASE_WIDTH, Config::BASE_HEIGHT);
-    // Initialize UI framebuffer for UI rendering at viewport resolution
+    // Initialize UI framebuffer at letterbox size.
+    // render_framebuffer_to_screen() will reinit it to the correct letterbox on each frame
+    // so this just needs a valid non-zero placeholder.
     Renderer::init_ui_framebuffer(Config::VIEWPORT_WIDTH, Config::VIEWPORT_HEIGHT);
 }
 

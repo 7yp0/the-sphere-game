@@ -9,6 +9,9 @@
 
 namespace Renderer {
 
+// Forward declaration (defined later, called from init_renderer on resize)
+void reinit_ui_framebuffer(uint32_t width, uint32_t height);
+
 static GLuint quadVAO = 0;
 static GLuint quadVBO = 0;
 static GLuint shaderProgram = 0;
@@ -58,11 +61,30 @@ void init_renderer(uint32_t width, uint32_t height)
 {
     g_viewport_width = width;
     g_viewport_height = height;
-    // Default letterbox = full window (no bars), updated each frame by render_framebuffer_to_screen
-    g_letterbox_x = 0;
-    g_letterbox_y = 0;
-    g_letterbox_w = (int)width;
-    g_letterbox_h = (int)height;
+    // Compute letterbox immediately so hit-detection in update() is correct this frame
+    {
+        float aspect = 16.0f / 9.0f;
+        int viewW = (int)width, viewH = (int)height;
+        int targetW = viewW, targetH = (int)(viewW / aspect);
+        if (targetH > viewH) { targetH = viewH; targetW = (int)(viewH * aspect); }
+        int offsetX = (viewW - targetW) / 2;
+        int offsetY = (viewH - targetH) / 2;
+        if ((viewW - targetW) % 2 != 0) offsetX++;
+        if ((viewH - targetH) % 2 != 0) offsetY++;
+        g_letterbox_x = offsetX;
+        g_letterbox_y = offsetY;
+        // Only reinit UI FBO if size changed (skip on very first call before UI FBO exists)
+        if (g_ui_fbo != 0 && (targetW != (int)g_letterbox_w || targetH != (int)g_letterbox_h)) {
+            g_letterbox_w = targetW;
+            g_letterbox_h = targetH;
+            reinit_ui_framebuffer((uint32_t)targetW, (uint32_t)targetH);
+        } else {
+            g_letterbox_w = targetW;
+            g_letterbox_h = targetH;
+        }
+        g_viewport_target_width  = (uint32_t)targetW;
+        g_viewport_target_height = (uint32_t)targetH;
+    }
     glViewport(0, 0, width, height);
     
     glEnable(GL_DEPTH_TEST);
@@ -1020,10 +1042,15 @@ void render_framebuffer_to_screen()
     // Save letterbox params – used by render_ui_framebuffer_to_screen and mouse conversion
     g_letterbox_x = offsetX;
     g_letterbox_y = offsetY;
-    g_letterbox_w = targetW;
-    g_letterbox_h = targetH;
     g_viewport_target_width  = (uint32_t)targetW;
     g_viewport_target_height = (uint32_t)targetH;
+
+    // Reinit UI FBO if letterbox size changed (window resize or first frame)
+    if (targetW != (int)g_letterbox_w || targetH != (int)g_letterbox_h) {
+        g_letterbox_w = targetW;
+        g_letterbox_h = targetH;
+        reinit_ui_framebuffer((uint32_t)targetW, (uint32_t)targetH);
+    }
 
     // Clear whole screen to black (letterbox bars)
     glViewport(0, 0, viewW, viewH);
@@ -1086,6 +1113,9 @@ uint32_t get_render_height()
 uint32_t get_viewport_target_width() { return g_viewport_target_width; }
 uint32_t get_viewport_target_height() { return g_viewport_target_height; }
 
+uint32_t get_ui_fbo_width()  { return g_ui_fbo_width; }
+uint32_t get_ui_fbo_height() { return g_ui_fbo_height; }
+
 // Convert window pixel coordinates to UI-FBO coordinates (0..UI_FBO_WIDTH, 0..UI_FBO_HEIGHT).
 // Accounts for letterboxing so UI coords always map to the visible game area.
 Vec2 window_to_ui_coords(Vec2 window_pos)
@@ -1099,8 +1129,10 @@ Vec2 window_to_ui_coords(Vec2 window_pos)
 
 float get_ui_text_scale()
 {
+    // UI FBO is now at letterbox resolution, so text scale is relative to the
+    // standard 720p reference height. At 720p: scale=1.0, at 1080p: scale=1.5, etc.
     if (g_ui_fbo_height == 0) return 1.0f;
-    return (float)g_letterbox_h / (float)g_ui_fbo_height;
+    return (float)g_ui_fbo_height / (float)Config::VIEWPORT_HEIGHT;
 }
 
 void init_ui_framebuffer(uint32_t width, uint32_t height)
@@ -1163,6 +1195,15 @@ void render_ui_framebuffer_to_screen()
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
     glEnable(GL_DEPTH_TEST);
+}
+
+void reinit_ui_framebuffer(uint32_t width, uint32_t height)
+{
+    // Destroy existing UI FBO resources before recreating at new size
+    if (g_ui_fbo_texture) { glDeleteTextures(1, &g_ui_fbo_texture);       g_ui_fbo_texture = 0; }
+    if (g_ui_fbo_depth_rbo) { glDeleteRenderbuffers(1, &g_ui_fbo_depth_rbo); g_ui_fbo_depth_rbo = 0; }
+    if (g_ui_fbo) { glDeleteFramebuffers(1, &g_ui_fbo); g_ui_fbo = 0; }
+    init_ui_framebuffer(width, height);
 }
 
 void shutdown_ui_framebuffer()

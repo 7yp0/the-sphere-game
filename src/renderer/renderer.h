@@ -44,7 +44,8 @@ void render_sprite_animated_with_depth(const SpriteAnimation* anim, Vec3 pos, Ve
 // ===================== UI FRAMEBUFFER (VIEWPORT-RESOLUTION) =====================
 // Separates FBO für UI-Rendering in VIEWPORT_WIDTH x VIEWPORT_HEIGHT
 void init_ui_framebuffer(uint32_t width, uint32_t height);
-void begin_render_to_ui_framebuffer();   // Bind UI-FBO, set viewport to viewport resolution
+void reinit_ui_framebuffer(uint32_t width, uint32_t height);  // Recreate UI FBO (e.g. on window resize)
+void begin_render_to_ui_framebuffer();   // Bind UI-FBO, set viewport to letterbox resolution
 void end_render_to_ui_framebuffer();     // Unbind UI-FBO
 void render_ui_framebuffer_to_screen();  // Blit UI-FBO texture to screen (overlay)
 void shutdown_ui_framebuffer();
@@ -149,6 +150,11 @@ uint32_t get_render_height();
 
 uint32_t get_viewport_target_width();
 uint32_t get_viewport_target_height();
+
+// UI FBO dimensions (= letterbox size). Use these for all UI hit-detection and positioning,
+// regardless of whether rendering is currently active.
+uint32_t get_ui_fbo_width();
+uint32_t get_ui_fbo_height();
 
 // Convert window pixel coordinates to UI-FBO coordinates (accounts for letterboxing)
 Vec2 window_to_ui_coords(Vec2 window_pos);

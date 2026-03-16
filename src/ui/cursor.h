@@ -22,11 +22,11 @@ namespace CursorConfig {
     constexpr float BASE_TOOLTIP_PADDING   = UI::BASE_BACKDROP_PADDING;
 
     // Scaled accessors (multiply by UI_SCALE to get UI-FBO pixel values)
-    inline float cursor_size()       { return BASE_CURSOR_SIZE      * UI::UI_SCALE; }
-    inline float item_cursor_size()  { return BASE_ITEM_CURSOR_SIZE * UI::UI_SCALE; }
-    inline float tooltip_offset_x()  { return BASE_TOOLTIP_OFFSET_X * UI::UI_SCALE; }
-    inline float tooltip_offset_y()  { return BASE_TOOLTIP_OFFSET_Y * UI::UI_SCALE; }
-    inline float tooltip_padding()   { return BASE_TOOLTIP_PADDING  * UI::UI_SCALE; }
+    inline float cursor_size()       { return BASE_CURSOR_SIZE      * UI::UI_SCALE(); }
+    inline float item_cursor_size()  { return BASE_ITEM_CURSOR_SIZE * UI::UI_SCALE(); }
+    inline float tooltip_offset_x()  { return BASE_TOOLTIP_OFFSET_X * UI::UI_SCALE(); }
+    inline float tooltip_offset_y()  { return BASE_TOOLTIP_OFFSET_Y * UI::UI_SCALE(); }
+    inline float tooltip_padding()   { return BASE_TOOLTIP_PADDING  * UI::UI_SCALE(); }
 }
 
 struct CursorSystem {

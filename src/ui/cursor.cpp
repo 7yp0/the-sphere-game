@@ -45,7 +45,7 @@ void update_cursor(Vec2 mouse_pos) {
     
     // Convert UI-FBO (viewport) mouse position to base resolution for hotspot detection
     // Hotspot bounds are stored in BASE (320x180) coordinate space
-    Vec2 mouse_base = Vec2(mouse_pos.x / UI::UI_SCALE, mouse_pos.y / UI::UI_SCALE);
+    Vec2 mouse_base = Vec2(mouse_pos.x / UI::UI_SCALE(), mouse_pos.y / UI::UI_SCALE());
     
     // Check hotspots - set hover state if over a hotspot (don't reset, that's done by reset_cursor_state)
     const auto& hotspots = Game::g_state.scene.geometry.hotspots;
@@ -130,12 +130,12 @@ static void render_tooltip(Vec2 mouse_pos, const char* text) {
     
     // If tooltip would go off right edge, flip to left of cursor
         // UI-FBO: Begrenzung auf VIEWPORT_WIDTH/HEIGHT
-        if (right_edge > (float)Config::VIEWPORT_WIDTH) {
+        if (right_edge > (float)Renderer::get_ui_fbo_width()) {
         tooltip_x = mouse_pos.x - CursorConfig::tooltip_offset_x() - bg_width;
     }
     
     // If tooltip would go off bottom edge, flip to above cursor
-        if (bottom_edge > (float)Config::VIEWPORT_HEIGHT) {
+        if (bottom_edge > (float)Renderer::get_ui_fbo_height()) {
         tooltip_y = mouse_pos.y - CursorConfig::tooltip_offset_y() - bg_height;
     }
     

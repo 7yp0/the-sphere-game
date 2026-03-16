@@ -21,11 +21,11 @@ namespace InventoryConfig {
     constexpr float BASE_ICON_BUTTON_MARGIN = 4.0f;
 
     // Scaled accessors (multiply by UI_SCALE to get UI-FBO pixel values)
-    inline float slot_size()          { return BASE_SLOT_SIZE          * UI::UI_SCALE; }
-    inline float slot_padding()       { return BASE_SLOT_PADDING       * UI::UI_SCALE; }
-    inline float panel_padding()      { return BASE_PANEL_PADDING      * UI::UI_SCALE; }
-    inline float icon_button_size()   { return BASE_ICON_BUTTON_SIZE   * UI::UI_SCALE; }
-    inline float icon_button_margin() { return BASE_ICON_BUTTON_MARGIN * UI::UI_SCALE; }
+    inline float slot_size()          { return BASE_SLOT_SIZE          * UI::UI_SCALE(); }
+    inline float slot_padding()       { return BASE_SLOT_PADDING       * UI::UI_SCALE(); }
+    inline float panel_padding()      { return BASE_PANEL_PADDING      * UI::UI_SCALE(); }
+    inline float icon_button_size()   { return BASE_ICON_BUTTON_SIZE   * UI::UI_SCALE(); }
+    inline float icon_button_margin() { return BASE_ICON_BUTTON_MARGIN * UI::UI_SCALE(); }
 }
 
 // Inventory UI state

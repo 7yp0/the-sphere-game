@@ -1,5 +1,6 @@
 #include "text.h"
 #include "texture_loader.h"
+#include "opengl_compat.h"
 #include <cstdio>
 #include <cstring>
 
@@ -39,6 +40,11 @@ static constexpr float FONT_TEXTURE_HEIGHT = 288.0f;
 void init_text_renderer() {
     if (g_font_texture == 0) {
         g_font_texture = load_texture("fonts/ui.png");
+        // Override to GL_LINEAR so glyphs interpolate smoothly when drawn at non-1x scale
+        glBindTexture(GL_TEXTURE_2D, g_font_texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
 }
 

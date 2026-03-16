@@ -53,8 +53,8 @@ void render_speechbubbles() {
 
         // Anchor = visual head position + small gap (bubble_offset.y as gap in BASE coords)
         Vec2 anchor = Vec2(
-            (t2d->position.x + talkable->bubble_offset.x) * UI::UI_SCALE,
-            (t2d->position.y - visual_height_base + talkable->bubble_offset.y) * UI::UI_SCALE
+            (t2d->position.x + talkable->bubble_offset.x) * UI::UI_SCALE(),
+            (t2d->position.y - visual_height_base + talkable->bubble_offset.y) * UI::UI_SCALE()
         );
 
         float padding = UI::bubble_padding();
@@ -69,8 +69,8 @@ void render_speechbubbles() {
         Vec2 bg_pos = Vec2(anchor.x - bg_width / 2.0f, anchor.y - bg_height);
 
         // Clamp to keep bubble fully visible
-        bg_pos.x = std::max(0.0f, std::min(bg_pos.x, (float)Config::VIEWPORT_WIDTH  - bg_width));
-        bg_pos.y = std::max(0.0f, std::min(bg_pos.y, (float)Config::VIEWPORT_HEIGHT - bg_height));
+        bg_pos.x = std::max(0.0f, std::min(bg_pos.x, (float)Renderer::get_ui_fbo_width()  - bg_width));
+        bg_pos.y = std::max(0.0f, std::min(bg_pos.y, (float)Renderer::get_ui_fbo_height() - bg_height));
 
         Renderer::render_rounded_rect(Vec3(bg_pos, ZDepth::DIALOGUE), Vec2(bg_width, bg_height),
                                       Vec4(0.0f, 0.0f, 0.0f, 0.8f), bg_height/2);

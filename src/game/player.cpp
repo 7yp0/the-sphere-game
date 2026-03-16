@@ -387,8 +387,8 @@ void player_handle_input(Player& player, ECS::Transform2_5DComponent& transform,
         // Convert window mouse to UI-FBO coords, then scale to base resolution
         Vec2 mouse_ui = Renderer::window_to_ui_coords(mouse_viewport);
         Vec2 mouse_pos = Vec2(
-            mouse_ui.x * (float)Config::BASE_WIDTH  / (float)Config::VIEWPORT_WIDTH,
-            mouse_ui.y * (float)Config::BASE_HEIGHT / (float)Config::VIEWPORT_HEIGHT
+            mouse_ui.x * (float)Config::BASE_WIDTH  / (float)Renderer::get_ui_fbo_width(),
+            mouse_ui.y * (float)Config::BASE_HEIGHT / (float)Renderer::get_ui_fbo_height()
         );
         
         // Clear previous hotspot state for new click

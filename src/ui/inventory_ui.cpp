@@ -25,10 +25,9 @@ static Vec2 get_panel_size() {
 // Helper: Calculate panel position (centered on screen)
 static Vec2 get_panel_position() {
     Vec2 panel_size = get_panel_size();
-    // UI wird jetzt immer in VIEWPORT_WIDTH/HEIGHT (UI-FBO) gerendert
         return Vec2(
-            (Config::VIEWPORT_WIDTH - panel_size.x) * 0.5f,
-            (Config::VIEWPORT_HEIGHT - panel_size.y) * 0.5f
+            ((float)Renderer::get_ui_fbo_width()  - panel_size.x) * 0.5f,
+            ((float)Renderer::get_ui_fbo_height() - panel_size.y) * 0.5f
         );
 }
 
@@ -56,7 +55,7 @@ static bool point_in_rect(Vec2 point, Vec2 rect_pos, Vec2 rect_size) {
 static Vec2 get_icon_button_position() {
     return Vec2(
         InventoryConfig::icon_button_margin(),
-        Config::VIEWPORT_HEIGHT - InventoryConfig::icon_button_size() - InventoryConfig::icon_button_margin()
+        (float)Renderer::get_ui_fbo_height() - InventoryConfig::icon_button_size() - InventoryConfig::icon_button_margin()
     );
 }
 
@@ -300,7 +299,7 @@ void render_inventory_ui() {
         if (!slot.is_empty() && slot.item_id != g_inv_ui.selected_item_id) {
             const auto* item_def = Inventory::get_item_def(slot.item_id);
             if (item_def && item_def->icon_tex != 0) {
-                float icon_size = InventoryConfig::slot_size() - 8.0f * UI::UI_SCALE;
+                float icon_size = InventoryConfig::slot_size() - 8.0f * UI::UI_SCALE();
                 Vec2 icon_pos = Vec2(
                     slot_pos.x + (InventoryConfig::slot_size() - icon_size) * 0.5f,
                     slot_pos.y + (InventoryConfig::slot_size() - icon_size) * 0.5f
@@ -315,7 +314,7 @@ void render_inventory_ui() {
                 // No texture - render placeholder with item ID
                 Renderer::render_text(
                     slot.item_id.substr(0, 3).c_str(),
-                    Vec2(slot_pos.x + 8.0f * UI::UI_SCALE, slot_pos.y + 20.0f * UI::UI_SCALE),
+                    Vec2(slot_pos.x + 8.0f * UI::UI_SCALE(), slot_pos.y + 20.0f * UI::UI_SCALE()),
                     0.5f
                 );
             }
