@@ -36,7 +36,6 @@ struct CursorSystem {
     
     // State
     CursorState state = CursorState::Default;
-    std::string tooltip_text;
     bool initialized = false;
 };
 

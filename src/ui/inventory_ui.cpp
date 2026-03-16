@@ -1,5 +1,6 @@
 #include "inventory_ui.h"
 #include "cursor.h"
+#include "tooltip.h"
 #include "inventory/inventory.h"
 #include "renderer/texture_loader.h"
 #include "renderer/text.h"
@@ -155,7 +156,7 @@ bool update_inventory_ui(Vec2 mouse_pos) {
                 if (!slot.is_empty() && slot.item_id != g_inv_ui.selected_item_id) {
                     const auto* item_def = Inventory::get_item_def(slot.item_id);
                     if (item_def && !item_def->tooltip_key.empty()) {
-                        set_tooltip(item_def->tooltip_key);
+                        Tooltip::set(item_def->tooltip_key);
                     }
                     // Set hover state for outline on item cursor
                     if (has_selected_item()) {
