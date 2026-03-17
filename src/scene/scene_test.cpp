@@ -1,4 +1,5 @@
 #include "scene.h"
+#include "scene_registry.h"
 #include "game/game.h"
 #include "game/dialogue.h"
 #include "renderer/renderer.h"
@@ -186,6 +187,10 @@ void init_scene_test() {
 
     register_hotspot_item_callback("box_hotspot", "stone", []() {
         Inventory::remove_item("stone");
+    });
+
+    register_hotspot_callback("exit_to_test2", []() {
+        load_scene("test2", "from_test");
     });
 
     // Set default invalid combination feedback

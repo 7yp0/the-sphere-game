@@ -8,6 +8,7 @@
 // Forward-declare each scene's init function (defined in their own .cpp files)
 namespace Scene {
     void init_scene_test();
+    void init_scene_test2();
     // void init_scene_living_room();  // add as new scenes are created
 }
 
@@ -21,6 +22,7 @@ void register_scene(const std::string& name, SceneInitFn fn) {
 
 void register_all_scenes() {
     register_scene("test", init_scene_test);
+    register_scene("test2", init_scene_test2);
     // register_scene("living_room", init_scene_living_room);
 }
 

@@ -1,0 +1,25 @@
+{
+  "walkable_areas": [
+    {
+      "name": "walkable_0",
+      "points": [[2, 90], [2, 175], [318, 175], [318, 90]]
+    }
+  ],
+  "obstacles": [
+  ],
+  "hotspots": [
+    {
+      "name": "exit_to_test",
+      "tooltip_key": "→ Test",
+      "interaction_type": "walk_to_target",
+      "target_position": [302, 150],
+      "points": [[292, 115], [318, 115], [318, 175], [292, 175]]
+    }
+  ],
+  "spawn_points": [
+    {
+      "name": "from_test",
+      "position": [295, 148]
+    }
+  ]
+}

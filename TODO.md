@@ -10,16 +10,6 @@
 
 ---
 
-## Scene Flow
-
-### Scene Exits
-
-- [ ] test scene change
-  - Exit = normaler Interactive Hotspot (WALK_TO_TARGET)
-  - Player läuft zum Target Point → `load_scene(name, spawn_point)` wird aufgerufen
-
----
-
 ## Game State
 
 ### Global Game State

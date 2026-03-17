@@ -45,12 +45,23 @@
       "name": "hotspot_1",
       "interaction_type": "trigger",
       "points": [[113.597, 88.4821], [114.633, 102.848], [198.373, 107.647], [186.555, 91.3125]]
+    },
+    {
+      "name": "exit_to_test2",
+      "tooltip_key": "→ Test 2",
+      "interaction_type": "walk_to_target",
+      "target_position": [18, 150],
+      "points": [[2, 115], [28, 115], [28, 168], [2, 168]]
     }
   ],
   "spawn_points": [
     {
       "name": "default",
       "position": [247.858, 89.5947]
+    },
+    {
+      "name": "from_test2",
+      "position": [25, 148]
     }
   ]
 }
