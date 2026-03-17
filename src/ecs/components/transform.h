@@ -72,36 +72,30 @@ namespace TransformHelpers {
 
 // Sample Z-depth from depth map at given pixel position
 // Depth map encoding: White (255) = near (Z=-1), Black (0) = far (Z=+1)
-inline float get_z_from_depth_map(const Renderer::DepthMapData& depth_map, 
+inline float get_z_from_depth_map(const Renderer::DepthMapData& depth_map,
                                    float pixel_x, float pixel_y,
-                                   uint32_t scene_width, uint32_t scene_height) {
+                                   uint32_t scene_width, uint32_t scene_height,
+                                   float z_near = -1.0f, float z_far = 1.0f) {
     if (!depth_map.is_valid()) {
         return 0.0f;  // Neutral depth if no depth map
     }
-    
+
     // Normalize world position to texture coordinates [0, 1]
     float tex_u = pixel_x / static_cast<float>(scene_width);
     float tex_v = pixel_y / static_cast<float>(scene_height);
-    
+
     // Clamp to [0, 1]
     tex_u = std::max(0.0f, std::min(1.0f, tex_u));
     tex_v = std::max(0.0f, std::min(1.0f, tex_v));
-    
+
     // Convert to pixel coordinates in depth map
     int32_t map_x = static_cast<int32_t>(tex_u * (depth_map.width - 1));
     int32_t map_y = static_cast<int32_t>(tex_v * (depth_map.height - 1));
-    
-    // Sample depth value (0-255)
+
+    // Sample depth value (0-255), white (255) = z_near, black (0) = z_far
     uint32_t pixel_index = map_y * depth_map.width + map_x;
-    uint8_t depth_value = depth_map.pixels[pixel_index];
-    
-    // Normalize to [0, 1]
-    float normalized_depth = depth_value / 255.0f;
-    
-    // Map to Z range: white (255) = near (-1.0), black (0) = far (+1.0)
-    float z = 1.0f - (normalized_depth * 2.0f);
-    
-    return z;
+    float t = depth_map.pixels[pixel_index] / 255.0f;
+    return z_far + t * (z_near - z_far);
 }
 
 // Find ground Y for given X and Z (inverse depth map lookup)
@@ -153,11 +147,13 @@ inline float find_floor_y_below(const Renderer::DepthMapData& depth_map,
 // Update Transform2_5D z_depth from depth map
 inline void update_z_from_depth_map(Transform2_5DComponent& transform,
                                      const Renderer::DepthMapData& depth_map,
-                                     uint32_t scene_width, uint32_t scene_height) {
-    transform.z_depth = get_z_from_depth_map(depth_map, 
-                                              transform.position.x, 
+                                     uint32_t scene_width, uint32_t scene_height,
+                                     float z_near = -1.0f, float z_far = 1.0f) {
+    transform.z_depth = get_z_from_depth_map(depth_map,
+                                              transform.position.x,
                                               transform.position.y,
-                                              scene_width, scene_height);
+                                              scene_width, scene_height,
+                                              z_near, z_far);
 }
 
 // Calculate depth-based scaling factor

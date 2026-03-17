@@ -7,12 +7,12 @@ namespace Renderer {
 
 constexpr float CHAR_SPACING = 0.80f;
 
-// Glyph cell is 24x32px. The font is vertically centered in the cell,
-// with pixel content spanning rows 0–27 (28px) and ~2px gaps top and bottom.
-// Use GLYPH_VISUAL_HEIGHT for background sizing and GLYPH_TOP_PADDING to
-// shift the draw position so the visual glyph lands at the center of the background.
-constexpr float GLYPH_VISUAL_HEIGHT = 28.0f;  // rows 0–27 contain pixels
-constexpr float GLYPH_TOP_PADDING   = 0.0f;   // font is now centered — no top offset needed
+// Glyph cell is 24x32px. Content spans rows 1–28 (28px), 1px gap at top, 3px at bottom.
+// GLYPH_VISUAL_CENTER is the average of first and last content row: (1+28)/2 = 14.5
+// Use it to perfectly center text inside a background rect:
+//   text_pos.y = bg_pos.y + bg_height * 0.5f - GLYPH_VISUAL_CENTER * scale
+constexpr float GLYPH_VISUAL_HEIGHT = 28.0f;   // content height (rows 1–28), for bg sizing
+constexpr float GLYPH_VISUAL_CENTER = 16.5f;   // visual center row within the 32px cell
 
 void init_text_renderer();
 // max_chars: number of characters to render (-1 = all)

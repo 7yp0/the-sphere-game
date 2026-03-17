@@ -10,9 +10,6 @@
 
 ---
 
-- [ ] depth map darf auch eine höhere auflösung haben als die bg grafik
-- [ ] pro scene kann man z von weiß und schwarz der depth map definieren (also ganz hinten und ganz vorne definieren)
-
 - [ ] upate inventory texture
 
 ## Camera & World Navigation

@@ -76,8 +76,8 @@ void render_speechbubbles() {
                                       Vec4(0.0f, 0.0f, 0.0f, 0.8f), bg_height/2);
 
         Vec2 text_pos = Vec2(
-            bg_pos.x + (bg_width  - text_width) / 2.0f,
-            bg_pos.y + (bg_height - visual_h)   / 2.0f - Renderer::GLYPH_TOP_PADDING * scale
+            bg_pos.x + (bg_width - text_width) / 2.0f,
+            bg_pos.y + bg_height * 0.5f - Renderer::GLYPH_VISUAL_CENTER * scale
         );
         int chars_visible = (int)((now - bubble.start_time) * TYPEWRITER_CHARS_PER_SEC);
         Renderer::render_text(bubble.text.c_str(), text_pos, scale, bubble.color, chars_visible);

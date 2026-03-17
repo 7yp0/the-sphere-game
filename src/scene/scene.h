@@ -65,6 +65,10 @@ struct Scene {
     Renderer::TextureID background;
     Renderer::TextureID background_normal_map;  // Normal map for background lighting
     Renderer::DepthMapData depth_map;  // Depth map data for Z-depth sampling
+    // Z range for depth map: white pixels map to z_near, black pixels map to z_far.
+    // Default: z_near=-1 (closest), z_far=+1 (furthest away).
+    float depth_z_near = -1.0f;  // Z value for white (255) pixels
+    float depth_z_far  =  1.0f;  // Z value for black (0) pixels
     
     // ECS entity IDs for props in this scene (created when scene is loaded)
     std::vector<ECS::EntityID> prop_entities;
@@ -108,15 +112,10 @@ inline float get_z_from_depth_map(const Scene& scene, float world_x, float world
         // Sample depth value (0-255)
         uint32_t pixel_index = pixel_y * scene.depth_map.width + pixel_x;
         uint8_t depth_value = scene.depth_map.pixels[pixel_index];
-        
-        // Normalize to [0, 1]
-        float normalized_depth = depth_value / 255.0f;
-        
-        // Map to Z range: white (255) = near (-1.0), black (0) = far (+1.0)
-        // Full range from -1 to +1
-        float z = 1.0f - (normalized_depth * 2.0f);
-        
-        return z;
+
+        // white (255) -> z_near,  black (0) -> z_far
+        float t = depth_value / 255.0f;
+        return scene.depth_z_far + t * (scene.depth_z_near - scene.depth_z_far);
     } else {
         // No depth map - neutral depth
         return 0.0f;

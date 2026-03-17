@@ -44,11 +44,11 @@ namespace Tooltip {
         Vec3 bg_pos = Vec3(tooltip_x, tooltip_y, ZDepth::TOOLTIP);
         Vec4 bg_color = Vec4(0.0f, 0.0f, 0.0f, 0.8f);
         Renderer::render_rounded_rect(bg_pos, Vec2(bg_width, bg_height), bg_color, 8.0f);
-        // Center horizontally; vertically subtract the top blank row of the glyph cell
-        // so the visual glyph pixels land at the visual center of the background.
+        // Place glyph so its visual center (GLYPH_VISUAL_CENTER rows from cell top)
+        // aligns exactly with the background center.
         Vec2 text_pos = Vec2(
             tooltip_x + (bg_width - text_width) / 2.0f,
-            tooltip_y + (bg_height - visual_h)  / 2.0f - Renderer::GLYPH_TOP_PADDING * scale
+            tooltip_y + bg_height * 0.5f - Renderer::GLYPH_VISUAL_CENTER * scale
         );
         Renderer::render_text(text, text_pos, scale);
     }
