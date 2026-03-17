@@ -9,8 +9,8 @@ out vec4 FragColor;
 void main() {
     vec4 color = texture(texture0, uv);
     
-    // Alpha discard for proper depth testing with transparent pixels
-    if (color.a < 0.5) {
+    // Discard fully transparent pixels to avoid depth buffer pollution
+    if (color.a < 0.01) {
         discard;
     }
     

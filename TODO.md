@@ -10,8 +10,6 @@
 
 ---
 
-- [ ] upate inventory texture
-
 ## Camera & World Navigation
 
 ### Camera System
