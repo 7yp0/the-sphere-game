@@ -10,91 +10,6 @@
 
 ---
 
-## Camera & World Navigation
-
-### Camera System
-
-- [ ] Camera follow player with deadzone
-- [ ] Smooth camera movement (lerp)
-- [ ] Camera bounds (scene limits, no overscroll)
-- [ ] Scrollable scenes (larger than viewport)
-
-### Parallax Scrolling
-
-- [ ] Parallax layer system (horizontal + vertical)
-- [ ] Multiple background layers at different speeds
-- [ ] Depth factor per layer
-
----
-
-## Close-Up System
-
-### Close-Up Scenes
-
-- [ ] Special game mode for puzzle close-ups
-- [ ] Separate input handling per close-up
-- [ ] Enter close-up via cutscene action `enterCloseUp(scene)`
-- [ ] Return to main game after completion
-- [ ] Pass/fail state back to main game (set flags)
-
-### Cable Physics (Wrap-Point System)
-
-- [ ] Kabel-Ende folgt Mausposition
-- [ ] Wrap-Point-Tracking um Säule/Objekt
-- [ ] Umrundung tracken (Maus kreist um Objekt → Kabel wickelt sich)
-- [ ] Richtungswechsel = Wickeln/Abwickeln
-- [ ] Z-Order pro Segment (vor/hinter Säule alternierend)
-- [ ] Connect cable to socket
-
----
-
-## Cutscene System
-
-### Cutscene Engine
-
-- [ ] Action queue system
-- [ ] Sequential execution (default)
-- [ ] Parallel execution blocks (all actions in block run simultaneously, block ends when all complete)
-- [ ] Fluent C++ API for scripting
-
-### Actions
-
-- [ ] `say(entity, textkey)`
-- [ ] `movePlayer(pos)` / `moveEntity(entity, pos)`
-- [ ] `wait(seconds)`
-- [ ] `panCamera(pos)`
-- [ ] `zoomCamera(level, duration)` - Smooth zoom (1.0 = normal, 2.0 = 2x zoom)
-- [ ] `enableEntity(entity)` / `disableEntity(entity)`
-- [ ] `playAnimation(entity, anim)`
-- [ ] `fade(type, duration)` - FadeIn/FadeOut
-- [ ] `changeScene(scene, spawnPoint)`
-- [ ] `setFlag(name, value)` / `setValue(name, value)`
-- [ ] `playSound(sound)` / `playMusic(track)`
-- [ ] `showText(text)` - Einblendung
-
-### Input Blocking (Optional)
-
-- [ ] `blockInput()` / `unblockInput()` actions
-- [ ] Cutscenes do NOT block input by default
-- [ ] Explicit control when needed (e.g. scene transitions)
-
-```cpp
-// Example: Door exit cutscene
-Cutscene()
-    .parallel([](auto& p) {
-        p.movePlayer(door_pos);
-        p.panCamera(door_camera);
-    })
-    .wait(0.5f)
-    .playAnimation(door, "open")
-    .movePlayer(exit_pos)
-    .fade(FadeType::Out, 0.3f)
-    .changeScene("kitchen", "from_hallway")
-    .fade(FadeType::In, 0.3f);
-```
-
----
-
 ## Scene Flow
 
 ### Hotspot Types
@@ -171,6 +86,91 @@ Cutscene()
 - [ ] Voice volume
 - [ ] Language selection
 - [ ] Save settings to config file
+
+---
+
+## Close-Up System
+
+### Close-Up Scenes
+
+- [ ] Special game mode for puzzle close-ups
+- [ ] Separate input handling per close-up
+- [ ] Enter close-up via scene action `Scene::enterCloseUp(scene)`
+- [ ] Return to main game after completion
+- [ ] Pass/fail state back to main game (set flags)
+
+### Cable Physics (Wrap-Point System)
+
+- [ ] Kabel-Ende folgt Mausposition
+- [ ] Wrap-Point-Tracking um Säule/Objekt
+- [ ] Umrundung tracken (Maus kreist um Objekt → Kabel wickelt sich)
+- [ ] Richtungswechsel = Wickeln/Abwickeln
+- [ ] Z-Order pro Segment (vor/hinter Säule alternierend)
+- [ ] Connect cable to socket
+
+---
+
+## Camera & World Navigation
+
+### Camera System
+
+- [ ] Camera follow player with deadzone
+- [ ] Smooth camera movement (lerp)
+- [ ] Camera bounds (scene limits, no overscroll)
+- [ ] Scrollable scenes (larger than viewport)
+
+### Parallax Scrolling
+
+- [ ] Parallax layer system (horizontal + vertical)
+- [ ] Multiple background layers at different speeds
+- [ ] Depth factor per layer
+
+---
+
+## Cutscene System
+
+### Cutscene Engine
+
+- [ ] Action queue system
+- [ ] Sequential execution (default)
+- [ ] Parallel execution blocks (all actions in block run simultaneously, block ends when all complete)
+- [ ] Fluent C++ API for scripting
+
+### Actions
+
+- [ ] `say(entity, textkey)`
+- [ ] `movePlayer(pos)` / `moveEntity(entity, pos)`
+- [ ] `wait(seconds)`
+- [ ] `panCamera(pos)`
+- [ ] `zoomCamera(level, duration)` - Smooth zoom (1.0 = normal, 2.0 = 2x zoom)
+- [ ] `enableEntity(entity)` / `disableEntity(entity)`
+- [ ] `playAnimation(entity, anim)`
+- [ ] `fade(type, duration)` - FadeIn/FadeOut
+- [ ] `changeScene(scene, spawnPoint)`
+- [ ] `setFlag(name, value)` / `setValue(name, value)`
+- [ ] `playSound(sound)` / `playMusic(track)`
+- [ ] `showText(text)` - Einblendung
+
+### Input Blocking (Optional)
+
+- [ ] `blockInput()` / `unblockInput()` actions
+- [ ] Cutscenes do NOT block input by default
+- [ ] Explicit control when needed (e.g. scene transitions)
+
+```cpp
+// Example: Door exit cutscene
+Cutscene()
+    .parallel([](auto& p) {
+        p.movePlayer(door_pos);
+        p.panCamera(door_camera);
+    })
+    .wait(0.5f)
+    .playAnimation(door, "open")
+    .movePlayer(exit_pos)
+    .fade(FadeType::Out, 0.3f)
+    .changeScene("kitchen", "from_hallway")
+    .fade(FadeType::In, 0.3f);
+```
 
 ---
 
