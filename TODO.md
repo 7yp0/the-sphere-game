@@ -12,26 +12,11 @@
 
 ## Scene Flow
 
-### Hotspot Types
+### Scene Exits
 
-- **Interactive Hotspot**: Reagiert auf Klick (bestehend)
-- **Trigger Hotspot**: Reagiert auf Player-Collision (für Events, Ambient, etc.)
-- [ ] Trigger hotspot type in Geometry Editor
-- [ ] Player collision detection with trigger hotspots
-- [ ] Trigger callback system
-
-### Scene Exits (via Cutscene)
-
-- Exit = normaler Interactive Hotspot
-- Player läuft zum Target Point → Cutscene triggert (Tür auf, durchgehen, Fade, Scene load)
-- [ ] Scene change action im Cutscene System
-- [ ] Transition effects (fade to black, cut, etc.)
-
-### Spawn Points
-
-- [ ] Spawn point definition per scene (in Editor)
-- [ ] Named spawn points (enter_from_kitchen, etc.)
-- [ ] Player spawn after scene load
+- [ ] test scene change
+  - Exit = normaler Interactive Hotspot (WALK_TO_TARGET)
+  - Player läuft zum Target Point → `load_scene(name, spawn_point)` wird aufgerufen
 
 ---
 
@@ -135,6 +120,7 @@
 - [ ] Sequential execution (default)
 - [ ] Parallel execution blocks (all actions in block run simultaneously, block ends when all complete)
 - [ ] Fluent C++ API for scripting
+- [ ] Transition effects für scene changes (fade, etc.) (`fade` + `changeScene` actions)
 
 ### Actions
 

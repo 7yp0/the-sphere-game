@@ -25,19 +25,20 @@ namespace Game {
 // ============================================================================
 
 ECS::EntityID player_create_entity(Player& player, ECS::World& world,
-                                   uint32_t base_width, uint32_t base_height) {
+                                   uint32_t base_width, uint32_t base_height,
+                                   Vec2 spawn_pos) {
     // Create entity
     ECS::EntityID entity = world.create_entity();
-    
+
     // Add Transform2_5D component
     auto& transform = world.add_component<ECS::Transform2_5DComponent>(entity);
-    
+
     // Add WalkerComponent for movement
     auto& walker = world.add_component<ECS::WalkerComponent>(entity);
     walker.speed = 75.0f;  // Player speed
-    
+
     // Initialize player - this sets up animations AND initializes transform/walker
-    player_init(player, base_width, base_height, transform, walker);
+    player_init(player, base_width, base_height, transform, walker, spawn_pos);
     
     // Add SpriteComponent
     auto& sprite = world.add_component<ECS::SpriteComponent>(entity);
@@ -152,7 +153,8 @@ static bool handle_hotspot_click(Player& player, ECS::WalkerComponent& walker,
     for (size_t i = 0; i < g_state.scene.geometry.hotspots.size(); ++i) {
         const Scene::Hotspot& hotspot = g_state.scene.geometry.hotspots[i];
         if (!hotspot.enabled) continue;
-        
+        if (hotspot.interaction_type == Scene::InteractionType::TRIGGER) continue;  // TRIGGER hotspots ignore clicks
+
         // Check if click is inside hotspot bounds
         if (Collision::point_in_polygon(mouse_pos, hotspot.bounds)) {
             // Found clicked hotspot
@@ -236,6 +238,10 @@ static bool handle_hotspot_click(Player& player, ECS::WalkerComponent& walker,
                     player.hotspot_state = HotspotInteractionState::Approaching;
                     return true;
                 }
+
+                case Scene::InteractionType::TRIGGER:
+                    // TRIGGER hotspots are collision-based, not click-based — skip
+                    break;
             }
         }
     }
@@ -250,8 +256,9 @@ static void handle_movement_click(ECS::WalkerComponent& walker, Vec2 current_pos
                       g_state.scene.geometry.obstacles);
 }
 
-void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_height, 
-                 ECS::Transform2_5DComponent& transform, ECS::WalkerComponent& walker) {
+void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_height,
+                 ECS::Transform2_5DComponent& transform, ECS::WalkerComponent& walker,
+                 Vec2 spawn_pos) {
     // Load testa spritesheet
     // Frame dimensions: 104x130 pixels
     // Row 0 (y=0): Idle (1 frame)
@@ -349,7 +356,12 @@ void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_heig
     player.size = Vec2(52.0f, 65.0f);  // Half of 104x130
     
     // Initialize player position via ECS Transform
-    transform.position = Vec2(viewport_width * 0.5f, viewport_height * 0.5f);
+    // spawn_pos sentinel (-1,-1) means use scene center
+    if (spawn_pos.x < 0.0f && spawn_pos.y < 0.0f) {
+        transform.position = Vec2(viewport_width * 0.5f, viewport_height * 0.5f);
+    } else {
+        transform.position = spawn_pos;
+    }
     transform.z_depth = Scene::get_z_from_depth_map(g_state.scene, transform.position.x, transform.position.y);
     
     // Initialize walker target to current position
@@ -519,6 +531,18 @@ void player_update(Player& player, ECS::Transform2_5DComponent& transform,
                 player.hotspot_state = HotspotInteractionState::InRange;
             }
         }
+    }
+
+    // Check TRIGGER hotspots every frame (edge-triggered: fires once on enter)
+    for (auto& hs : g_state.scene.geometry.hotspots) {
+        if (!hs.enabled) continue;
+        if (hs.interaction_type != Scene::InteractionType::TRIGGER) continue;
+
+        bool is_inside = Collision::point_in_polygon(transform.position, hs.bounds);
+        if (is_inside && !hs.was_inside && hs.callback) {
+            hs.callback();
+        }
+        hs.was_inside = is_inside;
     }
 }
 

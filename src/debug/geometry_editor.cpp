@@ -39,10 +39,12 @@ static int g_frame_counter = 0;  // For double-click detection
     static constexpr int KEY_F = 3;
     static constexpr int KEY_R = 15;
     static constexpr int KEY_E = 14;
+    static constexpr int KEY_P = 35;   // P - place spawn point
+    static constexpr int KEY_T = 17;   // T - cycle hotspot interaction type
     static constexpr int KEY_ESC = 53;
     static constexpr int KEY_DELETE = 51;
-    static constexpr int KEY_MINUS = 27;      // - key
-    static constexpr int KEY_EQUALS = 24;     // = key (+ with shift)
+    static constexpr int KEY_MINUS = 27;
+    static constexpr int KEY_EQUALS = 24;
 #else
     static constexpr int KEY_W = 0x57;
     static constexpr int KEY_H = 0x48;
@@ -50,6 +52,8 @@ static int g_frame_counter = 0;  // For double-click detection
     static constexpr int KEY_F = 0x46;
     static constexpr int KEY_R = 0x52;
     static constexpr int KEY_E = 0x45;
+    static constexpr int KEY_P = 0x50;
+    static constexpr int KEY_T = 0x54;
     static constexpr int KEY_ESC = 0x1B;
     static constexpr int KEY_DELETE = 0x2E;
     static constexpr int KEY_MINUS = 0xBD;
@@ -63,6 +67,8 @@ static bool s_prev_o = false;
 static bool s_prev_f = false;
 static bool s_prev_r = false;
 static bool s_prev_e = false;
+static bool s_prev_p = false;
+static bool s_prev_t = false;
 static bool s_prev_esc = false;
 static bool s_prev_del = false;
 static bool s_prev_minus = false;
@@ -168,10 +174,11 @@ void toggle() {
 
 const char* get_mode_string() {
     switch (g_state.mode) {
-        case EditorMode::CREATING_WALKABLE: return "CREATING WALKABLE";
-        case EditorMode::CREATING_HOTSPOT: return "CREATING HOTSPOT";
-        case EditorMode::CREATING_OBSTACLE: return "CREATING OBSTACLE";
-        case EditorMode::SELECT_ENTITY: return "ENTITY MODE";
+        case EditorMode::CREATING_WALKABLE:    return "CREATING WALKABLE";
+        case EditorMode::CREATING_HOTSPOT:     return "CREATING HOTSPOT";
+        case EditorMode::CREATING_OBSTACLE:    return "CREATING OBSTACLE";
+        case EditorMode::CREATING_SPAWN_POINT: return "PLACE SPAWN POINT (click)";
+        case EditorMode::SELECT_ENTITY:        return "ENTITY MODE";
         default: return "SELECT";
     }
 }
@@ -744,6 +751,8 @@ void update(Vec2 mouse_base_coords) {
     bool key_f = Platform::key_pressed(KEY_F);
     bool key_r = Platform::key_pressed(KEY_R);
     bool key_e = Platform::key_pressed(KEY_E);
+    bool key_p = Platform::key_pressed(KEY_P);
+    bool key_t = Platform::key_pressed(KEY_T);
     bool key_esc = Platform::key_pressed(KEY_ESC);
     bool key_del = Platform::key_pressed(KEY_DELETE);
     bool key_minus = Platform::key_pressed(KEY_MINUS);
@@ -844,7 +853,44 @@ void update(Vec2 mouse_base_coords) {
         g_state.selection_type = SelectionType::NONE;
         DEBUG_INFO("[GeoEditor] Creating new hotspot");
     }
-    
+
+    // P - Enter spawn point placement mode (single click to place)
+    if (key_p && !s_prev_p && g_state.mode == EditorMode::NONE) {
+        g_state.mode = EditorMode::CREATING_SPAWN_POINT;
+        g_state.current_polygon_points.clear();
+        g_state.current_polygon_name = "default";
+        g_state.selected_polygon_index = -1;
+        g_state.selected_vertex_index = -1;
+        g_state.selection_type = SelectionType::NONE;
+        DEBUG_INFO("[GeoEditor] SPAWN POINT mode: click to place (name='default', rename in JSON if needed)");
+    }
+
+    // T - Cycle interaction type of the selected hotspot
+    if (key_t && !s_prev_t && g_state.mode == EditorMode::NONE &&
+        g_state.selection_type == SelectionType::HOTSPOT &&
+        g_state.selected_polygon_index >= 0) {
+        auto& scene = Game::g_state.scene;
+        if (g_state.selected_polygon_index < (int)scene.geometry.hotspots.size()) {
+            auto& hs = scene.geometry.hotspots[g_state.selected_polygon_index];
+            switch (hs.interaction_type) {
+                case Scene::InteractionType::WALK_TO_HOTSPOT:
+                    hs.interaction_type = Scene::InteractionType::IMMEDIATE; break;
+                case Scene::InteractionType::IMMEDIATE:
+                    hs.interaction_type = Scene::InteractionType::WALK_TO_TARGET; break;
+                case Scene::InteractionType::WALK_TO_TARGET:
+                    hs.interaction_type = Scene::InteractionType::TRIGGER; break;
+                case Scene::InteractionType::TRIGGER:
+                    hs.interaction_type = Scene::InteractionType::WALK_TO_HOTSPOT; break;
+            }
+            const char* type_name = "walk_to_hotspot";
+            if (hs.interaction_type == Scene::InteractionType::IMMEDIATE)      type_name = "immediate";
+            if (hs.interaction_type == Scene::InteractionType::WALK_TO_TARGET) type_name = "walk_to_target";
+            if (hs.interaction_type == Scene::InteractionType::TRIGGER)        type_name = "trigger";
+            DEBUG_INFO("[GeoEditor] Hotspot '%s' type -> %s", hs.name.c_str(), type_name);
+            save_geometry(scene.name.c_str());
+        }
+    }
+
     // F - Finish polygon
     if (key_f && !s_prev_f && g_state.mode != EditorMode::NONE) {
         finish_polygon();
@@ -927,6 +973,8 @@ void update(Vec2 mouse_base_coords) {
     s_prev_f = key_f;
     s_prev_r = key_r;
     s_prev_e = key_e;
+    s_prev_p = key_p;
+    s_prev_t = key_t;
     s_prev_esc = key_esc;
     s_prev_del = key_del;
     s_prev_minus = key_minus;
@@ -1063,9 +1111,25 @@ void on_mouse_click(Vec2 pos) {
     }
     
     // =========================================================================
+    // SPAWN POINT PLACEMENT (single click)
+    // =========================================================================
+    if (g_state.mode == EditorMode::CREATING_SPAWN_POINT) {
+        Scene::SpawnPoint sp;
+        sp.name     = g_state.current_polygon_name;
+        sp.position = pos;
+        Game::g_state.scene.geometry.spawn_points.push_back(sp);
+        DEBUG_INFO("[GeoEditor] Placed spawn point '%s' at (%.1f, %.1f)",
+                   sp.name.c_str(), pos.x, pos.y);
+        save_geometry(Game::g_state.scene.name.c_str());
+        g_state.mode = EditorMode::NONE;
+        g_state.current_polygon_points.clear();
+        return;
+    }
+
+    // =========================================================================
     // POLYGON MODE (original code)
     // =========================================================================
-    
+
     // Shift+Click on selected hotspot sets target_position
     if (Platform::shift_down() && 
         g_state.selection_type == SelectionType::HOTSPOT && 
@@ -1150,8 +1214,25 @@ void on_mouse_right_click(Vec2 pos) {
     if (!g_state.is_active) return;
     if (g_state.mode != EditorMode::NONE) return;  // Don't delete while creating
     
+    // Right-click near a spawn point: delete it
+    {
+        auto& scene = Game::g_state.scene;
+        float radius_sq = VERTEX_SELECT_RADIUS * VERTEX_SELECT_RADIUS;
+        for (int i = 0; i < (int)scene.geometry.spawn_points.size(); ++i) {
+            float dx = pos.x - scene.geometry.spawn_points[i].position.x;
+            float dy = pos.y - scene.geometry.spawn_points[i].position.y;
+            if (dx*dx + dy*dy <= radius_sq) {
+                DEBUG_INFO("[GeoEditor] Deleted spawn point '%s'",
+                           scene.geometry.spawn_points[i].name.c_str());
+                scene.geometry.spawn_points.erase(scene.geometry.spawn_points.begin() + i);
+                save_geometry(scene.name.c_str());
+                return;
+            }
+        }
+    }
+
     // Right-click on selected hotspot: delete target_position if it has one
-    if (g_state.selection_type == SelectionType::HOTSPOT && 
+    if (g_state.selection_type == SelectionType::HOTSPOT &&
         g_state.selected_polygon_index >= 0) {
         auto& scene = Game::g_state.scene;
         if (g_state.selected_polygon_index < (int)scene.geometry.hotspots.size()) {
@@ -1481,6 +1562,21 @@ void render() {
         }
     }
     
+    // Draw spawn points (green cross + name label)
+    {
+        const Vec4 sp_color(0.2f, 1.0f, 0.2f, 0.9f);
+        constexpr float SP_ARM = 8.0f;
+        for (const auto& sp : scene.geometry.spawn_points) {
+            float sx = sp.position.x * scale_x;
+            float sy = sp.position.y * scale_y;
+            // Cross
+            Renderer::render_line(Vec3(sx - SP_ARM, sy, ui_z), Vec3(sx + SP_ARM, sy, ui_z), sp_color, 2.0f);
+            Renderer::render_line(Vec3(sx, sy - SP_ARM, ui_z), Vec3(sx, sy + SP_ARM, ui_z), sp_color, 2.0f);
+            // Label
+            Renderer::render_text(sp.name.c_str(), Vec2(sx + SP_ARM + 2.0f, sy - 6.0f), 0.7f, sp_color);
+        }
+    }
+
     // Draw mode indicator with black background
     char mode_text[256];
     if (g_state.mode == EditorMode::SELECT_ENTITY && g_state.selected_entity != ECS::INVALID_ENTITY) {
@@ -1521,10 +1617,14 @@ void render() {
         snprintf(mode_text, sizeof(mode_text), "[ENTITY MODE] Click to select, E=exit");
     } else if (g_state.selection_type == SelectionType::HOTSPOT && g_state.selected_polygon_index >= 0) {
         const auto& hotspot = scene.geometry.hotspots[g_state.selected_polygon_index];
-        snprintf(mode_text, sizeof(mode_text), "[HOTSPOT: %s] Shift+Click to set target", 
-                 hotspot.name.c_str());
+        const char* itype = "walk_to_hotspot";
+        if (hotspot.interaction_type == Scene::InteractionType::IMMEDIATE)      itype = "immediate";
+        if (hotspot.interaction_type == Scene::InteractionType::WALK_TO_TARGET) itype = "walk_to_target";
+        if (hotspot.interaction_type == Scene::InteractionType::TRIGGER)        itype = "trigger";
+        snprintf(mode_text, sizeof(mode_text), "[HOTSPOT: %s | %s] T=cycle type, Shift+Click=set target",
+                 hotspot.name.c_str(), itype);
     } else {
-        snprintf(mode_text, sizeof(mode_text), "[%s] W=walkable O=obstacle H=hotspot E=entity R=reload", get_mode_string());
+        snprintf(mode_text, sizeof(mode_text), "[%s] W=walkable O=obstacle H=hotspot P=spawn E=entity R=reload", get_mode_string());
     }
     
     // Black semi-transparent background for mode indicator
@@ -1613,6 +1713,8 @@ bool save_geometry(const char* scene_name) {
             type_str = "immediate";
         } else if (hotspot.interaction_type == Scene::InteractionType::WALK_TO_TARGET) {
             type_str = "walk_to_target";
+        } else if (hotspot.interaction_type == Scene::InteractionType::TRIGGER) {
+            type_str = "trigger";
         }
         file << "      \"interaction_type\": \"" << type_str << "\",\n";
         if (hotspot.interaction_type == Scene::InteractionType::WALK_TO_TARGET) {
@@ -1628,11 +1730,24 @@ bool save_geometry(const char* scene_name) {
         if (i + 1 < scene.geometry.hotspots.size()) file << ",";
         file << "\n";
     }
+    file << "  ],\n";
+
+    // Spawn points
+    file << "  \"spawn_points\": [\n";
+    for (size_t i = 0; i < scene.geometry.spawn_points.size(); i++) {
+        const auto& sp = scene.geometry.spawn_points[i];
+        file << "    {\n";
+        file << "      \"name\": \"" << sp.name << "\",\n";
+        file << "      \"position\": [" << sp.position.x << ", " << sp.position.y << "]\n";
+        file << "    }";
+        if (i + 1 < scene.geometry.spawn_points.size()) file << ",";
+        file << "\n";
+    }
     file << "  ]\n";
-    
+
     file << "}\n";
     file.close();
-    
+
     DEBUG_INFO("[GeoEditor] Saved geometry to %s", path.c_str());
     return true;
 }
@@ -1677,11 +1792,12 @@ bool load_geometry(const char* scene_name) {
     scene.geometry.walkable_areas.clear();
     scene.geometry.obstacles.clear();
     scene.geometry.hotspots.clear();
-    
+    scene.geometry.spawn_points.clear();
+
     // Parse walkable_areas section
-    size_t walkable_start = content.find("\"walkable_areas\"");
+    size_t walkable_start  = content.find("\"walkable_areas\"");
     size_t obstacles_start = content.find("\"obstacles\"");
-    size_t hotspots_start = content.find("\"hotspots\"");
+    size_t hotspots_start  = content.find("\"hotspots\"");
     
     if (walkable_start != std::string::npos) {
         // Find array content - need to find matching bracket
@@ -1815,7 +1931,16 @@ bool load_geometry(const char* scene_name) {
     // Parse hotspots section (similar logic)
     if (hotspots_start != std::string::npos) {
         size_t arr_start = content.find('[', hotspots_start);
-        size_t final_end = content.rfind(']');
+        // Find the matching closing bracket (bracket-count based, not rfind)
+        size_t final_end = arr_start;
+        {
+            int bc = 1;
+            for (size_t i = arr_start + 1; i < content.size() && bc > 0; i++) {
+                if (content[i] == '[') bc++;
+                else if (content[i] == ']') bc--;
+                if (bc == 0) final_end = i;
+            }
+        }
         
         size_t pos = arr_start;
         while (pos < final_end) {
@@ -1854,6 +1979,8 @@ bool load_geometry(const char* scene_name) {
                     hotspot.interaction_type = Scene::InteractionType::IMMEDIATE;
                 } else if (type_str == "walk_to_target") {
                     hotspot.interaction_type = Scene::InteractionType::WALK_TO_TARGET;
+                } else if (type_str == "trigger") {
+                    hotspot.interaction_type = Scene::InteractionType::TRIGGER;
                 } else {
                     hotspot.interaction_type = Scene::InteractionType::WALK_TO_HOTSPOT;
                 }
@@ -1924,10 +2051,62 @@ bool load_geometry(const char* scene_name) {
             DEBUG_LOG("[GeoEditor] Restored callback for hotspot '%s'", hotspot.name.c_str());
         }
     }
-    
-    DEBUG_INFO("[GeoEditor] Loaded geometry from %s: %zu walkable areas, %zu obstacles, %zu hotspots",
-           path.c_str(), scene.geometry.walkable_areas.size(), 
-           scene.geometry.obstacles.size(), scene.geometry.hotspots.size());
+
+    // Parse spawn_points section
+    size_t spawnpts_start = content.find("\"spawn_points\"");
+    if (spawnpts_start != std::string::npos) {
+        size_t arr_start = content.find('[', spawnpts_start);
+        size_t arr_end = arr_start;
+        int bc = 1;
+        for (size_t i = arr_start + 1; i < content.size() && bc > 0; i++) {
+            if (content[i] == '[') bc++;
+            else if (content[i] == ']') bc--;
+            if (bc == 0) arr_end = i;
+        }
+
+        size_t pos = arr_start;
+        while (pos < arr_end) {
+            size_t obj_start = content.find('{', pos);
+            if (obj_start >= arr_end || obj_start == std::string::npos) break;
+            size_t obj_end = content.find('}', obj_start);
+            if (obj_end >= content.size()) break;
+
+            Scene::SpawnPoint sp;
+
+            // Parse name
+            size_t name_key = content.find("\"name\"", obj_start);
+            if (name_key < obj_end && name_key != std::string::npos) {
+                size_t ns = content.find('\"', name_key + 6);
+                size_t ne = content.find('\"', ns + 1);
+                sp.name = content.substr(ns + 1, ne - ns - 1);
+            }
+
+            // Parse position
+            size_t pos_key = content.find("\"position\"", obj_start);
+            if (pos_key < obj_end && pos_key != std::string::npos) {
+                size_t pa_start = content.find('[', pos_key);
+                size_t pa_end   = content.find(']', pa_start);
+                if (pa_start < obj_end) {
+                    std::string coords = content.substr(pa_start + 1, pa_end - pa_start - 1);
+                    float x = 0, y = 0;
+                    if (sscanf(coords.c_str(), "%f, %f", &x, &y) == 2 ||
+                        sscanf(coords.c_str(), "%f,%f",  &x, &y) == 2) {
+                        sp.position = Vec2(x, y);
+                    }
+                }
+            }
+
+            if (!sp.name.empty()) {
+                scene.geometry.spawn_points.push_back(sp);
+            }
+            pos = obj_end + 1;
+        }
+    }
+
+    DEBUG_INFO("[GeoEditor] Loaded geometry from %s: %zu walkable, %zu obstacles, %zu hotspots, %zu spawn points",
+           path.c_str(), scene.geometry.walkable_areas.size(),
+           scene.geometry.obstacles.size(), scene.geometry.hotspots.size(),
+           scene.geometry.spawn_points.size());
     
     // Update polygon counter based on existing counts and hotspot names to avoid duplicates
     // Walkable areas and obstacles use index-based names, so count them

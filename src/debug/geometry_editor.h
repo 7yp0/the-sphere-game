@@ -9,11 +9,12 @@
 namespace GeometryEditor {
 
 enum class EditorMode {
-    NONE,               // Not editing
-    CREATING_WALKABLE,  // Adding vertices to new walkable area
-    CREATING_HOTSPOT,   // Adding vertices to new hotspot
-    CREATING_OBSTACLE,  // Adding vertices to new obstacle
-    SELECT_ENTITY       // Selecting/moving entities (props, lights, player)
+    NONE,                  // Not editing
+    CREATING_WALKABLE,     // Adding vertices to new walkable area
+    CREATING_HOTSPOT,      // Adding vertices to new hotspot
+    CREATING_OBSTACLE,     // Adding vertices to new obstacle
+    CREATING_SPAWN_POINT,  // Click once to place a named spawn point
+    SELECT_ENTITY          // Selecting/moving entities (props, lights, player)
 };
 
 enum class SelectionType {

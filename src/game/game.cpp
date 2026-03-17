@@ -8,6 +8,7 @@
 #include "renderer/animation.h"
 #include "platform.h"
 #include "scene/scene.h"
+#include "scene/scene_registry.h"
 #include "debug/debug.h"
 #include "ui/cursor.h"
 #include "ui/inventory_ui.h"
@@ -110,13 +111,10 @@ void init() {
     // Initialize cursor system
     UI::init_cursor();
 
-    // Initialize scene (this also creates prop ECS entities)
-    // Note: Geometry is loaded from JSON inside init_scene_test() before callbacks are registered
-    Scene::init_scene_test();
-
-    // Create player entity (this initializes player and its ECS transform)
-    g_state.player_entity = player_create_entity(g_state.player, g_state.ecs_world,
-                                                  g_state.base_width, g_state.base_height);
+    // Register all scenes, then load the starting scene.
+    // load_scene() runs the scene init AND creates the player entity at the spawn point.
+    Scene::register_all_scenes();
+    Scene::load_scene("test", "default");
 
     // Initialize framebuffer for offscreen rendering at base resolution
     Renderer::init_framebuffer(Config::BASE_WIDTH, Config::BASE_HEIGHT);

@@ -55,13 +55,16 @@ struct Player {
     float direction_normalization_threshold = 0.025f; // Min distance to normalize direction vector
 };
 
-// Create player ECS entity with Transform, Sprite, and Walker components
-// Returns the created entity ID
+// Create player ECS entity with Transform, Sprite, and Walker components.
+// spawn_pos: position to place the player (pass Vec2(-1,-1) to use scene center).
+// Returns the created entity ID.
 ECS::EntityID player_create_entity(Player& player, ECS::World& world,
-                                   uint32_t base_width, uint32_t base_height);
+                                   uint32_t base_width, uint32_t base_height,
+                                   Vec2 spawn_pos = Vec2(-1.0f, -1.0f));
 
-void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_height, 
-                 ECS::Transform2_5DComponent& transform, ECS::WalkerComponent& walker);
+void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_height,
+                 ECS::Transform2_5DComponent& transform, ECS::WalkerComponent& walker,
+                 Vec2 spawn_pos = Vec2(-1.0f, -1.0f));
 
 void player_handle_input(Player& player, ECS::Transform2_5DComponent& transform,
                          ECS::WalkerComponent& walker);

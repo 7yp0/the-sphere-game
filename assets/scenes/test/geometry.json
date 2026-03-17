@@ -40,6 +40,17 @@
       "name": "hotspot_1",
       "interaction_type": "walk_to_hotspot",
       "points": [[53.8333, 51.5], [54.8333, 71.3333], [74.6667, 71], [68.5, 48.6667]]
+    },
+    {
+      "name": "hotspot_1",
+      "interaction_type": "trigger",
+      "points": [[113.597, 88.4821], [114.633, 102.848], [198.373, 107.647], [186.555, 91.3125]]
+    }
+  ],
+  "spawn_points": [
+    {
+      "name": "default",
+      "position": [247.858, 89.5947]
     }
   ]
 }

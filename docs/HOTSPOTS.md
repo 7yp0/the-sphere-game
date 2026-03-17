@@ -1,25 +1,26 @@
 # Hotspot System
 
-Hotspots are clickable interactive regions in the game world. They support direct interactions as well as using inventory items on them.
+Hotspots are interactive regions in the game world. They support click-based interactions, inventory item usage, and collision-based triggers.
 
 ## Overview
 
 The hotspot system separates **geometry** (stored in JSON) from **behavior** (defined in code):
 
 - **Geometry** → `assets/scenes/<scene>/geometry.json`
-- **Callbacks** → `src/scene/scene.cpp`
+- **Callbacks** → `src/scene/scene_<name>.cpp`
 
 This allows level designers to edit polygon shapes visually while programmers define the interaction logic in code.
 
 ## Interaction Types
 
-Hotspots support three interaction types:
+| Type | Color in Editor | Behavior |
+| ---- | --------------- | -------- |
+| `IMMEDIATE` | Red | Callback triggers instantly on click (no walking) |
+| `WALK_TO_HOTSPOT` | Red | Player walks to nearest point on hotspot boundary, then triggers |
+| `WALK_TO_TARGET` | Red | Player walks to exact `target_position`, then triggers |
+| `TRIGGER` | Yellow | Fires once when the player walks into the area (no click required) |
 
-| Type | Behavior |
-|------|----------|
-| `IMMEDIATE` | Callback triggers instantly on click (no walking) |
-| `WALK_TO_HOTSPOT` | Player walks to nearest point on hotspot boundary, then triggers |
-| `WALK_TO_TARGET` | Player walks to exact `target_position`, then triggers |
+The type can be changed in the Geometry Editor by selecting a hotspot and pressing **T** to cycle through all types.
 
 ## Creating a Hotspot
 
@@ -30,13 +31,18 @@ Hotspots support three interaction types:
 3. Click to place vertices around the interactive area
 4. Press **F** or click the first vertex to close the polygon
 
-### Step 2: Set Target Position (Optional)
+### Step 2: Set Interaction Type
+
+Select the hotspot and press **T** to cycle to the desired type. Trigger hotspots turn yellow.
+
+### Step 3: Set Target Position (WALK_TO_TARGET only)
 
 1. Select the hotspot (click inside it or on a vertex)
 2. **Shift+Click** where the player should stand
 3. A magenta cross marks the target position
+4. Right-click the magenta cross to delete it
 
-### Step 3: Name the Hotspot
+### Step 4: Name the Hotspot
 
 1. Open `assets/scenes/<scene>/geometry.json`
 2. Find your hotspot (auto-named `hotspot_0`, `hotspot_1`, etc.)
@@ -45,21 +51,26 @@ Hotspots support three interaction types:
 ```json
 {
   "name": "door",
+  "interaction_type": "walk_to_target",
   "tooltip_key": "Open door",
   "target_position": [150, 120],
   "points": [[100, 80], [150, 80], [150, 95], [100, 95]]
 }
 ```
 
-### Step 4: Register the Callback (Code)
+### Step 5: Register the Callback (Code)
 
-In `src/scene/scene.cpp`, inside `init_scene_test()`:
+In `src/scene/scene_<name>.cpp`, inside `init_scene_<name>()`:
 
 ```cpp
-// Register callback by name (after geometry is loaded)
+// Click hotspot
 register_hotspot_callback("door", []() {
     DEBUG_LOG("Player opened the door!");
-    // Add your game logic here
+});
+
+// Trigger hotspot (fires on enter)
+register_hotspot_callback("zone_exit", []() {
+    Scene::load_scene("kitchen", "from_hallway");
 });
 ```
 
@@ -69,22 +80,24 @@ register_hotspot_callback("door", []() {
 |----------|------|-------------|
 | `name` | string | Unique identifier for callback registration |
 | `tooltip_key` | string | Text shown when hovering (empty = use name) |
-| `bounds` | Polygon | Clickable area (set via editor) |
-| `interaction_type` | enum | IMMEDIATE, WALK_TO_HOTSPOT, or WALK_TO_TARGET |
-| `target_position` | Vec2 | Position for WALK_TO_TARGET type (optional) |
-| `enabled` | bool | Whether hotspot responds to clicks |
-| `callback` | function | Code executed on default interaction |
+| `bounds` | Polygon | Clickable/trigger area (set via editor) |
+| `interaction_type` | enum | IMMEDIATE, WALK_TO_HOTSPOT, WALK_TO_TARGET, or TRIGGER |
+| `target_position` | Vec2 | Walk destination for WALK_TO_TARGET (optional) |
+| `enabled` | bool | Whether hotspot responds to input |
+| `callback` | function | Code executed on interaction |
 | `item_callbacks` | map | Item-specific callbacks (item_id → function) |
 
 ## API Functions
 
 ### register_hotspot_callback
 
-Register a callback function for a hotspot by name (default interaction, no item).
+Register a callback function for a hotspot by name.
 
 ```cpp
 bool register_hotspot_callback(const std::string& name, std::function<void()> callback);
 ```
+
+Works for all interaction types, including `TRIGGER`.
 
 **Example:**
 
@@ -97,18 +110,17 @@ register_hotspot_callback("chest", []() {
 
 ### register_hotspot_item_callback
 
-Register a callback for using a specific item on a hotspot.
+Register a callback for using a specific item on a hotspot (click-based types only).
 
 ```cpp
-bool register_hotspot_item_callback(const std::string& hotspot_name, 
-                                    const std::string& item_id, 
+bool register_hotspot_item_callback(const std::string& hotspot_name,
+                                    const std::string& item_id,
                                     std::function<void()> callback);
 ```
 
 **Example:**
 
 ```cpp
-// Using key on locked door
 register_hotspot_item_callback("locked_door", "key", []() {
     DEBUG_LOG("Door unlocked!");
     Inventory::remove_item("key");
@@ -128,11 +140,10 @@ bool set_hotspot_enabled(const std::string& name, bool enabled);
 **Example:**
 
 ```cpp
-// Door is locked until player uses key
-set_hotspot_enabled("locked_door", true);  // Can click but item needed
+set_hotspot_enabled("locked_door", true);
 
 register_hotspot_callback("locked_door", []() {
-    DEBUG_LOG("The door is locked.");  // Default interaction (no item)
+    DEBUG_LOG("The door is locked.");
 });
 
 register_hotspot_item_callback("locked_door", "key", []() {
@@ -154,14 +165,14 @@ Hotspot* get_hotspot(const std::string& name);
 ```cpp
 Hotspot* door = get_hotspot("door");
 if (door) {
-    door->interaction_distance = 50.0f;  // Increase range
+    door->interaction_distance = 50.0f;
     door->enabled = player_has_key;
 }
 ```
 
 ## Interaction Flow
 
-When the player clicks on a hotspot:
+### Click-Based Hotspots (IMMEDIATE / WALK_TO_HOTSPOT / WALK_TO_TARGET)
 
 ```
 1. Click detected inside hotspot polygon
@@ -184,12 +195,29 @@ When the player clicks on a hotspot:
 6. Execute callback function
 ```
 
+### Trigger Hotspots (TRIGGER)
+
+```
+Each frame:
+   ↓
+Is player position inside trigger polygon?
+   → Entering (was outside, now inside): Execute callback once
+   → Staying inside: No action
+   → Exiting: Reset so it can fire again next entry
+```
+
+Trigger hotspots:
+
+- Do **not** require a click
+- Do **not** show a tooltip or change the cursor
+- Fire **once per entry** (edge-triggered)
+- Can be manually deactivated inside the callback via `set_hotspot_enabled("name", false)`
+
 ## Item-on-Hotspot Interaction
 
 When hovering a hotspot with a selected item cursor, the item displays with a white outline to indicate a potential interaction.
 
 ```cpp
-// Setup: Register both default and item-specific callbacks
 register_hotspot_callback("safe", []() {
     DEBUG_LOG("A locked safe. I need something to open it.");
 });
@@ -206,61 +234,9 @@ register_hotspot_item_callback("safe", "key", []() {
 });
 ```
 
-## Interaction Type Examples
-
-### IMMEDIATE (UI Elements, Instant Actions)
-
-```cpp
-Hotspot* btn = get_hotspot("pause_button");
-if (btn) {
-    btn->interaction_type = InteractionType::IMMEDIATE;
-}
-
-register_hotspot_callback("pause_button", []() {
-    toggle_pause_menu();
-});
-```
-
-### WALK_TO_HOTSPOT (Large Areas)
-
-The player walks to the nearest point on the hotspot boundary. Good for large interactive areas.
-
-```json
-{
-  "name": "pool",
-  "points": [[50, 100], [200, 100], [200, 150], [50, 150]]
-}
-```
-
-```cpp
-Hotspot* pool = get_hotspot("pool");
-if (pool) {
-    pool->interaction_type = InteractionType::WALK_TO_HOTSPOT;
-}
-```
-
-### WALK_TO_TARGET (Precise Positioning)
-
-The player walks to the exact `target_position`. Best for doors, NPCs, items.
-
-```json
-{
-  "name": "door",
-  "target_position": [150, 120],
-  "points": [[100, 80], [150, 80], [150, 95], [100, 95]]
-}
-```
-
-```cpp
-Hotspot* door = get_hotspot("door");
-if (door) {
-    door->interaction_type = InteractionType::WALK_TO_TARGET;
-}
-```
-
 ## Common Patterns
 
-### Pickup Item (Add to Inventory)
+### Pickup Item
 
 ```cpp
 register_hotspot_callback("gold_coin", []() {
@@ -270,48 +246,35 @@ register_hotspot_callback("gold_coin", []() {
 });
 ```
 
+### Scene Exit (Trigger)
+
+```cpp
+// Hotspot type: TRIGGER
+register_hotspot_callback("exit_to_kitchen", []() {
+    Scene::load_scene("kitchen", "from_hallway");
+});
+```
+
 ### Locked Door (Requires Item)
 
 ```cpp
-// Default: Tell player it's locked
 register_hotspot_callback("locked_door", []() {
     DEBUG_LOG("The door is locked. I need a key.");
 });
 
-// With key: Unlock and open
 register_hotspot_item_callback("locked_door", "key", []() {
     DEBUG_LOG("*click* The door unlocks!");
     Inventory::remove_item("key");
-    // Trigger scene transition or animation
 });
 ```
 
-### Examine Object (Look At)
+### One-Time Trigger Zone
 
 ```cpp
-register_hotspot_callback("painting", []() {
-    DEBUG_LOG("A beautiful painting of a sunset.");
-});
-```
-
-### Use Tool on Object
-
-```cpp
-register_hotspot_callback("rusty_grate", []() {
-    DEBUG_LOG("A grate. It's rusted shut.");
-});
-
-register_hotspot_item_callback("rusty_grate", "crowbar", []() {
-    DEBUG_LOG("*screech* The grate comes loose!");
-    Inventory::remove_item("crowbar");
-    set_hotspot_enabled("rusty_grate", false);
-    set_hotspot_enabled("open_passage", true);
-});
-
-register_hotspot_item_callback("rusty_grate", "oil", []() {
-    DEBUG_LOG("I oil the hinges...");
-    Inventory::remove_item("oil");
-    // Now crowbar works easier (game logic)
+// Fires once, then disables itself
+register_hotspot_callback("ambient_trigger", []() {
+    Dialogue::say(g_state.player_entity, "dialogue.player.notice_something");
+    set_hotspot_enabled("ambient_trigger", false);
 });
 ```
 
@@ -321,7 +284,7 @@ register_hotspot_item_callback("rusty_grate", "oil", []() {
 register_hotspot_callback("lever", []() {
     static bool is_pulled = false;
     is_pulled = !is_pulled;
-    
+
     if (is_pulled) {
         DEBUG_LOG("Lever pulled - gate opens!");
         set_hotspot_enabled("gate_passage", true);
@@ -336,24 +299,25 @@ register_hotspot_callback("lever", []() {
 
 With debug overlay active (**D** key):
 
-- Hotspot polygons shown in red
+- Click hotspot polygons shown in **red**
+- Trigger hotspot polygons shown in **yellow**
 - Target positions shown as magenta crosses
 - Selected hotspot highlighted
-- Hotspot name printed to console on interaction
+- Press **T** on a selected hotspot to cycle its interaction type
 - Press **R** to reload geometry from JSON (callbacks are preserved)
 
 ## Tooltip Display
 
-When hovering a hotspot, a tooltip is displayed:
+When hovering a click-based hotspot, a tooltip is displayed:
 - Uses `tooltip_key` if set, otherwise falls back to `name`
 - When hovering with selected item cursor, item gets white outline
+- **Trigger hotspots never show tooltips** — they are invisible to the player
 
 ## File Locations
 
 | File | Purpose |
 |------|---------|
-| `assets/scenes/<scene>/geometry.json` | Hotspot geometry (polygons, names, target_position, tooltip_key) |
-| `src/scene/scene.cpp` | Callback registration (default + item-specific) |
-| `src/scene/scene.h` | Hotspot struct definition |
-| `src/scene/scene.h` | Hotspot struct definition |
-| `src/game/player.cpp` | Click handling and approach logic |
+| `assets/scenes/<scene>/geometry.json` | Hotspot geometry (polygons, names, type, target_position, tooltip_key) |
+| `src/scene/scene_<name>.cpp` | Callback registration per scene |
+| `src/scene/scene.h` | Hotspot struct and InteractionType definition |
+| `src/game/player.cpp` | Click handling, approach logic, and trigger detection |

@@ -22,7 +22,8 @@ namespace Scene {
 enum class InteractionType {
     IMMEDIATE,        // Trigger callback immediately on click (no walking)
     WALK_TO_HOTSPOT,  // Walk to hotspot centroid (pivot point), then trigger
-    WALK_TO_TARGET    // Walk to specific target_position, then trigger
+    WALK_TO_TARGET,   // Walk to specific target_position, then trigger
+    TRIGGER           // Fire callback once when player enters the polygon (no click needed)
 };
 
 // Prop: 2.5D object - Z-depth derived from DEPTH MAP at X,Y position
@@ -41,21 +42,30 @@ struct Hotspot {
     Collision::Polygon bounds;
     bool enabled = true;
     std::function<void()> callback;  // Default interaction (no item)
-    
+
     // Item-on-hotspot callbacks: item_id -> callback
     std::unordered_map<std::string, std::function<void()>> item_callbacks;
-    
+
     // Interaction type determines how player triggers this hotspot
     InteractionType interaction_type = InteractionType::WALK_TO_HOTSPOT;
-    
+
     // Target position for WALK_TO_TARGET interaction type
     Vec2 target_position = Vec2(0.0f, 0.0f);
+
+    // Runtime state for TRIGGER type: edge-detect player entry (not persisted to JSON)
+    bool was_inside = false;
+};
+
+struct SpawnPoint {
+    std::string name;    // e.g. "default", "from_kitchen", "from_outside"
+    Vec2 position;
 };
 
 struct SceneGeometry {
     std::vector<Collision::Polygon> walkable_areas;
     std::vector<Collision::Polygon> obstacles;  // Blocked areas within walkable areas
     std::vector<Hotspot> hotspots;
+    std::vector<SpawnPoint> spawn_points;
 };
 
 struct Scene {
@@ -163,6 +173,9 @@ ECS::EntityID get_entity(const std::string& name);
 
 // Hide/show an entity's sprite by name
 bool set_entity_visible(const std::string& name, bool visible);
+
+// Get spawn point position by name (returns false if not found)
+bool get_spawn_point(const std::string& name, Vec2& out_pos);
 
 void init_scene_test();
 

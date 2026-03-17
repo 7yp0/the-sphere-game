@@ -52,6 +52,7 @@ void update_cursor(Vec2 mouse_pos) {
     const auto& hotspots = Game::g_state.scene.geometry.hotspots;
     for (const auto& hotspot : hotspots) {
         if (!hotspot.enabled) continue;
+        if (hotspot.interaction_type == Scene::InteractionType::TRIGGER) continue;
         if (Collision::point_in_polygon(mouse_base, hotspot.bounds)) {
             g_cursor.state = CursorState::Hover;
             // Only set tooltip if not already set by UI (e.g., inventory)
