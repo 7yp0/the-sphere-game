@@ -1,58 +1,7 @@
 # TODO
 
----
-
-## Game State
-
-### Global Game State
-
-- [x] Persistent state system for the session
-- [x] String-key based access
-- [x] Flags (bool): `flags["sphere_taken"] = true`
-- [x] Values (int): `values["battery_charge"] = 2`
-- [x] Strings (string): `strings["current_chapter"] = "intro"`
-
-### Scene/Entity State (Auto-Persist)
-
-- [x] Entity visibility state (enabled/disabled)
-- [x] Hotspot enabled state
-- [x] Restore on scene reload
-- [x] Serialize to save file (for Save/Load system)
-
----
-
-## Save / Load
-
-### Auto-Save System
-
-- [x] Single auto-save slot (JSON)
-- [x] Auto-save on: item pickup, flag change, scene change
-- [x] Optional: debounce (max 1x pro Sekunde)
-- [x] Save: scene, player position, inventory, flags/values/strings, entity states
-
-### Load System
-
-- [x] Restore full game state from auto-save
-- [x] "Continue" from main menu loads auto-save
-
----
-
-## Main Menu
-
-### Menu Options
-
-- [x] **New Game** - Start fresh, clear auto-save
-- [x] **Continue** - Load auto-save (disabled if no save exists)
-- [ ] **Settings** - Opens settings submenu
-- [x] **Exit** - Quit game
-
-### Settings
-
-- [ ] Music volume
-- [ ] Sound effects volume
-- [ ] Voice volume
-- [ ] Language selection
-- [ ] Save settings to config file
+- [ ] sollte das inventory auch ein eigener game mode sein?
+- [ ] double click on roomchange hotspots changes room immediately (if path is clear)
 
 ---
 

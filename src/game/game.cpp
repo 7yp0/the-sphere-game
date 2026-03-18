@@ -11,6 +11,7 @@
 #include "scene/scene_registry.h"
 #include "scene/act_registry.h"
 #include "save/save_system.h"
+#include "core/settings.h"
 #include "debug/debug.h"
 #include "ui/cursor.h"
 #include "ui/inventory_ui.h"
@@ -105,11 +106,14 @@ static void update_animated_light(float delta_time) {
 }
 
 void init() {
+    // Initialize settings (loads settings.json, must be before Localization)
+    Settings::init();
+
     // Initialize save system
     SaveSystem::init();
 
-    // Load language with Localization system
-    Localization::load("en");
+    // Load language from settings
+    Localization::load(Settings::get_language());
 
     // Initialize inventory UI FIRST (so scene can register items)
     UI::init_inventory_ui();

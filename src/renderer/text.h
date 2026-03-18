@@ -15,8 +15,10 @@ constexpr float GLYPH_VISUAL_HEIGHT = 28.0f;   // content height (rows 1–28), 
 constexpr float GLYPH_VISUAL_CENTER = 16.5f;   // visual center row within the 32px cell
 
 void init_text_renderer();
+// z: depth in NDC space (-1.0 = nearest). Default -0.96f sits in front of UI backgrounds
+//    but behind ZDepth::CURSOR (-0.99f), so the cursor always renders on top.
 // max_chars: number of characters to render (-1 = all)
-void render_text(const char* text, Vec2 pos, float scale = 1.0f, Vec4 color = Vec4(1,1,1,1), int max_chars = -1);
+void render_text(const char* text, Vec2 pos, float scale = 1.0f, Vec4 color = Vec4(1,1,1,1), float z = -0.96f, int max_chars = -1);
 float calculate_text_width(const char* text, float scale = 1.0f);
 
 }

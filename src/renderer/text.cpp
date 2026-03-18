@@ -48,10 +48,10 @@ void init_text_renderer() {
     }
 }
 
-void render_text(const char* text, Vec2 pos, float scale, Vec4 color, int max_chars) {
+void render_text(const char* text, Vec2 pos, float scale, Vec4 color, float z, int max_chars) {
     if (!g_font_texture) init_text_renderer();
     if (!text) return;
-    Vec3 current_pos = Vec3(pos, -1.0f);
+    Vec3 current_pos = Vec3(pos, z);
     float start_x = pos.x;
     float glyph_width_px = GLYPH_WIDTH * scale;
     float glyph_height_px = GLYPH_HEIGHT * scale;

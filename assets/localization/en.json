@@ -1,7 +1,21 @@
 {
+  "menu.title": "THE SPHERE",
+  "menu.continue": "Continue",
+  "menu.new_game": "New Game",
+  "menu.load": "Load",
+  "menu.settings": "Settings",
+  "menu.exit": "Exit",
+  "menu.back": "Back",
+  "menu.confirm.question": "Overwrite saved progress?",
+  "menu.confirm.warning": "This cannot be undone.",
+  "menu.confirm.yes": "Yes",
+  "menu.confirm.no": "No",
+  "menu.settings.title": "Settings",
+  "menu.settings.music": "Music",
+  "menu.settings.sfx": "SFX",
+  "menu.settings.voice": "Voice",
+  "menu.settings.language": "Language",
   "dialogue.sphere.hello": "Hello Anni!",
-  "generic": {
-    "doesnt_work": "That doesn't work.",
-    "cant_combine": "I can't combine that."
-  }
+  "generic.doesnt_work": "That doesn't work.",
+  "generic.cant_combine": "I can't combine that."
 }
