@@ -2,6 +2,7 @@
 #include "scene.h"
 #include "../game/game.h"
 #include "../game/player.h"
+#include "../save/save_system.h"
 #include "../debug/debug_log.h"
 #include "../ecs/ecs.h"
 #include <unordered_map>
@@ -107,6 +108,9 @@ void load_scene(const std::string& scene_name, const std::string& spawn_point_na
 
     DEBUG_INFO("[SceneRegistry] Loaded scene '%s', spawn '%s'",
                scene_name.c_str(), spawn_point_name.c_str());
+
+    // Auto-save on scene change (immediate, not debounced)
+    SaveSystem::save();
 }
 
 } // namespace Scene

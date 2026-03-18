@@ -12,6 +12,7 @@
 namespace Renderer {
 
 static std::string g_asset_base_path;
+static std::string g_exe_dir;
 
 void init_asset_manager(const char* executable_path)
 {
@@ -33,13 +34,14 @@ void init_asset_manager(const char* executable_path)
 #endif
     
     size_t last_slash = path_str.find_last_of("/");
-    
+
     std::string exe_dir;
     if (last_slash != std::string::npos) {
         exe_dir = path_str.substr(0, last_slash);
     } else {
         exe_dir = ".";
     }
+    g_exe_dir = exe_dir;
     
 #ifdef __APPLE__
     // macOS: Check if we're running from a .app bundle
@@ -66,6 +68,11 @@ std::string get_asset_path(const char* filename)
     std::string result = g_asset_base_path + "/assets/" + filename;
     DEBUG_INFO("get_asset_path('%s') -> '%s'", filename, result.c_str());
     return result;
+}
+
+std::string get_exe_dir()
+{
+    return g_exe_dir;
 }
 
 std::string get_shader_path(const char* filename)

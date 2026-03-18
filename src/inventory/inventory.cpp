@@ -1,5 +1,6 @@
 #include "inventory.h"
 #include "renderer/texture_loader.h"
+#include "save/save_system.h"
 #include <algorithm>
 
 namespace Inventory {
@@ -83,6 +84,7 @@ int add_item(const std::string& item_id) {
     }
     
     g_inventory.slots[slot_index].item_id = item_id;
+    SaveSystem::schedule_save();
     return slot_index;
 }
 
@@ -93,6 +95,7 @@ bool remove_item(const std::string& item_id) {
     }
     
     g_inventory.slots[slot_index].clear();
+    SaveSystem::schedule_save();
     return true;
 }
 

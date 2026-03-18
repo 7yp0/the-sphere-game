@@ -25,7 +25,7 @@
 - [x] Entity visibility state (enabled/disabled)
 - [x] Hotspot enabled state
 - [x] Restore on scene reload
-- [ ] Serialize to save file (for Save/Load system)
+- [x] Serialize to save file (for Save/Load system)
 
 ---
 
@@ -33,14 +33,14 @@
 
 ### Auto-Save System
 
-- [ ] Single auto-save slot (JSON)
-- [ ] Auto-save on: item pickup, flag change, scene change
-- [ ] Optional: debounce (max 1x pro Sekunde)
-- [ ] Save: scene, player position, inventory, flags/values/strings, entity states
+- [x] Single auto-save slot (JSON)
+- [x] Auto-save on: item pickup, flag change, scene change
+- [x] Optional: debounce (max 1x pro Sekunde)
+- [x] Save: scene, player position, inventory, flags/values/strings, entity states
 
 ### Load System
 
-- [ ] Restore full game state from auto-save
+- [x] Restore full game state from auto-save
 - [ ] "Continue" from main menu loads auto-save
 
 ---

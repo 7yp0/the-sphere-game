@@ -10,6 +10,7 @@
 #include "scene/scene.h"
 #include "scene/scene_registry.h"
 #include "scene/act_registry.h"
+#include "save/save_system.h"
 #include "debug/debug.h"
 #include "ui/cursor.h"
 #include "ui/inventory_ui.h"
@@ -102,7 +103,10 @@ static void update_animated_light(float delta_time) {
     );
 }
 
-void init() {    
+void init() {
+    // Initialize save system
+    SaveSystem::init();
+
     // Load language with Localization system
     Localization::load("en");
 
@@ -141,6 +145,7 @@ void set_viewport(uint32_t width, uint32_t height) {
 
 void update(float delta_time) {
     Core::update_delta_time(delta_time);
+    SaveSystem::update(delta_time);
     
 #ifndef NDEBUG
     Debug::handle_debug_keys();
@@ -510,7 +515,7 @@ void render() {
     Renderer::render_ui_framebuffer_to_screen();
 }
 
-void set_flag(const std::string& key, bool value)        { g_state.flags[key] = value; }
+void set_flag(const std::string& key, bool value)        { g_state.flags[key] = value; SaveSystem::schedule_save(); }
 bool get_flag(const std::string& key, bool default_val)  { auto it = g_state.flags.find(key); return it != g_state.flags.end() ? it->second : default_val; }
 
 void set_value(const std::string& key, int value)        { g_state.values[key] = value; }
