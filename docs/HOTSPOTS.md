@@ -15,9 +15,9 @@ This allows level designers to edit polygon shapes visually while programmers de
 
 | Type | Color in Editor | Behavior |
 | ---- | --------------- | -------- |
-| `IMMEDIATE` | Red | Callback triggers instantly on click (no walking) |
-| `WALK_TO_HOTSPOT` | Red | Player walks to nearest point on hotspot boundary, then triggers |
-| `WALK_TO_TARGET` | Red | Player walks to exact `target_position`, then triggers |
+| `IMMEDIATE` | Blue | Callback triggers instantly on click (no walking) |
+| `WALK_TO_HOTSPOT` | Blue | Player walks to nearest point on hotspot boundary, then triggers |
+| `WALK_TO_TARGET` | Blue | Player walks to exact `target_position`, then triggers |
 | `TRIGGER` | Yellow | Fires once when the player walks into the area (no click required) |
 
 The type can be changed in the Geometry Editor by selecting a hotspot and pressing **T** to cycle through all types.
@@ -309,6 +309,7 @@ With debug overlay active (**D** key):
 ## Tooltip Display
 
 When hovering a click-based hotspot, a tooltip is displayed:
+
 - Uses `tooltip_key` if set, otherwise falls back to `name`
 - When hovering with selected item cursor, item gets white outline
 - **Trigger hotspots never show tooltips** — they are invisible to the player

@@ -1,4 +1,5 @@
 #include "scene.h"
+#include "close_up.h"
 #include "scene_registry.h"
 #include "game/game.h"
 #include "game/dialogue.h"
@@ -187,6 +188,17 @@ void init_scene_test() {
 
     register_hotspot_callback("exit_to_test2", []() {
         load_scene("test2", "from_test");
+    });
+
+    register_hotspot_callback("closeup_hotspot", []() {
+        enter_close_up("closeup_example", {
+            .show_inventory = false,
+            .on_back = []() { exit_close_up(); },
+            .on_success = []() {
+                Game::set_flag("puzzle_solved");
+                exit_close_up();
+            }
+        });
     });
 
     // Set default invalid combination feedback

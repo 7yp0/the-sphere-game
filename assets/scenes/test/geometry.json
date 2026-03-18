@@ -37,8 +37,9 @@
       "points": [[217.167, 35.1667], [216.167, 72.6667], [235, 70], [234.833, 34.3333]]
     },
     {
-      "name": "hotspot_1",
-      "interaction_type": "walk_to_hotspot",
+      "name": "closeup_hotspot",
+      "interaction_type": "walk_to_target",
+      "target_position": [68.7549, 81.3955],
       "points": [[53.8333, 51.5], [54.8333, 71.3333], [74.6667, 71], [68.5, 48.6667]]
     },
     {

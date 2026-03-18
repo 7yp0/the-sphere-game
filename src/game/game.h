@@ -17,7 +17,15 @@ namespace Game {
 enum class GameMode {
     MAIN_MENU,  // Overlay menu shown, scene renders underneath
     GAMEPLAY,   // Normal gameplay, player can move
+    CLOSE_UP,   // Close-up scene active, player hidden and input blocked
     DEBUG,      // Debug overlay active (ESC reserved for debug tools)
+};
+
+// Return context saved when entering a close-up (restored on exit)
+struct CloseUpReturnContext {
+    std::string scene_name;
+    Vec2 player_pos;
+    WalkDirection player_direction = WalkDirection::Down;
 };
 
 // Persisted state for a single scene (saved on exit, restored on re-entry)
@@ -60,6 +68,10 @@ struct GameState {
 
     // Per-scene state snapshots (saved on scene exit, restored on re-entry)
     std::unordered_map<std::string, SceneState> scene_states;
+
+    // Close-up return context (valid only when mode == CLOSE_UP)
+    bool has_close_up_context = false;
+    CloseUpReturnContext close_up_return;
 };
 
 extern GameState g_state;

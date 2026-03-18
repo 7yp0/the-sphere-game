@@ -10,6 +10,7 @@
 #include "scene/scene.h"
 #include "scene/scene_registry.h"
 #include "scene/act_registry.h"
+#include "scene/close_up.h"
 #include "save/save_system.h"
 #include "core/settings.h"
 #include "debug/debug.h"
@@ -192,22 +193,36 @@ void update(float delta_time) {
         prev_esc = esc;
     }
 
-    // Update inventory UI (may consume input)
-    bool ui_consumed_input = UI::update_inventory_ui(mouse_pos);
+    // Update inventory UI (may consume input) — suppressed in close-up unless config allows it
+    bool ui_consumed_input = false;
+    if (g_state.mode != GameMode::CLOSE_UP || Scene::get_close_up_config().show_inventory) {
+        ui_consumed_input = UI::update_inventory_ui(mouse_pos);
+    }
 
     // Get player transform and walker from ECS
     ECS::Transform2_5DComponent* player_transform = get_player_transform();
     ECS::WalkerComponent* player_walker = get_player_walker();
     if (player_transform && player_walker) {
-        // Only handle player input if UI didn't consume it
-        if (!ui_consumed_input) {
-            player_handle_input(g_state.player, *player_transform, *player_walker);
-        }
-        player_update(g_state.player, *player_transform, *player_walker,
-                      g_state.base_width, g_state.base_height, delta_time);
+        if (g_state.mode == GameMode::CLOSE_UP) {
+            // In close-up: hotspot clicks still work (via player_handle_input),
+            // but the player is hidden so only IMMEDIATE hotspots make sense.
+            // Walking is still computed (player is off-screen, harmless).
+            if (!ui_consumed_input) {
+                player_handle_input(g_state.player, *player_transform, *player_walker);
+            }
+            player_update(g_state.player, *player_transform, *player_walker,
+                          g_state.base_width, g_state.base_height, delta_time);
+        } else {
+            // Only handle player input if UI didn't consume it
+            if (!ui_consumed_input) {
+                player_handle_input(g_state.player, *player_transform, *player_walker);
+            }
+            player_update(g_state.player, *player_transform, *player_walker,
+                          g_state.base_width, g_state.base_height, delta_time);
 
-        // Update sprite animation based on player state
-        update_player_sprite_animation();
+            // Update sprite animation based on player state
+            update_player_sprite_animation();
+        }
     }
 
     // Animate light through room corners
@@ -468,8 +483,9 @@ void render() {
     // =========================================================================
     // Render player using ECS components
     // Player receives shadows from props but doesn't shadow itself
+    // Skipped in CLOSE_UP mode (player is off-screen / hidden)
     // =========================================================================
-    if (g_state.player_entity != ECS::INVALID_ENTITY) {
+    if (g_state.mode != GameMode::CLOSE_UP && g_state.player_entity != ECS::INVALID_ENTITY) {
         auto* transform = g_state.ecs_world.get_component<ECS::Transform2_5DComponent>(g_state.player_entity);
         auto* sprite = g_state.ecs_world.get_component<ECS::SpriteComponent>(g_state.player_entity);
         
@@ -540,6 +556,12 @@ void render() {
     if (g_state.mode == GameMode::MAIN_MENU) {
         // Main menu overlay: dims the scene, shows menu panel
         UI::render_main_menu();
+    } else if (g_state.mode == GameMode::CLOSE_UP) {
+        // Close-up: inventory only if config allows it; speech bubbles always
+        if (Scene::get_close_up_config().show_inventory) {
+            UI::render_inventory_ui();
+        }
+        UI::render_speechbubbles();
     } else {
         // Gameplay UI
         UI::render_inventory_ui();

@@ -2,15 +2,6 @@
 
 ## Close-Up System
 
-### Close-Up Scenes
-
-- [ ] Special game mode for puzzle close-ups
-- [ ] Separate input handling per close-up
-- [ ] no player rendered
-- [ ] Enter close-up via scene action `Scene::enterCloseUp(scene)`
-- [ ] Return to main game after completion
-- [ ] Pass/fail state back to main game (set flags)
-
 ### Cable Physics (Wrap-Point System)
 
 - [ ] Kabel-Ende folgt Mausposition
