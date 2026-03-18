@@ -14,6 +14,12 @@
 
 namespace Game {
 
+enum class GameMode {
+    MAIN_MENU,  // Overlay menu shown, scene renders underneath
+    GAMEPLAY,   // Normal gameplay, player can move
+    DEBUG,      // Debug overlay active (ESC reserved for debug tools)
+};
+
 // Persisted state for a single scene (saved on exit, restored on re-entry)
 struct SceneState {
     std::unordered_map<std::string, bool> hotspot_enabled;
@@ -44,6 +50,9 @@ struct GameState {
     // Debug: current shadow caster count (updated each frame)
     uint32_t shadow_caster_count = 0;
 
+    // Current game mode
+    GameMode mode = GameMode::MAIN_MENU;
+
     // Global game state (persistent within a session)
     std::unordered_map<std::string, bool>        flags;
     std::unordered_map<std::string, int>         values;
@@ -70,6 +79,13 @@ void render();
 
 // Shutdown game (cleanup)
 void shutdown();
+
+// Start a completely fresh game (resets all state, loads Act 1).
+void start_new_game();
+
+// Restore game from auto-save and enter gameplay.
+// Returns false if no save file exists.
+bool continue_game();
 
 // --- Global state accessors ---
 void        set_flag(const std::string& key, bool value = true);

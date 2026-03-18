@@ -18,12 +18,18 @@ namespace Debug {
 bool overlay_enabled = false;
 
 void toggle_overlay() {
-  overlay_enabled = !overlay_enabled;
-  // Also toggle geometry editor
-  if (overlay_enabled) {
-      GeometryEditor::init();
-  }
-  GeometryEditor::toggle();
+    overlay_enabled = !overlay_enabled;
+    // Also toggle geometry editor
+    if (overlay_enabled) {
+        GeometryEditor::init();
+        // Switch to DEBUG mode so ESC is reserved for debug tools
+        if (Game::g_state.mode == Game::GameMode::GAMEPLAY)
+            Game::g_state.mode = Game::GameMode::DEBUG;
+    } else {
+        if (Game::g_state.mode == Game::GameMode::DEBUG)
+            Game::g_state.mode = Game::GameMode::GAMEPLAY;
+    }
+    GeometryEditor::toggle();
 }
 
 void handle_debug_keys() {

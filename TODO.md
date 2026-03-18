@@ -1,13 +1,5 @@
 # TODO
 
-## Game Modes
-
-- GAMEPLAY
-- CUTSCENE
-- DIALOGUE
-- INVENTORY
-- CLOSE_UP
-
 ---
 
 ## Game State
@@ -41,7 +33,7 @@
 ### Load System
 
 - [x] Restore full game state from auto-save
-- [ ] "Continue" from main menu loads auto-save
+- [x] "Continue" from main menu loads auto-save
 
 ---
 
@@ -49,10 +41,10 @@
 
 ### Menu Options
 
-- [ ] **New Game** - Start fresh, clear auto-save
-- [ ] **Continue** - Load auto-save (disabled if no save exists)
+- [x] **New Game** - Start fresh, clear auto-save
+- [x] **Continue** - Load auto-save (disabled if no save exists)
 - [ ] **Settings** - Opens settings submenu
-- [ ] **Exit** - Quit game
+- [x] **Exit** - Quit game
 
 ### Settings
 

@@ -367,6 +367,11 @@ bool window_should_close()
     return g_shouldClose;
 }
 
+void request_quit()
+{
+    g_shouldClose = true;
+}
+
 void shutdown()
 {
     if (g_hglrc)

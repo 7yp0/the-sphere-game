@@ -38,6 +38,9 @@ void set_key_pressed(int key_code, bool pressed);
 // Show/hide the system cursor (for custom cursor rendering)
 void show_system_cursor(bool show);
 
+// Request the application to quit (sets window_should_close flag)
+void request_quit();
+
 // Toggle fullscreen mode (ALT+ENTER)
 void toggle_fullscreen();
 bool is_fullscreen();

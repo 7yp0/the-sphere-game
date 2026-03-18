@@ -31,7 +31,29 @@ static bool  g_is_loading    = false;
 // Path helpers
 // ============================================================================
 
-static std::string get_save_dir()  { return Renderer::get_exe_dir() + "/saves"; }
+// Returns a writable saves directory outside the macOS app bundle.
+// On macOS: exe is at MyApp.app/Contents/MacOS/exe → go 3 levels up to the
+//           folder that contains the .app bundle.
+// On other platforms: saves sit next to the executable.
+static std::string get_save_dir() {
+    std::string exe = Renderer::get_exe_dir();
+#ifdef __APPLE__
+    // Detect bundle: exe_dir ends with "/Contents/MacOS"
+    const std::string marker = "/Contents/MacOS";
+    if (exe.size() > marker.size() &&
+        exe.compare(exe.size() - marker.size(), marker.size(), marker) == 0) {
+        // Strip "/Contents/MacOS" and add "/saves" next to the .app bundle
+        std::string bundle_parent = exe.substr(0, exe.size() - marker.size());
+        // bundle_parent is the .app itself; go one level up to the folder containing it
+        size_t slash = bundle_parent.find_last_of('/');
+        if (slash != std::string::npos)
+            bundle_parent = bundle_parent.substr(0, slash);
+        return bundle_parent + "/saves";
+    }
+#endif
+    return exe + "/saves";
+}
+
 static std::string get_save_path() { return get_save_dir() + "/autosave.json"; }
 
 static void ensure_save_dir() {
@@ -60,6 +82,7 @@ static std::string escape_json(const std::string& s) {
 
 void save() {
     if (g_is_loading) return;
+    if (Game::g_state.mode != Game::GameMode::GAMEPLAY) return;
 
     using namespace Game;
 
@@ -459,8 +482,11 @@ void clear_save() {
     DEBUG_INFO("[SaveSystem] Save cleared");
 }
 
+bool is_loading() { return g_is_loading; }
+
 void schedule_save() {
     if (g_is_loading) return;
+    if (Game::g_state.mode != Game::GameMode::GAMEPLAY) return;
     if (g_pending_timer < 0.0f) {
         g_pending_timer = DEBOUNCE_INTERVAL;
     }

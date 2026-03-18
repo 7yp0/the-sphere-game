@@ -47,6 +47,7 @@ void load_act(int number) {
     g_state.values.clear();
     g_state.strings.clear();
     g_state.scene_states.clear();
+    g_state.scene.name.clear();  // prevent load_scene from snapshotting stale live state
 
     // Clear inventory (items, not definitions)
     Inventory::clear();

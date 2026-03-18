@@ -306,6 +306,11 @@ bool window_should_close()
     }
 }
 
+void request_quit()
+{
+    g_shouldClose = true;
+}
+
 void shutdown()
 {
     @autoreleasepool {

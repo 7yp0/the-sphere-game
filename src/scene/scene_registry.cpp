@@ -32,7 +32,9 @@ void load_scene(const std::string& scene_name, const std::string& spawn_point_na
     using namespace Game;
 
     // ---- Snapshot current scene state before teardown ----
-    if (!g_state.scene.name.empty()) {
+    // Skip during SaveSystem::load() — scene_states were already restored from the
+    // save file and must not be overwritten by the current (pre-load) live state.
+    if (!g_state.scene.name.empty() && !SaveSystem::is_loading()) {
         auto& snap = g_state.scene_states[g_state.scene.name];
         snap.hotspot_enabled.clear();
         for (const auto& hs : g_state.scene.geometry.hotspots) {
@@ -109,8 +111,11 @@ void load_scene(const std::string& scene_name, const std::string& spawn_point_na
     DEBUG_INFO("[SceneRegistry] Loaded scene '%s', spawn '%s'",
                scene_name.c_str(), spawn_point_name.c_str());
 
-    // Auto-save on scene change (immediate, not debounced)
-    SaveSystem::save();
+    // Auto-save on scene change — only during active gameplay.
+    // Not during init() (MAIN_MENU) or SaveSystem::load() (g_is_loading guard inside save()).
+    if (Game::g_state.mode == Game::GameMode::GAMEPLAY) {
+        SaveSystem::save();
+    }
 }
 
 } // namespace Scene

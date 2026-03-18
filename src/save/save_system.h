@@ -8,6 +8,9 @@ void init();
 // Call every frame to flush debounced saves.
 void update(float delta_time);
 
+// True while load() is executing (used to suppress side-effects during restore).
+bool is_loading();
+
 // Save current game state to the auto-save slot immediately.
 void save();
 

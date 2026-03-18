@@ -112,6 +112,7 @@ namespace ZDepth {
     // Ordered from back to front:
     constexpr float GAME_HUD   = -0.90f;    // HUD elements, inventory icon
     constexpr float PANELS     = -0.93f;    // Inventory panel, close-up overlays
+    constexpr float MAIN_MENU  = -0.94f;    // Main menu overlay (above panels)
     constexpr float DIALOGUE   = -0.95f;    // Speech bubbles, text boxes
     constexpr float TOOLTIP    = -0.97f;    // Hover tooltips
     constexpr float CURSOR     = -0.99f;    // Mouse cursor (always on top)

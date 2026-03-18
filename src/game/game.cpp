@@ -14,6 +14,7 @@
 #include "debug/debug.h"
 #include "ui/cursor.h"
 #include "ui/inventory_ui.h"
+#include "ui/main_menu.h"
 #include "ui/speechbubble_ui.h"
 #include "types.h"
 #include "ecs/ecs.h"
@@ -116,6 +117,9 @@ void init() {
     // Initialize cursor system
     UI::init_cursor();
 
+    // Initialize main menu (checks for existing save to enable Continue)
+    UI::init_main_menu();
+
     // Register all scenes and acts, then start Act 1.
     Scene::register_all_scenes();
     Scene::register_all_acts();
@@ -145,7 +149,8 @@ void set_viewport(uint32_t width, uint32_t height) {
 
 void update(float delta_time) {
     Core::update_delta_time(delta_time);
-    SaveSystem::update(delta_time);
+    if (g_state.mode == GameMode::GAMEPLAY)
+        SaveSystem::update(delta_time);
     
 #ifndef NDEBUG
     Debug::handle_debug_keys();
@@ -153,13 +158,39 @@ void update(float delta_time) {
     
     // Clear tooltip at start of frame (before any UI updates)
     UI::reset_cursor_state();
-    
+
     // Convert window mouse position to UI-FBO coordinates (handles letterboxing)
     Vec2 mouse_pos = Renderer::window_to_ui_coords(Platform::get_mouse_pos());
 
+    // Main menu captures all input while active
+    if (g_state.mode == GameMode::MAIN_MENU) {
+        UI::update_main_menu(mouse_pos);
+        update_animated_light(delta_time);
+        // Keep player animation up-to-date so it renders correctly in the background
+        update_player_sprite_animation();
+        return;
+    }
+
+    // ESC opens the main menu — only from GAMEPLAY, not while debug overlay is active
+    if (g_state.mode == GameMode::GAMEPLAY) {
+#ifdef __APPLE__
+        static constexpr int KEY_ESC = 53;
+#else
+        static constexpr int KEY_ESC = 0x1B;
+#endif
+        static bool prev_esc = false;
+        bool esc = Platform::key_pressed(KEY_ESC);
+        if (esc && !prev_esc) {
+            UI::set_can_resume(true);
+            UI::mark_just_opened();
+            g_state.mode = GameMode::MAIN_MENU;
+        }
+        prev_esc = esc;
+    }
+
     // Update inventory UI (may consume input)
     bool ui_consumed_input = UI::update_inventory_ui(mouse_pos);
-    
+
     // Get player transform and walker from ECS
     ECS::Transform2_5DComponent* player_transform = get_player_transform();
     ECS::WalkerComponent* player_walker = get_player_walker();
@@ -168,13 +199,13 @@ void update(float delta_time) {
         if (!ui_consumed_input) {
             player_handle_input(g_state.player, *player_transform, *player_walker);
         }
-        player_update(g_state.player, *player_transform, *player_walker, 
+        player_update(g_state.player, *player_transform, *player_walker,
                       g_state.base_width, g_state.base_height, delta_time);
-        
+
         // Update sprite animation based on player state
         update_player_sprite_animation();
     }
-    
+
     // Animate light through room corners
     update_animated_light(delta_time);
 }
@@ -502,11 +533,15 @@ void render() {
 
     // ================= UI-FBO: Gesamte UI in separates FBO zeichnen =================
     Renderer::begin_render_to_ui_framebuffer();
-    // Render inventory UI (before cursor so cursor appears on top)
-    UI::render_inventory_ui();
-    // Render speech bubbles (after UI, before cursor)
-    UI::render_speechbubbles();
-    // Update and render cursor (always on top)
+    if (g_state.mode == GameMode::MAIN_MENU) {
+        // Main menu overlay: dims the scene, shows menu panel
+        UI::render_main_menu();
+    } else {
+        // Gameplay UI
+        UI::render_inventory_ui();
+        UI::render_speechbubbles();
+    }
+    // Cursor always on top
     UI::update_cursor(mouse_ui);
     UI::render_cursor(mouse_ui);
     Renderer::end_render_to_ui_framebuffer();
@@ -523,6 +558,25 @@ int  get_value(const std::string& key, int default_val)  { auto it = g_state.val
 
 void        set_string(const std::string& key, const std::string& value)                    { g_state.strings[key] = value; }
 std::string get_string(const std::string& key, const std::string& default_val)              { auto it = g_state.strings.find(key); return it != g_state.strings.end() ? it->second : default_val; }
+
+void start_new_game() {
+    // load_act resets all state (flags, values, strings, scene_states, inventory)
+    // and loads the act's starting scene.
+    // Mode must be GAMEPLAY before the scene loads so the auto-save trigger fires
+    // correctly on future scene changes — but we do NOT want a save right now,
+    // so set mode after the act is loaded (load_scene only saves in GAMEPLAY mode).
+    Scene::load_act(1);
+    g_state.mode = GameMode::GAMEPLAY;
+}
+
+bool continue_game() {
+    if (!SaveSystem::has_save()) return false;
+    // load() restores all state and calls load_scene internally.
+    // Mode is still MAIN_MENU during the restore, so no accidental save fires.
+    SaveSystem::load();
+    g_state.mode = GameMode::GAMEPLAY;
+    return true;
+}
 
 void shutdown() {
     // Shutdown inventory UI
