@@ -405,9 +405,19 @@ void main() {
         totalLight += projContribution;
     }
     
+    // Hue shifting: split light into ambient (shadow base) and dynamic (point/projector lights)
+    // → Shadows shift toward blue/violet, lit areas toward yellow/red
+    vec3 ambientContrib  = ambientColor * ambientIntensity;
+    vec3 dynamicContrib  = max(totalLight - ambientContrib, vec3(0.0));
+
+    const vec3 SHADOW_TINT = vec3(0.82, 0.90, 1.22);  // cool blue/violet in shadows
+    const vec3 LIGHT_TINT  = vec3(1.18, 1.05, 0.80);  // warm yellow/red in lit areas
+
+    vec3 tintedLight = ambientContrib * SHADOW_TINT + dynamicContrib * LIGHT_TINT;
+
     // Apply lighting to diffuse color
-    vec3 finalColor = diffuse.rgb * totalLight;
-    
+    vec3 finalColor = diffuse.rgb * tintedLight;
+
     // Clamp to prevent over-brightening (or allow HDR with tone mapping later)
     finalColor = min(finalColor, vec3(1.0));
     
