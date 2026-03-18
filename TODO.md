@@ -14,18 +14,18 @@
 
 ### Global Game State
 
-- [ ] Persistent state system for the session
-- [ ] String-key based access
-- [ ] Flags (bool): `flags["sphere_taken"] = true`
-- [ ] Values (int): `values["battery_charge"] = 2`
-- [ ] Strings (string): `strings["current_chapter"] = "intro"`
+- [x] Persistent state system for the session
+- [x] String-key based access
+- [x] Flags (bool): `flags["sphere_taken"] = true`
+- [x] Values (int): `values["battery_charge"] = 2`
+- [x] Strings (string): `strings["current_chapter"] = "intro"`
 
 ### Scene/Entity State (Auto-Persist)
 
-- [ ] Entity visibility state (enabled/disabled)
-- [ ] Serialize to scene JSON (like geometry)
-- [ ] Restore on scene reload
-- [ ] Reuse existing JSON serialization logic
+- [x] Entity visibility state (enabled/disabled)
+- [x] Hotspot enabled state
+- [x] Restore on scene reload
+- [ ] Serialize to save file (for Save/Load system)
 
 ---
 

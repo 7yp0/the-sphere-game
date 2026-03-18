@@ -3,6 +3,7 @@
 #include "../game/game.h"
 #include "../game/player.h"
 #include "../debug/debug_log.h"
+#include "../ecs/ecs.h"
 #include <unordered_map>
 
 // Forward-declare each scene's init function (defined in their own .cpp files)
@@ -28,6 +29,20 @@ void register_all_scenes() {
 
 void load_scene(const std::string& scene_name, const std::string& spawn_point_name) {
     using namespace Game;
+
+    // ---- Snapshot current scene state before teardown ----
+    if (!g_state.scene.name.empty()) {
+        auto& snap = g_state.scene_states[g_state.scene.name];
+        snap.hotspot_enabled.clear();
+        for (const auto& hs : g_state.scene.geometry.hotspots) {
+            snap.hotspot_enabled[hs.name] = hs.enabled;
+        }
+        snap.entity_visible.clear();
+        for (const auto& [name, id] : g_state.scene.named_entities) {
+            auto* sprite = g_state.ecs_world.get_component<ECS::SpriteComponent>(id);
+            if (sprite) snap.entity_visible[name] = sprite->visible;
+        }
+    }
 
     // ---- Tear down current scene ----
     for (ECS::EntityID id : g_state.scene.prop_entities) {
@@ -58,6 +73,19 @@ void load_scene(const std::string& scene_name, const std::string& spawn_point_na
         return;
     }
     it->second();
+
+    // ---- Restore persisted scene state (if we've been here before) ----
+    auto state_it = g_state.scene_states.find(scene_name);
+    if (state_it != g_state.scene_states.end()) {
+        const auto& snap = state_it->second;
+        for (auto& hs : g_state.scene.geometry.hotspots) {
+            auto hs_it = snap.hotspot_enabled.find(hs.name);
+            if (hs_it != snap.hotspot_enabled.end()) hs.enabled = hs_it->second;
+        }
+        for (const auto& [name, visible] : snap.entity_visible) {
+            set_entity_visible(name, visible);
+        }
+    }
 
     // ---- Determine spawn position ----
     Vec2 spawn_pos(-1.0f, -1.0f);  // sentinel: -1,-1 → use scene center

@@ -150,12 +150,8 @@ void init_scene_test() {
     // Load entity positions from JSON (overwrites hardcoded positions if file exists)
     GeometryEditor::load_entities(scene.name.c_str());
 
-    // Register inventory items for this scene
+    // Register inventory item definitions for this scene
     Inventory::register_item("stone", "A smooth grey stone", "ui/items/item_stone.png");
-    Inventory::register_item("note", "A torn note with strange symbols", "ui/items/item_note.png");
-
-    // Player starts with the mysterious note
-    Inventory::add_item("note");
 
     // Make the note non-selectable - clicking it shows its contents
     Inventory::set_item_on_use("note", []() {

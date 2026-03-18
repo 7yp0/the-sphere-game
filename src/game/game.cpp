@@ -9,6 +9,7 @@
 #include "platform.h"
 #include "scene/scene.h"
 #include "scene/scene_registry.h"
+#include "scene/act_registry.h"
 #include "debug/debug.h"
 #include "ui/cursor.h"
 #include "ui/inventory_ui.h"
@@ -111,10 +112,10 @@ void init() {
     // Initialize cursor system
     UI::init_cursor();
 
-    // Register all scenes, then load the starting scene.
-    // load_scene() runs the scene init AND creates the player entity at the spawn point.
+    // Register all scenes and acts, then start Act 1.
     Scene::register_all_scenes();
-    Scene::load_scene("test", "default");
+    Scene::register_all_acts();
+    Scene::load_act(1);
 
     // Initialize framebuffer for offscreen rendering at base resolution
     Renderer::init_framebuffer(Config::BASE_WIDTH, Config::BASE_HEIGHT);
@@ -508,6 +509,15 @@ void render() {
     // Blit UI-FBO als Overlay auf das Fenster (volle Größe, kein Letterboxing)
     Renderer::render_ui_framebuffer_to_screen();
 }
+
+void set_flag(const std::string& key, bool value)        { g_state.flags[key] = value; }
+bool get_flag(const std::string& key, bool default_val)  { auto it = g_state.flags.find(key); return it != g_state.flags.end() ? it->second : default_val; }
+
+void set_value(const std::string& key, int value)        { g_state.values[key] = value; }
+int  get_value(const std::string& key, int default_val)  { auto it = g_state.values.find(key); return it != g_state.values.end() ? it->second : default_val; }
+
+void        set_string(const std::string& key, const std::string& value)                    { g_state.strings[key] = value; }
+std::string get_string(const std::string& key, const std::string& default_val)              { auto it = g_state.strings.find(key); return it != g_state.strings.end() ? it->second : default_val; }
 
 void shutdown() {
     // Shutdown inventory UI
