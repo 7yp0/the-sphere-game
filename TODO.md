@@ -1,6 +1,5 @@
 # TODO
 
-- [ ] sollte das inventory auch ein eigener game mode sein?
 - [ ] double click on roomchange hotspots changes room immediately (if path is clear)
 
 ---
@@ -11,6 +10,7 @@
 
 - [ ] Special game mode for puzzle close-ups
 - [ ] Separate input handling per close-up
+- [ ] no player rendered
 - [ ] Enter close-up via scene action `Scene::enterCloseUp(scene)`
 - [ ] Return to main game after completion
 - [ ] Pass/fail state back to main game (set flags)

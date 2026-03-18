@@ -341,9 +341,17 @@ void player_init(Player& player, uint32_t viewport_width, uint32_t viewport_heig
     walk_down_anim.elapsed_time = 0.0f;
     walk_down_anim.current_frame = 0;
     
+    // Idle facing left: same row as idle but mirrored horizontally
+    Renderer::SpriteAnimation idle_left_anim;
+    idle_left_anim.texture = testa_sprite;
+    idle_left_anim.frames.push_back(create_uv_mirrored(0.0f, 0.0f));
+    idle_left_anim.frame_duration = 1.0f;
+    idle_left_anim.elapsed_time = 0.0f;
+    idle_left_anim.current_frame = 0;
+
     // Add all animations to the bank
     player.animations.add("idle_down", idle_anim);
-    player.animations.add("idle_right", idle_anim);
+    player.animations.add("idle_right", idle_left_anim);  // mirrored: base sprite faces left
     player.animations.add("idle_up", idle_anim);
     player.animations.add("idle_left", idle_anim);
     player.animations.add("walk_down", walk_down_anim);
