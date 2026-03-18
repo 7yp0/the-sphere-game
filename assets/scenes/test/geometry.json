@@ -51,17 +51,20 @@
       "tooltip_key": "→ Test 2",
       "interaction_type": "walk_to_target",
       "target_position": [18, 150],
+      "double_click_immediate": true,
       "points": [[2, 115], [28, 115], [28, 168], [2, 168]]
     }
   ],
   "spawn_points": [
     {
       "name": "default",
-      "position": [247.858, 89.5947]
+      "position": [247.858, 89.5947],
+      "direction": "down"
     },
     {
       "name": "from_test2",
-      "position": [25, 148]
+      "position": [25, 148],
+      "direction": "right"
     }
   ]
 }

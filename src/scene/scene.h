@@ -52,13 +52,17 @@ struct Hotspot {
     // Target position for WALK_TO_TARGET interaction type
     Vec2 target_position = Vec2(0.0f, 0.0f);
 
+    // If true, double-clicking this hotspot fires the callback immediately (no walking)
+    bool double_click_immediate = false;
+
     // Runtime state for TRIGGER type: edge-detect player entry (not persisted to JSON)
     bool was_inside = false;
 };
 
 struct SpawnPoint {
-    std::string name;    // e.g. "default", "from_kitchen", "from_outside"
+    std::string name;        // e.g. "default", "from_kitchen", "from_outside"
     Vec2 position;
+    std::string direction;   // "down" (default), "up", "left", "right"
 };
 
 struct SceneGeometry {
@@ -174,8 +178,8 @@ ECS::EntityID get_entity(const std::string& name);
 // Hide/show an entity's sprite by name
 bool set_entity_visible(const std::string& name, bool visible);
 
-// Get spawn point position by name (returns false if not found)
-bool get_spawn_point(const std::string& name, Vec2& out_pos);
+// Get spawn point by name (returns false if not found)
+bool get_spawn_point(const std::string& name, Vec2& out_pos, std::string& out_direction);
 
 void init_scene_test();
 

@@ -109,13 +109,16 @@ namespace ZDepth {
     // Props and player z-depth calculated from depth_map sampling
     
     // UI layers (rendered after upscale at viewport resolution)
-    // Ordered from back to front:
-    constexpr float GAME_HUD   = -0.90f;    // HUD elements, inventory icon
-    constexpr float PANELS     = -0.93f;    // Inventory panel, close-up overlays
-    constexpr float MAIN_MENU  = -0.94f;    // Main menu overlay (above panels)
-    constexpr float DIALOGUE   = -0.95f;    // Speech bubbles, text boxes
-    constexpr float TOOLTIP    = -0.97f;    // Hover tooltips
-    constexpr float CURSOR     = -0.99f;    // Mouse cursor (always on top)
+    // Ordered from back to front (more negative = closer to camera = on top):
+    constexpr float GAME_HUD      = -0.90f;  // HUD elements, inventory icon
+    constexpr float PANELS        = -0.93f;  // Inventory panel, close-up overlays
+    constexpr float MAIN_MENU     = -0.94f;  // Main menu overlay (above panels)
+    constexpr float MAIN_MENU_TEXT= -0.96f;  // Text drawn on menu panels
+    constexpr float DIALOGUE      = -0.95f;  // Speech bubble backgrounds, text boxes
+    constexpr float DIALOGUE_TEXT = -0.96f;  // Text drawn on dialogue/speech bubbles
+    constexpr float TOOLTIP       = -0.97f;  // Hover tooltip backgrounds
+    constexpr float TOOLTIP_TEXT  = -0.98f;  // Text drawn on tooltips
+    constexpr float CURSOR        = -0.99f;  // Mouse cursor (always on top)
 }
 
 // =============================================================================

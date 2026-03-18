@@ -90,11 +90,12 @@ void load_scene(const std::string& scene_name, const std::string& spawn_point_na
         }
     }
 
-    // ---- Determine spawn position ----
+    // ---- Determine spawn position and direction ----
     Vec2 spawn_pos(-1.0f, -1.0f);  // sentinel: -1,-1 → use scene center
+    std::string spawn_dir = "down";
     if (!spawn_point_name.empty()) {
         Vec2 found;
-        if (get_spawn_point(spawn_point_name, found)) {
+        if (get_spawn_point(spawn_point_name, found, spawn_dir)) {
             spawn_pos = found;
         } else {
             DEBUG_LOG("[SceneRegistry] Spawn point '%s' not found, using center",
@@ -107,6 +108,12 @@ void load_scene(const std::string& scene_name, const std::string& spawn_point_na
         g_state.player, g_state.ecs_world,
         g_state.base_width, g_state.base_height,
         spawn_pos);
+
+    // Apply spawn direction
+    if      (spawn_dir == "up")    g_state.player.walk_direction = Game::WalkDirection::Up;
+    else if (spawn_dir == "left")  g_state.player.walk_direction = Game::WalkDirection::Left;
+    else if (spawn_dir == "right") g_state.player.walk_direction = Game::WalkDirection::Right;
+    else                           g_state.player.walk_direction = Game::WalkDirection::Down;
 
     DEBUG_INFO("[SceneRegistry] Loaded scene '%s', spawn '%s'",
                scene_name.c_str(), spawn_point_name.c_str());

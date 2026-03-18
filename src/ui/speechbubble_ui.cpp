@@ -80,7 +80,7 @@ void render_speechbubbles() {
             bg_pos.y + bg_height * 0.5f - Renderer::GLYPH_VISUAL_CENTER * scale
         );
         int chars_visible = (int)((now - bubble.start_time) * TYPEWRITER_CHARS_PER_SEC);
-        Renderer::render_text(bubble.text.c_str(), text_pos, scale, bubble.color, chars_visible);
+        Renderer::render_text(bubble.text.c_str(), text_pos, scale, bubble.color, ZDepth::DIALOGUE_TEXT, chars_visible);
     }
 }
 

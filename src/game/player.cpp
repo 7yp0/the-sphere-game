@@ -395,6 +395,29 @@ void player_handle_input(Player& player, ECS::Transform2_5DComponent& transform,
         }
     }
     
+    bool double_clicked = Platform::mouse_double_clicked();
+
+    if (double_clicked) {
+        Vec2 mouse_viewport = Platform::get_mouse_pos();
+        if (!Debug::handle_mouse_click(mouse_viewport)) {
+            Vec2 mouse_ui = Renderer::window_to_ui_coords(mouse_viewport);
+            Vec2 mouse_pos = Vec2(
+                mouse_ui.x * (float)Config::BASE_WIDTH  / (float)Renderer::get_ui_fbo_width(),
+                mouse_ui.y * (float)Config::BASE_HEIGHT / (float)Renderer::get_ui_fbo_height()
+            );
+            for (auto& hotspot : g_state.scene.geometry.hotspots) {
+                if (!hotspot.enabled) continue;
+                if (!hotspot.double_click_immediate) continue;
+                if (Collision::point_in_polygon(mouse_pos, hotspot.bounds) && hotspot.callback) {
+                    Platform::mouse_clicked();  // consume so regular click handler doesn't fire
+                    hotspot.callback();
+                    s_was_mouse_down = is_mouse_down;
+                    return;
+                }
+            }
+        }
+    }
+
     if (Platform::mouse_clicked()) {
         Vec2 mouse_viewport = Platform::get_mouse_pos();
         

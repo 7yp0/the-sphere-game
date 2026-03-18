@@ -50,6 +50,6 @@ namespace Tooltip {
             tooltip_x + (bg_width - text_width) / 2.0f,
             tooltip_y + bg_height * 0.5f - Renderer::GLYPH_VISUAL_CENTER * scale
         );
-        Renderer::render_text(text, text_pos, scale);
+        Renderer::render_text(text, text_pos, scale, Vec4(1,1,1,1), ZDepth::TOOLTIP_TEXT);
     }
 }

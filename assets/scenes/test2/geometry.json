@@ -13,13 +13,15 @@
       "tooltip_key": "→ Test",
       "interaction_type": "walk_to_target",
       "target_position": [302, 150],
+      "double_click_immediate": true,
       "points": [[292, 115], [318, 115], [318, 175], [292, 175]]
     }
   ],
   "spawn_points": [
     {
       "name": "from_test",
-      "position": [295, 148]
+      "position": [295, 148],
+      "direction": "down"
     }
   ]
 }

@@ -1,9 +1,5 @@
 # TODO
 
-- [ ] double click on roomchange hotspots changes room immediately (if path is clear)
-
----
-
 ## Close-Up System
 
 ### Close-Up Scenes

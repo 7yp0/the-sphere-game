@@ -41,6 +41,7 @@ static int g_frame_counter = 0;  // For double-click detection
     static constexpr int KEY_E = 14;
     static constexpr int KEY_P = 35;   // P - place spawn point
     static constexpr int KEY_T = 17;   // T - cycle hotspot interaction type
+    static constexpr int KEY_I = 34;   // I - toggle double_click_immediate
     static constexpr int KEY_ESC = 53;
     static constexpr int KEY_DELETE = 51;
     static constexpr int KEY_MINUS = 27;
@@ -54,6 +55,7 @@ static int g_frame_counter = 0;  // For double-click detection
     static constexpr int KEY_E = 0x45;
     static constexpr int KEY_P = 0x50;
     static constexpr int KEY_T = 0x54;
+    static constexpr int KEY_I = 0x49;   // I - toggle double_click_immediate
     static constexpr int KEY_ESC = 0x1B;
     static constexpr int KEY_DELETE = 0x2E;
     static constexpr int KEY_MINUS = 0xBD;
@@ -66,9 +68,12 @@ static bool s_prev_h = false;
 static bool s_prev_o = false;
 static bool s_prev_f = false;
 static bool s_prev_r = false;
+static const char* s_spawn_directions[] = { "down", "right", "up", "left" };
+static int s_spawn_dir_index = 0;
 static bool s_prev_e = false;
 static bool s_prev_p = false;
 static bool s_prev_t = false;
+static bool s_prev_i = false;
 static bool s_prev_esc = false;
 static bool s_prev_del = false;
 static bool s_prev_minus = false;
@@ -177,7 +182,7 @@ const char* get_mode_string() {
         case EditorMode::CREATING_WALKABLE:    return "CREATING WALKABLE";
         case EditorMode::CREATING_HOTSPOT:     return "CREATING HOTSPOT";
         case EditorMode::CREATING_OBSTACLE:    return "CREATING OBSTACLE";
-        case EditorMode::CREATING_SPAWN_POINT: return "PLACE SPAWN POINT (click)";
+        case EditorMode::CREATING_SPAWN_POINT: return "PLACE SPAWN POINT (click, R=dir)";
         case EditorMode::SELECT_ENTITY:        return "ENTITY MODE";
         default: return "SELECT";
     }
@@ -753,6 +758,7 @@ void update(Vec2 mouse_base_coords) {
     bool key_e = Platform::key_pressed(KEY_E);
     bool key_p = Platform::key_pressed(KEY_P);
     bool key_t = Platform::key_pressed(KEY_T);
+    bool key_d = Platform::key_pressed(KEY_I);
     bool key_esc = Platform::key_pressed(KEY_ESC);
     bool key_del = Platform::key_pressed(KEY_DELETE);
     bool key_minus = Platform::key_pressed(KEY_MINUS);
@@ -862,7 +868,30 @@ void update(Vec2 mouse_base_coords) {
         g_state.selected_polygon_index = -1;
         g_state.selected_vertex_index = -1;
         g_state.selection_type = SelectionType::NONE;
-        DEBUG_INFO("[GeoEditor] SPAWN POINT mode: click to place (name='default', rename in JSON if needed)");
+        s_spawn_dir_index = 0;
+        DEBUG_INFO("[GeoEditor] SPAWN POINT mode: click to place, R=cycle direction (name='default', rename in JSON if needed)");
+    }
+
+    // R - Cycle spawn direction (placing mode OR selected spawn point)
+    if (key_r && !s_prev_r && g_state.mode == EditorMode::CREATING_SPAWN_POINT) {
+        s_spawn_dir_index = (s_spawn_dir_index + 1) % 4;
+        DEBUG_INFO("[GeoEditor] Spawn direction -> %s", s_spawn_directions[s_spawn_dir_index]);
+    }
+    if (key_r && !s_prev_r && g_state.mode == EditorMode::NONE &&
+        g_state.selection_type == SelectionType::SPAWN_POINT &&
+        g_state.selected_spawn_index >= 0) {
+        auto& scene = Game::g_state.scene;
+        if (g_state.selected_spawn_index < (int)scene.geometry.spawn_points.size()) {
+            auto& sp = scene.geometry.spawn_points[g_state.selected_spawn_index];
+            // Find current index and advance
+            int cur = 0;
+            for (int i = 0; i < 4; ++i)
+                if (sp.direction == s_spawn_directions[i]) { cur = i; break; }
+            cur = (cur + 1) % 4;
+            sp.direction = s_spawn_directions[cur];
+            DEBUG_INFO("[GeoEditor] Spawn point '%s' direction -> %s", sp.name.c_str(), sp.direction.c_str());
+            save_geometry(scene.name.c_str());
+        }
     }
 
     // T - Cycle interaction type of the selected hotspot
@@ -891,6 +920,20 @@ void update(Vec2 mouse_base_coords) {
         }
     }
 
+    // D - Toggle double_click_immediate on selected hotspot
+    if (key_d && !s_prev_i && g_state.mode == EditorMode::NONE &&
+        g_state.selection_type == SelectionType::HOTSPOT &&
+        g_state.selected_polygon_index >= 0) {
+        auto& scene = Game::g_state.scene;
+        if (g_state.selected_polygon_index < (int)scene.geometry.hotspots.size()) {
+            auto& hs = scene.geometry.hotspots[g_state.selected_polygon_index];
+            hs.double_click_immediate = !hs.double_click_immediate;
+            DEBUG_INFO("[GeoEditor] Hotspot '%s' double_click_immediate -> %s",
+                       hs.name.c_str(), hs.double_click_immediate ? "true" : "false");
+            save_geometry(scene.name.c_str());
+        }
+    }
+
     // F - Finish polygon
     if (key_f && !s_prev_f && g_state.mode != EditorMode::NONE) {
         finish_polygon();
@@ -909,9 +952,23 @@ void update(Vec2 mouse_base_coords) {
         }
     }
     
-    // DEL - Delete selected
+    // DEL - Delete selected polygon or spawn point
     if (key_del && !s_prev_del) {
-        delete_selected();
+        if (g_state.selection_type == SelectionType::SPAWN_POINT &&
+            g_state.selected_spawn_index >= 0) {
+            auto& scene = Game::g_state.scene;
+            if (g_state.selected_spawn_index < (int)scene.geometry.spawn_points.size()) {
+                DEBUG_INFO("[GeoEditor] Deleted spawn point '%s'",
+                           scene.geometry.spawn_points[g_state.selected_spawn_index].name.c_str());
+                scene.geometry.spawn_points.erase(
+                    scene.geometry.spawn_points.begin() + g_state.selected_spawn_index);
+                g_state.selected_spawn_index = -1;
+                g_state.selection_type = SelectionType::NONE;
+                save_geometry(scene.name.c_str());
+            }
+        } else {
+            delete_selected();
+        }
     }
     
     // Update drag (polygon vertices)
@@ -975,6 +1032,7 @@ void update(Vec2 mouse_base_coords) {
     s_prev_e = key_e;
     s_prev_p = key_p;
     s_prev_t = key_t;
+    s_prev_i = key_d;
     s_prev_esc = key_esc;
     s_prev_del = key_del;
     s_prev_minus = key_minus;
@@ -1115,8 +1173,9 @@ void on_mouse_click(Vec2 pos) {
     // =========================================================================
     if (g_state.mode == EditorMode::CREATING_SPAWN_POINT) {
         Scene::SpawnPoint sp;
-        sp.name     = g_state.current_polygon_name;
-        sp.position = pos;
+        sp.name      = g_state.current_polygon_name;
+        sp.position  = pos;
+        sp.direction = s_spawn_directions[s_spawn_dir_index];
         Game::g_state.scene.geometry.spawn_points.push_back(sp);
         DEBUG_INFO("[GeoEditor] Placed spawn point '%s' at (%.1f, %.1f)",
                    sp.name.c_str(), pos.x, pos.y);
@@ -1184,6 +1243,26 @@ void on_mouse_click(Vec2 pos) {
         }
     }
     
+    // Try to select a spawn point (click near its cross marker)
+    {
+        auto& scene = Game::g_state.scene;
+        float radius_sq = VERTEX_SELECT_RADIUS * VERTEX_SELECT_RADIUS * 4.0f;
+        for (int i = 0; i < (int)scene.geometry.spawn_points.size(); ++i) {
+            float dx = pos.x - scene.geometry.spawn_points[i].position.x;
+            float dy = pos.y - scene.geometry.spawn_points[i].position.y;
+            if (dx*dx + dy*dy <= radius_sq) {
+                g_state.selection_type = SelectionType::SPAWN_POINT;
+                g_state.selected_spawn_index = i;
+                g_state.selected_polygon_index = -1;
+                g_state.selected_vertex_index = -1;
+                DEBUG_INFO("[GeoEditor] Selected spawn point '%s' [%s]",
+                           scene.geometry.spawn_points[i].name.c_str(),
+                           scene.geometry.spawn_points[i].direction.c_str());
+                return;
+            }
+        }
+    }
+
     // Try to select a polygon (smallest area wins if overlapping)
     int poly_idx;
     SelectionType sel_type;
@@ -1207,6 +1286,7 @@ void on_mouse_click(Vec2 pos) {
     // Deselect
     g_state.selected_polygon_index = -1;
     g_state.selected_vertex_index = -1;
+    g_state.selected_spawn_index = -1;
     g_state.selection_type = SelectionType::NONE;
 }
 
@@ -1566,14 +1646,22 @@ void render() {
     {
         const Vec4 sp_color(0.2f, 1.0f, 0.2f, 0.9f);
         constexpr float SP_ARM = 8.0f;
-        for (const auto& sp : scene.geometry.spawn_points) {
+        for (int i = 0; i < (int)scene.geometry.spawn_points.size(); ++i) {
+            const auto& sp = scene.geometry.spawn_points[i];
             float sx = sp.position.x * scale_x;
             float sy = sp.position.y * scale_y;
+            bool selected = (g_state.selection_type == SelectionType::SPAWN_POINT &&
+                             g_state.selected_spawn_index == i);
+            Vec4 color = selected ? Vec4(1.0f, 1.0f, 0.2f, 1.0f) : sp_color;
+            float thickness = selected ? 3.0f : 2.0f;
             // Cross
-            Renderer::render_line(Vec3(sx - SP_ARM, sy, ui_z), Vec3(sx + SP_ARM, sy, ui_z), sp_color, 2.0f);
-            Renderer::render_line(Vec3(sx, sy - SP_ARM, ui_z), Vec3(sx, sy + SP_ARM, ui_z), sp_color, 2.0f);
-            // Label
-            Renderer::render_text(sp.name.c_str(), Vec2(sx + SP_ARM + 2.0f, sy - 6.0f), 0.7f, sp_color);
+            Renderer::render_line(Vec3(sx - SP_ARM, sy, ui_z), Vec3(sx + SP_ARM, sy, ui_z), color, thickness);
+            Renderer::render_line(Vec3(sx, sy - SP_ARM, ui_z), Vec3(sx, sy + SP_ARM, ui_z), color, thickness);
+            // Label (name + direction)
+            char sp_label[128];
+            const char* dir = sp.direction.empty() ? "down" : sp.direction.c_str();
+            snprintf(sp_label, sizeof(sp_label), "%s [%s]", sp.name.c_str(), dir);
+            Renderer::render_text(sp_label, Vec2(sx + SP_ARM + 2.0f, sy - 6.0f), 0.7f, color);
         }
     }
 
@@ -1615,26 +1703,33 @@ void render() {
         }
     } else if (g_state.mode == EditorMode::SELECT_ENTITY) {
         snprintf(mode_text, sizeof(mode_text), "[ENTITY MODE] Click to select, E=exit");
+    } else if (g_state.selection_type == SelectionType::SPAWN_POINT && g_state.selected_spawn_index >= 0) {
+        const auto& sp = scene.geometry.spawn_points[g_state.selected_spawn_index];
+        const char* dir = sp.direction.empty() ? "down" : sp.direction.c_str();
+        snprintf(mode_text, sizeof(mode_text), "[SPAWN: %s | dir: %s] R=cycle dir, DEL=delete",
+                 sp.name.c_str(), dir);
     } else if (g_state.selection_type == SelectionType::HOTSPOT && g_state.selected_polygon_index >= 0) {
         const auto& hotspot = scene.geometry.hotspots[g_state.selected_polygon_index];
         const char* itype = "walk_to_hotspot";
         if (hotspot.interaction_type == Scene::InteractionType::IMMEDIATE)      itype = "immediate";
         if (hotspot.interaction_type == Scene::InteractionType::WALK_TO_TARGET) itype = "walk_to_target";
         if (hotspot.interaction_type == Scene::InteractionType::TRIGGER)        itype = "trigger";
-        snprintf(mode_text, sizeof(mode_text), "[HOTSPOT: %s | %s] T=cycle type, Shift+Click=set target",
-                 hotspot.name.c_str(), itype);
+        snprintf(mode_text, sizeof(mode_text), "[HOTSPOT: %s | %s%s] T=cycle type, D=dbl-click, Shift+Click=set target",
+                 hotspot.name.c_str(), itype, hotspot.double_click_immediate ? " | DBL" : "");
     } else {
         snprintf(mode_text, sizeof(mode_text), "[%s] W=walkable O=obstacle H=hotspot P=spawn E=entity R=reload", get_mode_string());
     }
     
     // Black semi-transparent background for mode indicator
-    float mode_y = (float)window_h - 25.0f;
-    Vec3 mode_bg_pos = Vec3(0.0f, mode_y - 5.0f, ui_z);
-    Vec2 mode_bg_size = Vec2((float)window_w, 28.0f);
+    constexpr float BAR_H = 28.0f;
+    float bg_y   = (float)window_h - BAR_H;
+    float text_y = bg_y + BAR_H * 0.5f - Renderer::GLYPH_VISUAL_CENTER;
+    Vec3 mode_bg_pos = Vec3(0.0f, bg_y, ui_z);
+    Vec2 mode_bg_size = Vec2((float)window_w, BAR_H);
     Vec4 mode_bg_color = Vec4(0.0f, 0.0f, 0.0f, 0.7f);
     Renderer::render_rect(mode_bg_pos, mode_bg_size, mode_bg_color);
-    
-    Renderer::render_text(mode_text, Vec2(10.0f, mode_y), 1.0f);
+
+    Renderer::render_text(mode_text, Vec2(10.0f, text_y), 1.0f);
 }
 
 // Simple JSON writer (no external library needed)
@@ -1720,6 +1815,9 @@ bool save_geometry(const char* scene_name) {
         if (hotspot.interaction_type == Scene::InteractionType::WALK_TO_TARGET) {
             file << "      \"target_position\": [" << hotspot.target_position.x << ", " << hotspot.target_position.y << "],\n";
         }
+        if (hotspot.double_click_immediate) {
+            file << "      \"double_click_immediate\": true,\n";
+        }
         file << "      \"points\": [";
         for (size_t j = 0; j < hotspot.bounds.points.size(); j++) {
             file << "[" << hotspot.bounds.points[j].x << ", " << hotspot.bounds.points[j].y << "]";
@@ -1738,7 +1836,8 @@ bool save_geometry(const char* scene_name) {
         const auto& sp = scene.geometry.spawn_points[i];
         file << "    {\n";
         file << "      \"name\": \"" << sp.name << "\",\n";
-        file << "      \"position\": [" << sp.position.x << ", " << sp.position.y << "]\n";
+        file << "      \"position\": [" << sp.position.x << ", " << sp.position.y << "],\n";
+        file << "      \"direction\": \"" << (sp.direction.empty() ? "down" : sp.direction) << "\"\n";
         file << "    }";
         if (i + 1 < scene.geometry.spawn_points.size()) file << ",";
         file << "\n";
@@ -2005,6 +2104,13 @@ bool load_geometry(const char* scene_name) {
                 }
             }
             
+            // Parse double_click_immediate
+            size_t dci_key = content.find("\"double_click_immediate\"", obj_start);
+            if (dci_key < obj_end && dci_key != std::string::npos) {
+                size_t val_start = content.find_first_not_of(" \t\r\n:", dci_key + 24);
+                hotspot.double_click_immediate = (content.substr(val_start, 4) == "true");
+            }
+
             // Parse points
             size_t points_key = content.find("\"points\"", obj_start);
             if (points_key < obj_end) {
@@ -2094,6 +2200,16 @@ bool load_geometry(const char* scene_name) {
                         sp.position = Vec2(x, y);
                     }
                 }
+            }
+
+            // Parse direction
+            size_t dir_key = content.find("\"direction\"", obj_start);
+            if (dir_key < obj_end && dir_key != std::string::npos) {
+                size_t ds = content.find('\"', dir_key + 11);
+                size_t de = content.find('\"', ds + 1);
+                sp.direction = content.substr(ds + 1, de - ds - 1);
+            } else {
+                sp.direction = "down";
             }
 
             if (!sp.name.empty()) {

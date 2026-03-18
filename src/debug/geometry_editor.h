@@ -21,7 +21,8 @@ enum class SelectionType {
     NONE,
     WALKABLE_AREA,
     HOTSPOT,
-    OBSTACLE
+    OBSTACLE,
+    SPAWN_POINT
 };
 
 enum class EntitySelectionType {
@@ -44,6 +45,7 @@ struct EditorState {
     int selected_polygon_index = -1;
     int selected_vertex_index = -1;
     int hovered_vertex_index = -1;
+    int selected_spawn_index = -1;
     
     // Entity selection state
     EntitySelectionType entity_selection_type = EntitySelectionType::NONE;

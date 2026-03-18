@@ -76,10 +76,11 @@ bool set_entity_visible(const std::string& name, bool visible) {
     return false;
 }
 
-bool get_spawn_point(const std::string& name, Vec2& out_pos) {
+bool get_spawn_point(const std::string& name, Vec2& out_pos, std::string& out_direction) {
     for (const auto& sp : g_state.scene.geometry.spawn_points) {
         if (sp.name == name) {
             out_pos = sp.position;
+            out_direction = sp.direction.empty() ? "down" : sp.direction;
             return true;
         }
     }

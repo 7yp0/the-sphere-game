@@ -76,6 +76,9 @@ namespace Platform {
 - (void)mouseDown:(NSEvent *)event {
     Platform::set_mouse_clicked(true);
     Platform::set_mouse_down(true);
+    if ([event clickCount] >= 2) {
+        Platform::set_mouse_double_clicked(true);
+    }
 }
 
 - (void)mouseUp:(NSEvent *)event {
@@ -173,6 +176,7 @@ static KeyboardView* g_keyboardView = nil;
 static bool g_shouldClose = false;
 static Vec2 g_mousePos = Vec2(0.0f, 0.0f);
 static bool g_mouseClicked = false;
+static bool g_mouseDoubleClicked = false;
 static bool g_mouseRightClicked = false;
 static bool g_mouseDown = false;
 static float g_scrollDelta = 0.0f;
@@ -352,6 +356,13 @@ bool mouse_clicked()
     return clicked;
 }
 
+bool mouse_double_clicked()
+{
+    bool clicked = g_mouseDoubleClicked;
+    g_mouseDoubleClicked = false;
+    return clicked;
+}
+
 bool key_pressed(int key_code)
 {
     if (key_code < 256) {
@@ -379,6 +390,11 @@ void set_mouse_pos(Vec2 pos)
 void set_mouse_clicked(bool clicked)
 {
     g_mouseClicked = clicked;
+}
+
+void set_mouse_double_clicked(bool clicked)
+{
+    g_mouseDoubleClicked = clicked;
 }
 
 void set_mouse_down(bool down)

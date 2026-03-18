@@ -156,7 +156,7 @@ static void render_panel_and_title(const Layout& L) {
     Renderer::render_text(title,
         Vec2(L.cx - tw * 0.5f,
              L.title_y + lh(tts()) * 0.5f - Renderer::GLYPH_VISUAL_CENTER * tts()),
-        tts(), Vec4(1.0f, 1.0f, 1.0f, 1.0f));
+        tts(), Vec4(1.0f, 1.0f, 1.0f, 1.0f), ZDepth::MAIN_MENU_TEXT);
 }
 
 static void render_text_centered(const char* text, float center_x, float top_y,
@@ -165,7 +165,7 @@ static void render_text_centered(const char* text, float center_x, float top_y,
     Renderer::render_text(text,
         Vec2(center_x - tw * 0.5f,
              top_y + lh(scale) * 0.5f - Renderer::GLYPH_VISUAL_CENTER * scale),
-        scale, color);
+        scale, color, ZDepth::MAIN_MENU_TEXT);
 }
 
 // ============================================================================
@@ -552,7 +552,7 @@ static void render_settings(Vec2 mouse_pos) {
     float tw = Renderer::calculate_text_width(title, tts());
     Renderer::render_text(title,
         Vec2(L.cx - tw * 0.5f, L.title_y + lh(tts()) * 0.5f - Renderer::GLYPH_VISUAL_CENTER * tts()),
-        tts(), Vec4(1.0f, 1.0f, 1.0f, 1.0f));
+        tts(), Vec4(1.0f, 1.0f, 1.0f, 1.0f), ZDepth::MAIN_MENU_TEXT);
 
     // ---- Slider rows ----
     const char* slider_keys[3] = {
@@ -573,7 +573,7 @@ static void render_settings(Vec2 mouse_pos) {
         // Label
         Renderer::render_text(L10N(slider_keys[i]),
             Vec2(L.label_x, row_center - Renderer::GLYPH_VISUAL_CENTER * ts()),
-            ts(), Vec4(0.85f, 0.85f, 0.85f, 1.0f));
+            ts(), Vec4(0.85f, 0.85f, 0.85f, 1.0f), ZDepth::MAIN_MENU_TEXT);
 
         // Track background
         Renderer::render_rounded_rect(
@@ -605,13 +605,13 @@ static void render_settings(Vec2 mouse_pos) {
         Renderer::render_text(pct,
             Vec2(L.track_x + L.track_w + 6.0f * ui,
                  row_center - Renderer::GLYPH_VISUAL_CENTER * ts() * 0.8f),
-            ts() * 0.8f, Vec4(0.6f, 0.6f, 0.6f, 1.0f));
+            ts() * 0.8f, Vec4(0.6f, 0.6f, 0.6f, 1.0f), ZDepth::MAIN_MENU_TEXT);
     }
 
     // ---- Language row ----
     Renderer::render_text(L10N("menu.settings.language"),
         Vec2(L.label_x, L.lang_center_y - Renderer::GLYPH_VISUAL_CENTER * ts()),
-        ts(), Vec4(0.85f, 0.85f, 0.85f, 1.0f));
+        ts(), Vec4(0.85f, 0.85f, 0.85f, 1.0f), ZDepth::MAIN_MENU_TEXT);
 
     const char* lang_name = k_lang_labels[0];
     for (int i = 0; i < k_lang_count; ++i)
