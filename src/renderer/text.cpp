@@ -40,10 +40,10 @@ static constexpr float FONT_TEXTURE_HEIGHT = 288.0f;
 void init_text_renderer() {
     if (g_font_texture == 0) {
         g_font_texture = load_texture("fonts/ui.png");
-        // Override to GL_LINEAR so glyphs interpolate smoothly when drawn at non-1x scale
+        // Override to GL_NEAREST so glyphs interpolate smoothly when drawn at non-1x scale
         glBindTexture(GL_TEXTURE_2D, g_font_texture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 }
@@ -96,7 +96,7 @@ void render_text(const char* text, Vec2 pos, float scale, Vec4 color, float z, i
         
         int row = char_index / (int)CHARS_PER_ROW;
         int col = char_index % (int)CHARS_PER_ROW;
-        // Half-texel inset on all sides: GL_LINEAR averages with neighboring texels at
+        // Half-texel inset on all sides: GL_NEAREST averages with neighboring texels at
         // exact cell boundaries, causing narrow glyphs (like 'l') to bleed adjacent chars.
         const float hu = 0.5f / FONT_TEXTURE_WIDTH;
         const float hv = 0.5f / FONT_TEXTURE_HEIGHT;
