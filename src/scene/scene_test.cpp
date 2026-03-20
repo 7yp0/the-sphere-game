@@ -12,12 +12,14 @@
 #include "inventory/inventory.h"
 #include "debug/debug_log.h"
 #include "puzzles/wrap_cable_puzzle.h"
+#include "puzzles/connect_cable_puzzle.h"
 
 using Game::g_state;
 
-// Puzzle instance for the close-up triggered from this scene.
-// Lives here so the on_update/on_render lambdas can capture it.
-static Puzzles::WrapCablePuzzle s_wrap_puzzle;
+// Puzzle instances for close-ups triggered from this scene.
+// Live here so the on_update/on_render lambdas can capture them.
+static Puzzles::WrapCablePuzzle    s_wrap_puzzle;
+static Puzzles::ConnectCablePuzzle s_connect_puzzle;
 
 namespace Scene {
 
@@ -211,6 +213,33 @@ void init_scene_test() {
             .show_inventory = false,
             .on_update = [](Vec2 mouse) { s_wrap_puzzle.update(mouse); },
             .on_render = []()           { s_wrap_puzzle.render(); },
+        });
+    });
+
+    register_hotspot_callback("connect_cable_hotspot", []() {
+        Puzzles::ConnectCableConfig cfg;
+        // cable_a: anchor top-left, free end starts there, socket top-right
+        cfg.cable_a.anchor_pos    = Vec2( 150.0f,  50.0f);
+        cfg.cable_a.free_pos      = Vec2( 175.0f,  50.0f);
+        cfg.cable_a.socket_pos    = Vec2(270.0f,  70.0f);
+        cfg.cable_a.socket_radius = 7.0f;
+        // cable_b: anchor bottom-left, free end starts there, socket near cable_a's socket
+        cfg.cable_b.anchor_pos    = Vec2( 150.0f, 130.0f);
+        cfg.cable_b.free_pos      = Vec2( 175.0f, 130.0f);
+        cfg.cable_b.socket_pos    = Vec2(270.0f,  95.0f);
+        cfg.cable_b.socket_radius = 7.0f;
+        cfg.cable_half_width      = 1.5f;
+        cfg.sag_factor            = 0.25f;
+        cfg.on_both_connected     = []() {
+            Game::set_flag("connect_cable_solved");
+            exit_close_up();
+        };
+        s_connect_puzzle.init(cfg);
+
+        enter_close_up("closeup_connect", {
+            .show_inventory = false,
+            .on_update = [](Vec2 mouse) { s_connect_puzzle.update(mouse); },
+            .on_render = []()           { s_connect_puzzle.render(); },
         });
     });
 
