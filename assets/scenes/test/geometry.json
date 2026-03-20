@@ -249,6 +249,32 @@
           44.4209
         ]
       ]
+    },
+    {
+      "name": "dot_connect_hotspot",
+      "interaction_type": "walk_to_target",
+      "target_position": [
+        147.511,
+        82.7705
+      ],
+      "points": [
+        [
+          134.238,
+          45.9209
+        ],
+        [
+          134.444,
+          73.3506
+        ],
+        [
+          157.521,
+          71.5713
+        ],
+        [
+          156.606,
+          44.4648
+        ]
+      ]
     }
   ],
   "spawn_points": [

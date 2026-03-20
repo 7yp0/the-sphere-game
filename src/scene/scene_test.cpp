@@ -13,6 +13,7 @@
 #include "debug/debug_log.h"
 #include "puzzles/wrap_cable_puzzle.h"
 #include "puzzles/connect_cable_puzzle.h"
+#include "puzzles/dot_connect_puzzle.h"
 
 using Game::g_state;
 
@@ -20,6 +21,7 @@ using Game::g_state;
 // Live here so the on_update/on_render lambdas can capture them.
 static Puzzles::WrapCablePuzzle    s_wrap_puzzle;
 static Puzzles::ConnectCablePuzzle s_connect_puzzle;
+static Puzzles::DotConnectPuzzle   s_dot_puzzle;
 
 namespace Scene {
 
@@ -240,6 +242,33 @@ void init_scene_test() {
             .show_inventory = false,
             .on_update = [](Vec2 mouse) { s_connect_puzzle.update(mouse); },
             .on_render = []()           { s_connect_puzzle.render(); },
+        });
+    });
+
+    register_hotspot_callback("dot_connect_hotspot", []() {
+        Puzzles::DotConnectConfig cfg;
+        // 7 nodes — 5 are part of required connections, 2 are decoys
+        cfg.nodes = {
+            { Vec2(100.0f,  55.0f), 5.0f },  // 0
+            { Vec2(180.0f,  40.0f), 5.0f },  // 1
+            { Vec2(255.0f,  65.0f), 5.0f },  // 2
+            { Vec2( 80.0f, 120.0f), 5.0f },  // 3  (decoy)
+            { Vec2(160.0f, 100.0f), 5.0f },  // 4
+            { Vec2(240.0f, 125.0f), 5.0f },  // 5
+            { Vec2(160.0f, 150.0f), 5.0f },  // 6  (decoy)
+        };
+        // Required: 0-1, 1-2, 1-4, 4-5
+        cfg.required_connections = { {0,1}, {1,2}, {1,4}, {4,5} };
+        cfg.on_complete = []() {
+            Game::set_flag("dot_puzzle_solved");
+            exit_close_up();
+        };
+        s_dot_puzzle.init(cfg);
+
+        enter_close_up("closeup_dots", {
+            .show_inventory = false,
+            .on_update = [](Vec2 mouse) { s_dot_puzzle.update(mouse); },
+            .on_render = []()           { s_dot_puzzle.render(); },
         });
     });
 
