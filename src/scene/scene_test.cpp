@@ -14,6 +14,7 @@
 #include "puzzles/wrap_cable_puzzle.h"
 #include "puzzles/connect_cable_puzzle.h"
 #include "puzzles/dot_connect_puzzle.h"
+#include "puzzles/chase_point_puzzle.h"
 
 using Game::g_state;
 
@@ -22,6 +23,7 @@ using Game::g_state;
 static Puzzles::WrapCablePuzzle    s_wrap_puzzle;
 static Puzzles::ConnectCablePuzzle s_connect_puzzle;
 static Puzzles::DotConnectPuzzle   s_dot_puzzle;
+static Puzzles::ChasePointPuzzle   s_chase_puzzle;
 
 namespace Scene {
 
@@ -242,6 +244,32 @@ void init_scene_test() {
             .show_inventory = false,
             .on_update = [](Vec2 mouse) { s_connect_puzzle.update(mouse); },
             .on_render = []()           { s_connect_puzzle.render(); },
+        });
+    });
+
+    register_hotspot_callback("chase_point_hotspot", []() {
+        Puzzles::ChasePointConfig cfg;
+        // Mirrored Z (vertically): bottom-right → bottom-left(higher) → top-right → top-left
+        // Z mirrored on Y-axis: bottom-left → bottom-right → top-left → top-right
+        // Strokes: horizontal right, diagonal \, horizontal right
+        cfg.waypoints = {
+            Vec2( 65.0f, 148.0f),  // 0: start — bottom left
+            Vec2(255.0f, 148.0f),  // 1: bottom right (go right)
+            Vec2( 65.0f,  38.0f),  // 2: top left (diagonal \)
+            Vec2(255.0f,  38.0f),  // 3: top right — last destination (arrive = complete)
+        };
+        cfg.dot_radius   = 4.0f;
+        cfg.hover_radius = 14.0f;
+        cfg.on_complete  = []() {
+            Game::set_flag("chase_puzzle_solved");
+            exit_close_up();
+        };
+        s_chase_puzzle.init(cfg);
+
+        enter_close_up("closeup_chase", {
+            .show_inventory = false,
+            .on_update = [](Vec2 mouse) { s_chase_puzzle.update(mouse); },
+            .on_render = []()           { s_chase_puzzle.render(); },
         });
     });
 

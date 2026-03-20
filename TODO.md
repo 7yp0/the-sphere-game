@@ -85,6 +85,31 @@ ripple wave shader:
 
 ---
 
+## Debug & Development Tools
+
+### Act Loading
+
+- [ ] `--act 1/2/3` flag - Load specific act
+- [ ] Predefined start states per act (scene, flags, inventory)
+- [ ] Skip previous acts for testing
+
+### Close-Up Loading  
+
+- [ ] `--closeup <name>` flag - Load specific close-up puzzle
+- [ ] Isolated testing of puzzle mechanics
+
+---
+
+## Performance (falls nötig)
+
+### Optimization
+
+- [ ] Batch rendering if needed
+- [ ] Optimize lighting calculations
+- [ ] Profiling
+
+---
+
 ## Audio
 
 ### Audio Format
@@ -121,31 +146,6 @@ ripple wave shader:
 - [ ] Auto-load matching voice for `say()` action
 - [ ] Voice spielt während Text angezeigt wird
 - [ ] Separate Voice volume control
-
----
-
-## Debug & Development Tools
-
-### Act Loading
-
-- [ ] `--act 1/2/3` flag - Load specific act
-- [ ] Predefined start states per act (scene, flags, inventory)
-- [ ] Skip previous acts for testing
-
-### Close-Up Loading  
-
-- [ ] `--closeup <name>` flag - Load specific close-up puzzle
-- [ ] Isolated testing of puzzle mechanics
-
----
-
-## Performance (falls nötig)
-
-### Optimization
-
-- [ ] Batch rendering if needed
-- [ ] Optimize lighting calculations
-- [ ] Profiling
 
 ---
 

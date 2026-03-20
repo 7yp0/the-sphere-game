@@ -251,6 +251,17 @@
       ]
     },
     {
+      "name": "chase_point_hotspot",
+      "tooltip_key": "...",
+      "interaction_type": "immediate",
+      "points": [
+        [ 248, 128 ],
+        [ 296, 128 ],
+        [ 296, 162 ],
+        [ 248, 162 ]
+      ]
+    },
+    {
       "name": "dot_connect_hotspot",
       "interaction_type": "walk_to_target",
       "target_position": [
