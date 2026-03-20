@@ -27,5 +27,7 @@ void main() {
     float aa = fwidth(dist);
     float alpha = smoothstep(0.0, aa, -dist);
 
-    FragColor = vec4(rectColor.rgb, rectColor.a * alpha);
+    float outAlpha = rectColor.a * alpha;
+    if (outAlpha <= 0.001) discard;
+    FragColor = vec4(rectColor.rgb, outAlpha);
 }

@@ -24,6 +24,9 @@ void render_rect(Vec3 pos, Vec2 size, Vec4 color, PivotPoint pivot = PivotPoint:
 // Zeichnet ein Rechteck mit abgerundeten Ecken (SDF-Shader)
 void render_rounded_rect(Vec3 pos, Vec2 size, Vec4 color, float radius, PivotPoint pivot = PivotPoint::TOP_LEFT);
 void render_line(Vec3 start, Vec3 end, Vec4 color, float thickness = 1.0f);
+// Draws a single oriented rectangle from pixel point a to b with given half-width.
+// Use this for cable/rope rendering where correct orientation matters.
+void render_cable_segment(Vec2 a, Vec2 b, float half_width, Vec4 color, float z);
 
 // 2.5D Depth Scaling Functions
 // Calculate sprite scale based on Y position relative to horizon

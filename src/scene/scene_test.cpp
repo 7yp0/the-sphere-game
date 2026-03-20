@@ -11,8 +11,13 @@
 #include "ecs/entity_factory.h"
 #include "inventory/inventory.h"
 #include "debug/debug_log.h"
+#include "puzzles/wrap_cable_puzzle.h"
 
 using Game::g_state;
+
+// Puzzle instance for the close-up triggered from this scene.
+// Lives here so the on_update/on_render lambdas can capture it.
+static Puzzles::WrapCablePuzzle s_wrap_puzzle;
 
 namespace Scene {
 
@@ -191,13 +196,21 @@ void init_scene_test() {
     });
 
     register_hotspot_callback("closeup_hotspot", []() {
+        Puzzles::WrapCableConfig cfg;
+        cfg.anchor_pos      = Vec2(100.0f, 150.0f);
+        cfg.pillar          = { Vec2(160.0f, 120.0f), 13.0f, 120.0f };
+        cfg.required_winds  = 18;
+        cfg.cable_half_width = 1.5f;
+        cfg.on_complete     = []() {
+            Game::set_flag("cable_puzzle_solved");
+            exit_close_up();
+        };
+        s_wrap_puzzle.init(cfg);
+
         enter_close_up("closeup_example", {
             .show_inventory = false,
-            .on_back = []() { exit_close_up(); },
-            .on_success = []() {
-                Game::set_flag("puzzle_solved");
-                exit_close_up();
-            }
+            .on_update = [](Vec2 mouse) { s_wrap_puzzle.update(mouse); },
+            .on_render = []()           { s_wrap_puzzle.render(); },
         });
     });
 

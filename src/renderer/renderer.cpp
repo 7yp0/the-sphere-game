@@ -16,6 +16,9 @@ static GLuint quadVAO = 0;
 static GLuint quadVBO = 0;
 static GLuint shaderProgram = 0;
 static GLuint colorShaderProgram = 0;
+static GLuint segmentShaderProgram = 0;  // For oriented cable segments
+static GLuint segmentVAO = 0;
+static GLuint segmentVBO = 0;
 static GLuint tintShaderProgram = 0;
 static GLuint litShaderProgram = 0;    // Shader for lit sprites with ECS lights
 static GLuint upscaleShaderProgram = 0;  // Shader for upscaling FBO to viewport
@@ -180,6 +183,24 @@ void init_renderer(uint32_t width, uint32_t height)
         glUniform1i(glGetUniformLocation(roundedRectShaderProgram, "texture0"), 0);
         glUseProgram(0);
     }
+
+    // Segment shader: raw OpenGL-space vertex positions for oriented quads (cable rendering)
+    std::string segVertSrc = load_shader_source("segment.vert");
+    segmentShaderProgram = compile_and_link_shader(segVertSrc.c_str(), colorFragSrc.c_str());
+    if (segmentShaderProgram == 0) {
+        DEBUG_ERROR("Failed to compile segment shader program!");
+    }
+
+    // Scratch VAO/VBO for dynamic segment geometry (4 vertices, 2 floats each, updated per draw)
+    glGenVertexArrays(1, &segmentVAO);
+    glGenBuffers(1, &segmentVBO);
+    glBindVertexArray(segmentVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, segmentVBO);
+    glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 }
 
 void set_viewport(uint32_t width, uint32_t height)
@@ -438,19 +459,66 @@ void render_line(Vec3 start, Vec3 end, Vec4 color, float thickness)
     // Draw line as a series of small quads along the path
     Vec2 diff = Vec2(end.x - start.x, end.y - start.y);
     float length = std::sqrt(diff.x * diff.x + diff.y * diff.y);
-    
+
     if (length < 0.01f) return;
-    
+
     int segment_count = (int)(length / (thickness * 2.0f)) + 1;
     Vec2 step = Vec2(diff.x / segment_count, diff.y / segment_count);
-    
+
     // Use the average z-depth for the line
     float z_avg = (start.z + end.z) * 0.5f;
-    
+
     for (int i = 0; i < segment_count; i++) {
         Vec3 pos = Vec3(start.x + step.x * i, start.y + step.y * i, z_avg);
         render_rect(pos, Vec2(thickness * 2.0f, thickness * 2.0f), color);
     }
+}
+
+void render_cable_segment(Vec2 a, Vec2 b, float half_width, Vec4 color, float z)
+{
+    if (segmentShaderProgram == 0 || segmentVAO == 0) return;
+
+    uint32_t rw = get_render_width();
+    uint32_t rh = get_render_height();
+
+    // Compute direction and perpendicular in pixel space for correct aspect ratio
+    Vec2 diff(b.x - a.x, b.y - a.y);
+    float len = std::sqrt(diff.x * diff.x + diff.y * diff.y);
+    if (len < 0.5f) return;
+
+    Vec2 dir(diff.x / len, diff.y / len);
+    Vec2 perp(-dir.y * half_width, dir.x * half_width);  // pixel-space perpendicular
+
+    // Four corners in pixel space
+    Vec2 corners_px[4] = {
+        Vec2(a.x + perp.x, a.y + perp.y),
+        Vec2(a.x - perp.x, a.y - perp.y),
+        Vec2(b.x + perp.x, b.y + perp.y),
+        Vec2(b.x - perp.x, b.y - perp.y),
+    };
+
+    // Convert to OpenGL coords (TRIANGLE_STRIP order)
+    float verts[8];
+    for (int i = 0; i < 4; i++) {
+        Vec2 og = Coords::pixel_to_opengl(corners_px[i], rw, rh);
+        verts[i * 2 + 0] = og.x;
+        verts[i * 2 + 1] = og.y;
+    }
+
+    glBindVertexArray(segmentVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, segmentVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
+
+    glUseProgram(segmentShaderProgram);
+    glUniform1f(glGetUniformLocation(segmentShaderProgram, "spriteZ"), z);
+    glUniform4f(glGetUniformLocation(segmentShaderProgram, "rectColor"),
+                color.x, color.y, color.z, color.w);
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    glUseProgram(0);
 }
 
 // =============================================================================

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "types.h"
 #include <functional>
 #include <string>
 
@@ -7,8 +8,10 @@ namespace Scene {
 
 struct CloseUpConfig {
     bool show_inventory = false;
-    std::function<void()> on_success;  // called on puzzle completion → auto-exit
-    std::function<void()> on_back;     // called on manual back → optional
+    std::function<void(Vec2)> on_update;   // called each frame with base-res mouse pos
+    std::function<void()>     on_render;   // called each frame inside the scene FBO
+    std::function<void()>     on_success;  // called on puzzle completion → auto-exit
+    std::function<void()>     on_back;     // called on manual back → optional
 };
 
 // Enter a close-up scene.

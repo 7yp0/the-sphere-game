@@ -202,6 +202,20 @@ void update(float delta_time) {
     // Get player transform and walker from ECS
     ECS::Transform2_5DComponent* player_transform = get_player_transform();
     ECS::WalkerComponent* player_walker = get_player_walker();
+    // Close-up puzzle update (before player input so puzzle can consume mouse events)
+    if (g_state.mode == GameMode::CLOSE_UP) {
+        const auto& cu_cfg = Scene::get_close_up_config();
+        if (cu_cfg.on_update) {
+            Vec2 mouse_viewport = Platform::get_mouse_pos();
+            Vec2 mouse_ui = Renderer::window_to_ui_coords(mouse_viewport);
+            Vec2 mouse_base(
+                mouse_ui.x * (float)Config::BASE_WIDTH  / (float)Renderer::get_ui_fbo_width(),
+                mouse_ui.y * (float)Config::BASE_HEIGHT / (float)Renderer::get_ui_fbo_height()
+            );
+            cu_cfg.on_update(mouse_base);
+        }
+    }
+
     if (player_transform && player_walker) {
         if (g_state.mode == GameMode::CLOSE_UP) {
             // In close-up: hotspot clicks still work (via player_handle_input),
@@ -534,6 +548,12 @@ void render() {
         }
     }
     
+    // Close-up puzzle render (inside FBO, at base resolution, on top of scene)
+    if (g_state.mode == GameMode::CLOSE_UP) {
+        const auto& cu_cfg = Scene::get_close_up_config();
+        if (cu_cfg.on_render) cu_cfg.on_render();
+    }
+
     Renderer::end_render_to_framebuffer();
 
     // =========================================================================
