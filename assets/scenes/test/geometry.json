@@ -197,13 +197,9 @@
       ]
     },
     {
-      "name": "exit_to_test2",
-      "tooltip_key": "→ Test 2",
-      "interaction_type": "walk_to_target",
-      "target_position": [
-        18,
-        150
-      ],
+      "name": "exit",
+      "tooltip_key": "→ Basement",
+      "interaction_type": "walk_to_hotspot",
       "double_click_immediate": true,
       "points": [
         [
@@ -255,10 +251,22 @@
       "tooltip_key": "...",
       "interaction_type": "immediate",
       "points": [
-        [ 248, 128 ],
-        [ 296, 128 ],
-        [ 296, 162 ],
-        [ 248, 162 ]
+        [
+          248,
+          128
+        ],
+        [
+          296,
+          128
+        ],
+        [
+          296,
+          162
+        ],
+        [
+          248,
+          162
+        ]
       ]
     },
     {

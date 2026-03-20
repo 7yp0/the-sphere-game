@@ -1,0 +1,33 @@
+{
+  "props": [
+    {
+      "index": 0,
+      "position": [117.426, 149.814],
+      "elevation": 0
+    }
+  ],
+  "point_lights": [
+    {
+      "index": 0,
+      "position": [0.293298, 0.668316, 0.750277],
+      "color": [1, 0.9, 0.7],
+      "intensity": 1.5,
+      "radius": 2,
+      "casts_shadows": true
+    }
+  ],
+  "projector_lights": [
+    {
+      "index": 0,
+      "position": [-0.255389, 0.177279, 0.195425],
+      "direction": [0.743294, -0.668965, 0],
+      "target_distance": 0.5,
+      "color": [1, 0.95, 0.85],
+      "intensity": 2.5
+    }
+  ],
+  "player": {
+    "position": [198.756, 121.515],
+    "elevation": 0
+  }
+}

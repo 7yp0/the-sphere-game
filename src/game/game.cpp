@@ -54,58 +54,6 @@ static void update_player_sprite_animation() {
     }
 }
 
-// Static light position for testing (behind box prop)
-// Animate light through room corners
-// Visits 8 corners in 3D space for full room illumination coverage
-static void update_animated_light(float delta_time) {
-    if (g_state.scene.light_entities.empty()) return;
-    
-    static float light_time = 0.0f;
-    light_time += delta_time;
-    
-    ECS::EntityID light_entity = g_state.scene.light_entities[0];
-    auto* transform = g_state.ecs_world.get_component<ECS::Transform3DComponent>(light_entity);
-    if (!transform) return;
-    
-    // 8 corner waypoints with margin (0.6 from edges)
-    // OpenGL coords: X (-1=left, +1=right), Y (-1=bottom, +1=top), Z (-1=near, +1=far)
-    const float margin = 0.6f;
-    const Vec3 corners[8] = {
-        Vec3(-margin,  margin, -margin),  // 0: top-left-near
-        Vec3( margin,  margin, -margin),  // 1: top-right-near
-        Vec3( margin, -margin, -margin),  // 2: bottom-right-near
-        Vec3(-margin, -margin, -margin),  // 3: bottom-left-near
-        Vec3(-margin, -margin + 0.6f,  margin),  // 4: bottom-left-far
-        Vec3( margin, -margin + 0.6f,  margin),  // 5: bottom-right-far
-        Vec3( margin,  margin,  margin),  // 6: top-right-far
-        Vec3(-margin,  margin,  margin),  // 7: top-left-far
-    };
-    
-    // Time per corner segment
-    const float segment_time = 2.0f;  // 2 seconds per segment
-    const float total_cycle = segment_time * 8.0f;  // 16 seconds full cycle
-    
-    // Calculate which segment we're in and interpolation factor
-    float cycle_pos = fmod(light_time, total_cycle);
-    int segment = (int)(cycle_pos / segment_time);
-    float t = (cycle_pos - segment * segment_time) / segment_time;
-    
-    // Smooth interpolation (ease in/out)
-    t = t * t * (3.0f - 2.0f * t);  // Smoothstep
-    
-    // Get current and next corner
-    int next_segment = (segment + 1) % 8;
-    Vec3 from = corners[segment];
-    Vec3 to = corners[next_segment];
-    
-    // Lerp position
-    transform->position = Vec3(
-        from.x + (to.x - from.x) * t,
-        from.y + (to.y - from.y) * t,
-        from.z + (to.z - from.z) * t
-    );
-}
-
 void init() {
     // Initialize settings (loads settings.json, must be before Localization)
     Settings::init();
@@ -170,7 +118,6 @@ void update(float delta_time) {
     // Main menu captures all input while active
     if (g_state.mode == GameMode::MAIN_MENU) {
         UI::update_main_menu(mouse_pos);
-        update_animated_light(delta_time);
         // Keep player animation up-to-date so it renders correctly in the background
         update_player_sprite_animation();
         return;
@@ -193,8 +140,12 @@ void update(float delta_time) {
         prev_esc = esc;
     }
 
-    // Update inventory UI (may consume input) — suppressed in close-up unless config allows it
+    // Update inventory UI (may consume input) — suppressed in close-up unless config allows it,
+    // and suppressed while debug overlay is active
     bool ui_consumed_input = false;
+#ifndef NDEBUG
+    if (!Debug::overlay_enabled)
+#endif
     if (g_state.mode != GameMode::CLOSE_UP || Scene::get_close_up_config().show_inventory) {
         ui_consumed_input = UI::update_inventory_ui(mouse_pos);
     }
@@ -238,9 +189,6 @@ void update(float delta_time) {
             update_player_sprite_animation();
         }
     }
-
-    // Animate light through room corners
-    update_animated_light(delta_time);
 }
 
 void render() {
@@ -548,6 +496,16 @@ void render() {
         }
     }
     
+    // Foreground — in front of all props/player, hidden in close-up
+    if (g_state.scene.foreground && g_state.mode != GameMode::CLOSE_UP) {
+        Renderer::render_sprite_lit_shadowed(g_state.scene.foreground,
+                               Vec3(0.0f, 0.0f, ZDepth::FOREGROUND),
+                               Vec2((float)g_state.scene.width, (float)g_state.scene.height),
+                               light_data, num_lights,
+                               nullptr, 0,
+                               g_state.scene.foreground_normal_map);
+    }
+
     // Close-up puzzle render (inside FBO, at base resolution, on top of scene)
     if (g_state.mode == GameMode::CLOSE_UP) {
         const auto& cu_cfg = Scene::get_close_up_config();
@@ -584,6 +542,9 @@ void render() {
         UI::render_speechbubbles();
     } else {
         // Gameplay UI
+#ifndef NDEBUG
+        if (!Debug::overlay_enabled)
+#endif
         UI::render_inventory_ui();
         UI::render_speechbubbles();
     }

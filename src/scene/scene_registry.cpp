@@ -12,7 +12,7 @@ namespace Scene {
     void init_scene_test();
     void init_scene_test2();
     void init_closeup_example();
-    // void init_scene_living_room();  // add as new scenes are created
+    void init_scene_basement();
 }
 
 namespace Scene {
@@ -27,7 +27,7 @@ void register_all_scenes() {
     register_scene("test", init_scene_test);
     register_scene("test2", init_scene_test2);
     register_scene("closeup_example", init_closeup_example);
-    // register_scene("living_room", init_scene_living_room);
+    register_scene("basement", init_scene_basement);
 }
 
 void load_scene(const std::string& scene_name, const std::string& spawn_point_name) {

@@ -76,13 +76,20 @@ struct Scene {
     std::string name;
     uint32_t width;
     uint32_t height;
+
+    // Background (midground) — rendered behind props/player
     Renderer::TextureID background;
-    Renderer::TextureID background_normal_map;  // Normal map for background lighting
-    Renderer::DepthMapData depth_map;  // Depth map data for Z-depth sampling
+    Renderer::TextureID background_normal_map;
+    Renderer::DepthMapData depth_map;
+
+    // Foreground — rendered in front of props/player
+    Renderer::TextureID foreground            = 0;
+    Renderer::TextureID foreground_normal_map = 0;
+
     // Z range for depth map: white pixels map to z_near, black pixels map to z_far.
-    // Default: z_near=-1 (closest), z_far=+1 (furthest away).
-    float depth_z_near = -1.0f;  // Z value for white (255) pixels
-    float depth_z_far  =  1.0f;  // Z value for black (0) pixels
+    // Props range from -0.97 (nearest) to +0.97 (farthest), leaving room for foreground (-0.99) and background (0.99).
+    float depth_z_near = -0.97f;  // Z value for white (255) pixels
+    float depth_z_far  =  0.97f;  // Z value for black (0) pixels
     
     // ECS entity IDs for props in this scene (created when scene is loaded)
     std::vector<ECS::EntityID> prop_entities;
@@ -180,7 +187,5 @@ bool set_entity_visible(const std::string& name, bool visible);
 
 // Get spawn point by name (returns false if not found)
 bool get_spawn_point(const std::string& name, Vec2& out_pos, std::string& out_direction);
-
-void init_scene_test();
 
 }

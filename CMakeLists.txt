@@ -99,4 +99,4 @@ elseif(UNIX)
     )
 endif()
 
-target_include_directories(the_sphere_game PRIVATE src)
+target_include_directories(the_sphere_game PRIVATE src src/scene)

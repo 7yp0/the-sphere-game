@@ -260,11 +260,12 @@ PNGImage png_load(const char* filename) {
                     int pa = abs(p - left);
                     int pb = abs(p - above);
                     int pc = abs(p - above_left);
-                    
-                    uint8_t pr = left;
-                    if (pb < pa) pr = above;
-                    if (pc < pb) pr = above_left;
-                    
+
+                    uint8_t pr;
+                    if (pa <= pb && pa <= pc) pr = left;
+                    else if (pb <= pc)        pr = above;
+                    else                      pr = above_left;
+
                     unfiltered = filtered + pr;
                     break;
                 }

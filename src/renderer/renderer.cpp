@@ -30,6 +30,8 @@ static uint32_t g_viewport_height = 0;
 static uint32_t g_viewport_target_width = 0;
 static uint32_t g_viewport_target_height = 0;
 static TextureID g_depth_map_texture = 0;
+static TextureID g_flat_normal_texture = 0;  // 1x1 flat normal (128,128,255) used when no normal map is provided
+static TextureID g_flat_depth_texture  = 0;  // 1x1 mid-grey depth (128) used when no depth map is loaded
 static uint32_t g_scene_width = 0;
 static uint32_t g_scene_height = 0;
 
@@ -201,6 +203,26 @@ void init_renderer(uint32_t width, uint32_t height)
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+
+    // Create a 1x1 flat normal texture (RGB = 128, 128, 255) used as fallback when no normal map is provided.
+    // In normal map encoding: (0.5, 0.5, 1.0) in [0,1] decodes to (0, 0, -1) pointing toward camera.
+    uint8_t flat_normal_pixel[3] = { 128, 128, 255 };
+    glGenTextures(1, &g_flat_normal_texture);
+    glBindTexture(GL_TEXTURE_2D, g_flat_normal_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, flat_normal_pixel);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    // Create a 1x1 mid-grey depth texture (R = 128) used as fallback when no depth map is loaded.
+    // Grey (0.5) decodes to a neutral mid-depth, placing everything at the same Z plane.
+    uint8_t flat_depth_pixel[1] = { 128 };
+    glGenTextures(1, &g_flat_depth_texture);
+    glBindTexture(GL_TEXTURE_2D, g_flat_depth_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, 1, 1, 0, GL_RED, GL_UNSIGNED_BYTE, flat_depth_pixel);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void set_viewport(uint32_t width, uint32_t height)
@@ -765,10 +787,10 @@ static void render_sprite_lit_internal(TextureID tex, Vec3 pos, Vec2 size, Vec4 
     glBindTexture(GL_TEXTURE_2D, tex);
     
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, normal_map ? normal_map : tex);  // Use diffuse as fallback
+    glBindTexture(GL_TEXTURE_2D, normal_map ? normal_map : g_flat_normal_texture);
     
     glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, g_depth_map_texture);
+    glBindTexture(GL_TEXTURE_2D, g_depth_map_texture ? g_depth_map_texture : g_flat_depth_texture);
     
     glBindVertexArray(quadVAO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -981,10 +1003,10 @@ static void render_sprite_lit_shadowed_internal(TextureID tex, Vec3 pos, Vec2 si
     glBindTexture(GL_TEXTURE_2D, tex);
     
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, normal_map ? normal_map : tex);
+    glBindTexture(GL_TEXTURE_2D, normal_map ? normal_map : g_flat_normal_texture);
     
     glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, g_depth_map_texture);
+    glBindTexture(GL_TEXTURE_2D, g_depth_map_texture ? g_depth_map_texture : g_flat_depth_texture);
     
     glBindVertexArray(quadVAO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);

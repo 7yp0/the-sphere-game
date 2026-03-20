@@ -104,6 +104,7 @@ inline Vec2 opengl_to_pixel(Vec2 opengl_pos, uint32_t viewport_width, uint32_t v
 namespace ZDepth {
     // Scene layers (rendered to FBO at base resolution)
     constexpr float BACKGROUND = 0.99f;     // Scene background (farthest)
+    constexpr float FOREGROUND = -0.99f;    // Scene foreground (in front of all props/player)
     
     // Game world: -1.0 to +1.0 range controlled by depth map
     // Props and player z-depth calculated from depth_map sampling

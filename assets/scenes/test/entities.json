@@ -37,15 +37,15 @@
   "projector_lights": [
     {
       "index": 0,
-      "position": [-0.800781, 0.625, 0.603625],
-      "direction": [0.706725, -0.705705, 0.0502006],
-      "target_distance": 1.02144,
+      "position": [-0.772479, 0.575206, 0.603625],
+      "direction": [0.716794, -0.695285, 0.0527713],
+      "target_distance": 0.971683,
       "color": [1, 0.95, 0.85],
       "intensity": 2.5
     }
   ],
   "player": {
-    "position": [245.698, 91.3018],
+    "position": [247.858, 89.5947],
     "elevation": 0
   }
 }

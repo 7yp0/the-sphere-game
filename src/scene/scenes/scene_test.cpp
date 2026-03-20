@@ -197,8 +197,8 @@ void init_scene_test() {
         Inventory::remove_item("stone");
     });
 
-    register_hotspot_callback("exit_to_test2", []() {
-        load_scene("test2", "from_test");
+    register_hotspot_callback("exit", []() {
+        load_scene("basement", "default");
     });
 
     register_hotspot_callback("closeup_hotspot", []() {
